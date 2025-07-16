@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useEditor, type TLShape, getDefaultColorTheme, useValue } from 'tldraw'
+import { useEditor, type TLShape, useDefaultColorTheme, useValue } from 'tldraw'
 import { 
   type LinearArraySettings
 } from '../../types/modifiers'
@@ -62,57 +62,87 @@ function ShapeClone({
 }) {
   const editor = useEditor()
   
-  // Get the theme using useValue for reactivity
-  const theme = useValue('theme', () => {
-    const isDarkMode = editor.user.getIsDarkMode()
-    return getDefaultColorTheme({ isDarkMode })
-  }, [editor])
+  // Get the theme using proper tldraw hook
+  const theme = useDefaultColorTheme()
+  
+  // Get the most current shape from the editor (not the prop)
+  const currentShape = editor.getShape(shape.id) || shape
   
   // Get shape geometry for accurate bounds
-  const geometry = editor.getShapeGeometry(shape)
+  const geometry = editor.getShapeGeometry(currentShape)
   const bounds = geometry.bounds
   
   // Create transform for the clone position
   const transform = `
-    translate(${position.x - shape.x}px, ${position.y - shape.y}px) 
+    translate(${position.x - currentShape.x}px, ${position.y - currentShape.y}px) 
     rotate(${position.rotation}deg) 
     scale(${position.scaleX}, ${position.scaleY})
   `
   
-  // Get shape properties for rendering with proper typing
+  // Get shape properties for rendering - using current shape data
   const getShapeColor = (): string => {
-    if ('color' in shape.props) {
-      const colorName = shape.props.color as keyof typeof theme
-      if (colorName in theme && typeof theme[colorName] === 'object' && 'solid' in theme[colorName]) {
-        return (theme[colorName] as any).solid
-      }
+    if ('color' in currentShape.props) {
+      const colorName = currentShape.props.color as string
+      // Use the correct theme structure with proper typing
+      return (theme as any)[colorName]?.solid || theme.black.solid
     }
-    return '#666666'
+    return theme.black.solid
   }
   
   const getShapeFill = (): string => {
-    if ('fill' in shape.props && 'color' in shape.props) {
-      const fillType = shape.props.fill as string
-      const colorName = shape.props.color as keyof typeof theme
+    if ('fill' in currentShape.props && 'color' in currentShape.props) {
+      const fillType = currentShape.props.fill as string
+      const colorName = currentShape.props.color as string
       
-      if (colorName in theme && typeof theme[colorName] === 'object') {
-        const color = theme[colorName] as any
-        switch (fillType) {
-          case 'solid':
-            return color.solid || '#cccccc'
-          case 'semi':
-            return color.semi || 'rgba(204, 204, 204, 0.5)'
-          default:
-            return 'none'
+      // Use the correct tldraw fill behavior
+      if (fillType === 'none') {
+        return 'none'
+      } else if (fillType === 'semi') {
+        // Semi fill should be opaque white
+        return 'white'
+      } else if (fillType === 'pattern') {
+        // Pattern fill should reference the pattern definition
+        const patternId = `pattern-${currentShape.id}-${position.index}`
+        return `url(#${patternId})`
+      } else if (fillType === 'solid') {
+        // Solid fill should be a much lighter opaque version of the stroke color
+        const themeColor = (theme as any)[colorName]
+        const solidColor = themeColor?.solid || theme.black.solid
+        
+        // Create a much lighter opaque version by mixing with white
+        // Convert hex to RGB, lighten it significantly, then back to hex
+        const hexToRgb = (hex: string) => {
+          const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+          return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+          } : null;
         }
+        
+        const rgbToHex = (r: number, g: number, b: number) => {
+          return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+        }
+        
+        const rgb = hexToRgb(solidColor)
+        if (rgb) {
+          // Mix with white at about 80% white, 20% original color for a very light tint
+          const lightR = Math.round(rgb.r * 0.2 + 255 * 0.8)
+          const lightG = Math.round(rgb.g * 0.2 + 255 * 0.8)
+          const lightB = Math.round(rgb.b * 0.2 + 255 * 0.8)
+          return rgbToHex(lightR, lightG, lightB)
+        }
+        
+        // Fallback to a very light gray if color parsing fails
+        return '#f8f8f8'
       }
     }
     return 'none'
   }
   
   const getShapeStroke = (): string => {
-    if ('dash' in shape.props) {
-      const dashType = shape.props.dash as string
+    if ('dash' in currentShape.props) {
+      const dashType = currentShape.props.dash as string
       switch (dashType) {
         case 'dashed':
           return '5,5'
@@ -126,8 +156,9 @@ function ShapeClone({
   }
   
   const getStrokeWidth = (): number => {
-    if ('size' in shape.props) {
-      const size = shape.props.size as string
+    if ('size' in currentShape.props) {
+      const size = currentShape.props.size as string
+      // Use the same stroke sizes as tldraw
       switch (size) {
         case 's': return 2
         case 'm': return 3.5
@@ -139,6 +170,56 @@ function ShapeClone({
     return 2
   }
   
+  // Get corner radius for rectangles (tldraw's rectangles can have rounded corners)
+  const getCornerRadius = (): number => {
+    if (editor.isShapeOfType(currentShape, 'geo')) {
+      const geoType = 'geo' in currentShape.props ? currentShape.props.geo : 'rectangle'
+      if (geoType === 'rectangle') {
+        // For now, use a small radius that matches tldraw's default
+        // You can expose this as a shape property if needed
+        return Math.min(bounds.width, bounds.height) * 0.05 // 5% of smallest dimension
+      }
+    }
+    return 0
+  }
+  
+  // Check if we need a pattern definition
+  const needsPattern = (): boolean => {
+    if ('fill' in currentShape.props) {
+      return currentShape.props.fill === 'pattern'
+    }
+    return false
+  }
+  
+  // Create pattern definition
+  const createPatternDefinition = () => {
+    if (!needsPattern()) return null
+    
+    const patternId = `pattern-${currentShape.id}-${position.index}`
+    const strokeColor = getShapeColor()
+    
+    return (
+      <defs>
+        <pattern
+          id={patternId}
+          x="0"
+          y="0"
+          width="8"
+          height="8"
+          patternUnits="userSpaceOnUse"
+        >
+          <rect width="8" height="8" fill="white" />
+          <circle
+            cx="4"
+            cy="4"
+            r="1.5"
+            fill={strokeColor}
+          />
+        </pattern>
+      </defs>
+    )
+  }
+  
   // Render different shape types
   const renderShapeGeometry = () => {
     const strokeWidth = getStrokeWidth()
@@ -147,8 +228,8 @@ function ShapeClone({
     const strokeDasharray = getShapeStroke()
     
     // Handle different shape types
-    if (editor.isShapeOfType(shape, 'geo')) {
-      const geoType = 'geo' in shape.props ? shape.props.geo : 'rectangle'
+    if (editor.isShapeOfType(currentShape, 'geo')) {
+      const geoType = 'geo' in currentShape.props ? currentShape.props.geo : 'rectangle'
       
       switch (geoType) {
         case 'ellipse':
@@ -229,6 +310,7 @@ function ShapeClone({
           )
         
         default: // rectangle and other shapes
+          const cornerRadius = getCornerRadius()
           return (
             <rect
               width={bounds.width}
@@ -237,11 +319,12 @@ function ShapeClone({
               stroke={stroke}
               strokeWidth={strokeWidth}
               strokeDasharray={strokeDasharray}
-              rx={geoType === 'rectangle' ? 0 : 8}
+              rx={cornerRadius}
+              ry={cornerRadius}
             />
           )
       }
-    } else if (editor.isShapeOfType(shape, 'draw')) {
+    } else if (editor.isShapeOfType(currentShape, 'draw')) {
       // For draw shapes, create a simplified representation
       return (
         <rect
@@ -255,7 +338,7 @@ function ShapeClone({
           opacity="0.8"
         />
       )
-    } else if (editor.isShapeOfType(shape, 'text')) {
+    } else if (editor.isShapeOfType(currentShape, 'text')) {
       // For text shapes, show a text placeholder
       return (
         <g>
@@ -281,7 +364,7 @@ function ShapeClone({
           </text>
         </g>
       )
-    } else if (editor.isShapeOfType(shape, 'arrow')) {
+    } else if (editor.isShapeOfType(currentShape, 'arrow')) {
       // For arrow shapes, create a simple arrow representation
       const arrowLength = Math.max(bounds.width, bounds.height)
       return (
@@ -321,13 +404,13 @@ function ShapeClone({
       className="shape-clone"
       style={{
         position: 'absolute',
-        left: shape.x,
-        top: shape.y,
+        left: currentShape.x,
+        top: currentShape.y,
         transform,
         transformOrigin: 'center',
         pointerEvents: 'none',
         zIndex: 999,
-        opacity: 0.7
+        opacity: currentShape.opacity || 1 // Use the current shape's opacity
       }}
     >
       <svg
@@ -337,31 +420,8 @@ function ShapeClone({
           overflow: 'visible'
         }}
       >
+        {createPatternDefinition()}
         {renderShapeGeometry()}
-        
-        {/* Copy number indicator */}
-        <g transform={`translate(${bounds.width + 5}, -5)`}>
-          <circle
-            cx="0"
-            cy="0"
-            r="8"
-            fill="rgba(0, 100, 255, 0.8)"
-            stroke="white"
-            strokeWidth="1"
-          />
-          <text
-            x="0"
-            y="0"
-            textAnchor="middle"
-            dominantBaseline="central"
-            fontSize="10"
-            fill="white"
-            fontWeight="bold"
-            fontFamily="ui-monospace, monospace"
-          >
-            {position.index}
-          </text>
-        </g>
       </svg>
     </div>
   )

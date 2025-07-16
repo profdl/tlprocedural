@@ -297,6 +297,33 @@
   transition: all 0.1s ease;
 }
 
+/* Square Button Styles */
+.modifier-controls__square-button {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 4px !important;
+}
+
+.modifier-controls__square-button .tlui-button__icon {
+  margin: 0 !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.modifier-controls__square-button:hover {
+  background: var(--color-muted-1) !important;
+}
+
+.modifier-controls__square-button:active {
+  background: var(--color-muted-2) !important;
+}
+
 /* Dark mode adjustments */
 @media (prefers-color-scheme: dark) {
   .modifier-slider__input::-webkit-slider-thumb {

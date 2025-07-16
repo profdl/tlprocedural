@@ -93,7 +93,7 @@ function LinearArrayControls({
       </div>
       
       <div className="modifier-controls__grid">
-        <NumberInput
+        <ModifierSlider
           label="Count"
           value={settings.count}
           min={2}
@@ -283,7 +283,7 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
         <div className="modifier-controls__title">Modifiers</div>
         <TldrawUiButton 
           type="icon" 
-          className="modifier-controls__add-button"
+          className="modifier-controls__add-button modifier-controls__square-button"
           onClick={addLinearArrayModifier}
           onPointerDown={stopEventPropagation}
           title="Add Linear Array Modifier"
@@ -307,7 +307,7 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
                 </span>
                 <TldrawUiButton 
                   type="icon" 
-                  className="modifier-controls__remove-button"
+                  className="modifier-controls__remove-button modifier-controls__square-button"
                   onClick={() => removeModifier(modifier.id.toString())}
                   onPointerDown={stopEventPropagation}
                   title="Remove Modifier"
