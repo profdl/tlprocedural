@@ -1,0 +1,58 @@
+/* App styles for tldraw integration */
+.app {
+  height: 100vh;
+  width: 100%;
+}
+
+/* Custom Modifiers section styles */
+.tlui-style-panel__section {
+  border-top: 1px solid var(--color-panel-contrast);
+  padding-top: 8px;
+}
+
+.tlui-style-panel__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+}
+
+.tlui-style-panel__section-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-1);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tlui-style-panel__add-button {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: var(--color-muted-1);
+  border: 1px solid var(--color-panel-contrast);
+  color: var(--color-text-1);
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.tlui-style-panel__add-button:hover {
+  background: var(--color-muted-2);
+  border-color: var(--color-text-3);
+}
+
+.tlui-style-panel__add-button:active {
+  background: var(--color-selected);
+  transform: scale(0.98);
+}
+
+.tlui-style-panel__add-button svg {
+  width: 14px;
+  height: 14px;
+}
