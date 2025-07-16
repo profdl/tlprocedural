@@ -4,6 +4,7 @@ import {
   TldrawUiButtonIcon,
   useEditor,
   stopEventPropagation,
+  createShapeId,
   type TLShape,
   type TLShapeId
 } from 'tldraw'
@@ -12,6 +13,7 @@ import {
   type TLLinearArrayModifier,
   createModifierId 
 } from '../../types/modifiers'
+import { isArrayClone, getOriginalShapeId } from './LinearArrayModifier'
 
 interface ModifierControlsProps {
   selectedShapes: TLShape[]
@@ -264,6 +266,53 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
     // Mark for undo/redo
     editor.mark('remove-modifier')
   }, [primaryShape, editor])
+
+  // Break apart clones - convert all modifier clones to unique editable shapes
+  const breakApartClones = useCallback(() => {
+    if (!primaryShape) return
+    
+    // Get all shapes in the editor
+    const allShapes = editor.getCurrentPageShapes()
+    
+    // Find all clones of this shape
+    const clonesToConvert: TLShape[] = []
+    allShapes.forEach(shape => {
+      if (isArrayClone(shape) && getOriginalShapeId(shape) === primaryShape.id) {
+        clonesToConvert.push(shape)
+      }
+    })
+    
+    if (clonesToConvert.length === 0) {
+      return // No clones to convert
+    }
+    
+    // First, remove all modifiers from the original shape to stop the modifier system
+    const allModifiers = getMockModifiersForShape(primaryShape.id)
+    allModifiers.forEach(modifier => {
+      removeMockModifier(primaryShape.id, modifier.id.toString())
+    })
+    
+    // Create new independent shapes at the same positions as the clones
+    const newIndependentShapes = clonesToConvert.map(clone => {
+      // Remove clone-specific properties from meta
+      const { isArrayClone, originalShapeId, arrayIndex, ...cleanMeta } = clone.meta || {}
+      
+      return {
+        ...clone,
+        id: createShapeId(), // Create completely new ID
+        isLocked: false, // Make them editable
+        meta: cleanMeta // Use the cleaned meta without clone properties
+      }
+    })
+    
+    // Create the new independent shapes
+    editor.run(() => {
+      editor.createShapes(newIndependentShapes)
+    })
+    
+    // Mark for undo/redo
+    editor.mark('break-apart-clones')
+  }, [primaryShape, editor])
   
   // Don't show if no shape is selected
   if (!primaryShape) {
@@ -278,7 +327,7 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
   
   return (
     <div className="modifier-controls" onPointerDown={stopEventPropagation}>
-      {/* Header with Add Button */}
+            {/* Header with Add Button */}
       <div className="modifier-controls__header">
         <div className="modifier-controls__title">Modifiers</div>
         <TldrawUiButton 
@@ -291,6 +340,22 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
           <TldrawUiButtonIcon icon="plus" />
         </TldrawUiButton>
       </div>
+      
+      {/* Break Apart Button Section */}
+      {modifiers.length > 0 && (
+        <div className="modifier-controls__break-apart-section">
+          <TldrawUiButton 
+            type="normal" 
+            className="modifier-controls__break-apart-button"
+            onClick={breakApartClones}
+            onPointerDown={stopEventPropagation}
+            title="Break Apart - Make clones unique and remove modifiers"
+          >
+            <TldrawUiButtonIcon icon="external-link" />
+            Break Apart Clones
+          </TldrawUiButton>
+        </div>
+      )}
       
       {/* Modifier List */}
       {modifiers.length === 0 ? (

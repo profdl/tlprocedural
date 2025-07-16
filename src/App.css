@@ -81,6 +81,12 @@
   letter-spacing: 0.5px;
 }
 
+.modifier-controls__buttons {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
 .modifier-controls__add-button {
   width: 20px;
   height: 20px;
@@ -95,6 +101,34 @@
 
 .modifier-controls__add-button:hover {
   background: var(--color-accent);
+}
+
+.modifier-controls__break-apart-section {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-panel-contrast);
+  background: var(--color-muted-1);
+}
+
+.modifier-controls__break-apart-button {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--color-warn);
+  border-radius: 4px;
+  border: none;
+  color: white;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  font-size: 12px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+}
+
+.modifier-controls__break-apart-button:hover {
+  background: var(--color-warn);
+  opacity: 0.8;
 }
 
 .modifier-controls__add-button svg {
@@ -333,4 +367,42 @@
   .modifier-slider__input::-moz-range-thumb {
     border-color: var(--color-panel);
   }
+}
+
+/* Custom Style Panel Tab Styles */
+.custom-style-panel__tabs {
+  display: flex;
+  border-bottom: 1px solid var(--color-panel-contrast);
+  margin: 0 -8px 8px -8px;
+  background: var(--color-panel);
+}
+
+.custom-style-panel__tab {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-2);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  border-radius: 0;
+}
+
+.custom-style-panel__tab:hover {
+  background: var(--color-muted-1);
+  color: var(--color-text-1);
+}
+
+.custom-style-panel__tab--active {
+  background: var(--color-selected);
+  color: var(--color-text-0);
+  border-bottom: 2px solid var(--color-accent);
+}
+
+.custom-style-panel__content {
+  padding: 0;
 }
