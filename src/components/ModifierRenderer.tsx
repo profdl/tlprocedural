@@ -1,5 +1,5 @@
 import { useValue, useEditor } from 'tldraw'
-import { LinearArrayModifier } from './modifiers/LinearArrayModifier'
+import { LinearArrayModifier, CircularArrayModifier, GridArrayModifier } from './modifiers/LinearArrayModifier'
 import { getShapeModifiers, useModifierRefresh } from './modifiers/ModifierControls'
 
 export function ModifierRenderer() {
@@ -27,14 +27,34 @@ export function ModifierRenderer() {
     <div className="modifier-renderer">
       {shapesWithModifiers.map(({ shape, modifiers }) =>
         modifiers.map(modifier => {
-          switch (modifier.type) {
+          const anyModifier = modifier as any // Cast to handle different modifier types
+          
+          switch (anyModifier.type) {
             case 'linear-array':
               return (
                 <LinearArrayModifier
                   key={`${shape.id}-${modifier.id}`}
                   shape={shape}
-                  settings={modifier.props}
-                  enabled={modifier.enabled}
+                  settings={anyModifier.props}
+                  enabled={anyModifier.enabled}
+                />
+              )
+            case 'circular-array':
+              return (
+                <CircularArrayModifier
+                  key={`${shape.id}-${modifier.id}`}
+                  shape={shape}
+                  settings={anyModifier.props}
+                  enabled={anyModifier.enabled}
+                />
+              )
+            case 'grid-array':
+              return (
+                <GridArrayModifier
+                  key={`${shape.id}-${modifier.id}`}
+                  shape={shape}
+                  settings={anyModifier.props}
+                  enabled={anyModifier.enabled}
                 />
               )
             default:

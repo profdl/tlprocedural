@@ -10,10 +10,18 @@ import {
 } from 'tldraw'
 import { 
   type LinearArraySettings, 
+  type CircularArraySettings,
+  type GridArraySettings,
   type TLLinearArrayModifier,
+  type TLCircularArrayModifier,
+  type TLGridArrayModifier,
+  type TLModifier,
   createModifierId 
 } from '../../types/modifiers'
 import { isArrayClone, getOriginalShapeId } from './LinearArrayModifier'
+
+// Array type options
+type ArrayType = 'linear' | 'circular' | 'grid'
 
 interface ModifierControlsProps {
   selectedShapes: TLShape[]
@@ -76,6 +84,30 @@ function NumberInput({
   )
 }
 
+// Array Type Dropdown Component
+function ArrayTypeDropdown({
+  arrayType,
+  onChange
+}: {
+  arrayType: ArrayType
+  onChange: (type: ArrayType) => void
+}) {
+  return (
+    <div className="modifier-controls__dropdown">
+      <select 
+        value={arrayType}
+        onChange={(e) => onChange(e.target.value as ArrayType)}
+        className="modifier-controls__select"
+        onPointerDown={stopEventPropagation}
+      >
+        <option value="linear">Linear Array</option>
+        <option value="circular">Circular Array</option>
+        <option value="grid">Grid Array</option>
+      </select>
+    </div>
+  )
+}
+
 // Linear Array Controls Component
 function LinearArrayControls({ 
   settings, 
@@ -88,12 +120,8 @@ function LinearArrayControls({
     onChange({ ...settings, [key]: value })
   }, [settings, onChange])
 
-  return (
+    return (
     <div className="modifier-controls__section">
-      <div className="modifier-controls__section-header">
-        <span>Linear Array</span>
-      </div>
-      
       <div className="modifier-controls__grid">
         <ModifierSlider
           label="Count"
@@ -153,8 +181,118 @@ function LinearArrayControls({
   )
 }
 
+// Circular Array Controls Component
+function CircularArrayControls({ 
+  settings, 
+  onChange 
+}: { 
+  settings: CircularArraySettings
+  onChange: (settings: CircularArraySettings) => void 
+}) {
+  const updateSetting = useCallback((key: keyof CircularArraySettings, value: number) => {
+    onChange({ ...settings, [key]: value })
+  }, [settings, onChange])
+
+  return (
+    <div className="modifier-controls__section">
+      <div className="modifier-controls__grid">
+        <ModifierSlider
+          label="Count"
+          value={settings.count}
+          min={2}
+          max={50}
+          step={1}
+          onChange={(value) => updateSetting('count', value)}
+        />
+        
+        <ModifierSlider
+          label="Radius"
+          value={settings.radius}
+          min={10}
+          max={500}
+          step={5}
+          onChange={(value) => updateSetting('radius', value)}
+        />
+        
+        <ModifierSlider
+          label="Start Angle"
+          value={settings.startAngle}
+          min={0}
+          max={360}
+          step={5}
+          onChange={(value) => updateSetting('startAngle', value)}
+        />
+        
+        <ModifierSlider
+          label="End Angle"
+          value={settings.endAngle}
+          min={0}
+          max={360}
+          step={5}
+          onChange={(value) => updateSetting('endAngle', value)}
+        />
+      </div>
+    </div>
+  )
+}
+
+// Grid Array Controls Component
+function GridArrayControls({ 
+  settings, 
+  onChange 
+}: { 
+  settings: GridArraySettings
+  onChange: (settings: GridArraySettings) => void 
+}) {
+  const updateSetting = useCallback((key: keyof GridArraySettings, value: number) => {
+    onChange({ ...settings, [key]: value })
+  }, [settings, onChange])
+
+  return (
+    <div className="modifier-controls__section">
+      <div className="modifier-controls__grid">
+        <ModifierSlider
+          label="Rows"
+          value={settings.rows}
+          min={1}
+          max={20}
+          step={1}
+          onChange={(value) => updateSetting('rows', value)}
+        />
+        
+        <ModifierSlider
+          label="Columns"
+          value={settings.columns}
+          min={1}
+          max={20}
+          step={1}
+          onChange={(value) => updateSetting('columns', value)}
+        />
+        
+        <ModifierSlider
+          label="Spacing X"
+          value={settings.spacingX}
+          min={10}
+          max={500}
+          step={5}
+          onChange={(value) => updateSetting('spacingX', value)}
+        />
+        
+        <ModifierSlider
+          label="Spacing Y"
+          value={settings.spacingY}
+          min={10}
+          max={500}
+          step={5}
+          onChange={(value) => updateSetting('spacingY', value)}
+        />
+      </div>
+    </div>
+  )
+}
+
 // Mock modifier storage (we'll replace this with the real store later)
-const mockModifiers = new Map<TLShapeId, TLLinearArrayModifier[]>()
+const mockModifiers = new Map<TLShapeId, TLModifier[]>()
 
 // Global refresh mechanism for modifier changes
 let globalRefreshCallbacks: Array<() => void> = []
@@ -181,21 +319,21 @@ export function useModifierRefresh() {
   return refreshKey
 }
 
-function getMockModifiersForShape(shapeId: TLShapeId): TLLinearArrayModifier[] {
+function getMockModifiersForShape(shapeId: TLShapeId): TLModifier[] {
   return mockModifiers.get(shapeId) || []
 }
 
-function addMockModifier(shapeId: TLShapeId, modifier: TLLinearArrayModifier) {
+function addMockModifier(shapeId: TLShapeId, modifier: TLModifier) {
   const existing = mockModifiers.get(shapeId) || []
   mockModifiers.set(shapeId, [...existing, modifier])
   triggerGlobalRefresh()
 }
 
-function updateMockModifier(shapeId: TLShapeId, modifierId: string, changes: Partial<LinearArraySettings>) {
+function updateMockModifier(shapeId: TLShapeId, modifierId: string, changes: any) {
   const modifiers = mockModifiers.get(shapeId) || []
   const updated = modifiers.map(m => 
     m.id.toString() === modifierId 
-      ? { ...m, props: { ...m.props, ...changes } }
+      ? { ...m, props: { ...m.props, ...changes } } as TLModifier
       : m
   )
   mockModifiers.set(shapeId, updated)
@@ -213,6 +351,7 @@ function removeMockModifier(shapeId: TLShapeId, modifierId: string) {
 export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
   const editor = useEditor()
   const refreshKey = useModifierRefresh() // Use the global refresh mechanism
+  const [selectedArrayType, setSelectedArrayType] = useState<ArrayType>('linear')
   
   // Get the first selected shape (for now, we'll work with single selection)
   const primaryShape = selectedShapes[0]
@@ -223,32 +362,79 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
     return getMockModifiersForShape(primaryShape.id)
   }, [primaryShape, refreshKey])
   
-  // Add a new linear array modifier
-  const addLinearArrayModifier = useCallback(() => {
+  // Add a new array modifier based on selected type
+  const addArrayModifier = useCallback(() => {
     if (!primaryShape) return
     
-    const newModifier: TLLinearArrayModifier = {
-      id: createModifierId(),
-      typeName: 'modifier',
-      type: 'linear-array',
-      targetShapeId: primaryShape.id,
-      enabled: true,
-      order: modifiers.length,
-      props: {
-        count: 3,
-        offsetX: 50,
-        offsetY: 0,
-        rotation: 0,
-        spacing: 1,
-        scaleStep: 1
-      }
+    let newModifier: TLModifier
+    
+    switch (selectedArrayType) {
+      case 'linear':
+        newModifier = {
+          id: createModifierId(),
+          typeName: 'modifier',
+          type: 'linear-array',
+          targetShapeId: primaryShape.id,
+          enabled: true,
+          order: modifiers.length,
+          props: {
+            count: 3,
+            offsetX: 50,
+            offsetY: 0,
+            rotation: 0,
+            spacing: 1,
+            scaleStep: 1
+          }
+        } as TLLinearArrayModifier
+        break
+        
+      case 'circular':
+        newModifier = {
+          id: createModifierId(),
+          typeName: 'modifier',
+          type: 'circular-array',
+          targetShapeId: primaryShape.id,
+          enabled: true,
+          order: modifiers.length,
+          props: {
+            count: 8,
+            radius: 100,
+            startAngle: 0,
+            endAngle: 360,
+            centerX: 0,
+            centerY: 0
+          }
+        } as TLCircularArrayModifier
+        break
+        
+      case 'grid':
+        newModifier = {
+          id: createModifierId(),
+          typeName: 'modifier',
+          type: 'grid-array',
+          targetShapeId: primaryShape.id,
+          enabled: true,
+          order: modifiers.length,
+          props: {
+            rows: 3,
+            columns: 3,
+            spacingX: 50,
+            spacingY: 50,
+            offsetX: 0,
+            offsetY: 0
+          }
+        } as TLGridArrayModifier
+        break
+        
+      default:
+        return
     }
     
     addMockModifier(primaryShape.id, newModifier)
     
     // Mark for undo/redo
     editor.mark('add-modifier')
-  }, [primaryShape, modifiers.length, editor])
+  }, [primaryShape, modifiers.length, editor, selectedArrayType])
   
   // Update modifier settings
   const updateModifier = useCallback((modifierId: string, settings: LinearArraySettings) => {
@@ -327,19 +513,25 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
   
   return (
     <div className="modifier-controls" onPointerDown={stopEventPropagation}>
-            {/* Header with Add Button */}
+      {/* Header with Add Button */}
       <div className="modifier-controls__header">
         <div className="modifier-controls__title">Modifiers</div>
         <TldrawUiButton 
           type="icon" 
           className="modifier-controls__add-button modifier-controls__square-button"
-          onClick={addLinearArrayModifier}
+          onClick={addArrayModifier}
           onPointerDown={stopEventPropagation}
-          title="Add Linear Array Modifier"
+          title={`Add ${selectedArrayType} Array Modifier`}
         >
           <TldrawUiButtonIcon icon="plus" />
         </TldrawUiButton>
       </div>
+      
+      {/* Array Type Dropdown */}
+      <ArrayTypeDropdown 
+        arrayType={selectedArrayType}
+        onChange={setSelectedArrayType}
+      />
       
       {/* Break Apart Button Section */}
       {modifiers.length > 0 && (
@@ -360,33 +552,63 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
       {/* Modifier List */}
       {modifiers.length === 0 ? (
         <div className="modifier-controls__empty">
-          No modifiers. Click + to add a Linear Array.
+          No modifiers. Click + to add an Array.
         </div>
       ) : (
         <div className="modifier-controls__list">
-          {modifiers.map((modifier) => (
-            <div key={modifier.id.toString()} className="modifier-controls__item">
-              <div className="modifier-controls__item-header">
-                <span className="modifier-controls__item-title">
-                  Linear Array #{modifier.order + 1}
-                </span>
-                <TldrawUiButton 
-                  type="icon" 
-                  className="modifier-controls__remove-button modifier-controls__square-button"
-                  onClick={() => removeModifier(modifier.id.toString())}
-                  onPointerDown={stopEventPropagation}
-                  title="Remove Modifier"
-                >
-                  <TldrawUiButtonIcon icon="cross-2" />
-                </TldrawUiButton>
+          {modifiers.map((modifier) => {
+            const anyModifier = modifier as TLModifier
+            
+            const getArrayTypeName = (type: string) => {
+              switch (type) {
+                case 'linear-array': return 'Linear'
+                case 'circular-array': return 'Circular'
+                case 'grid-array': return 'Grid'
+                default: return 'Array'
+              }
+            }
+            
+            return (
+              <div key={modifier.id.toString()} className="modifier-controls__item">
+                <div className="modifier-controls__item-header">
+                  <span className="modifier-controls__item-title">
+                    {getArrayTypeName(anyModifier.type)} Array #{modifier.order + 1}
+                  </span>
+                  <TldrawUiButton 
+                    type="icon" 
+                    className="modifier-controls__remove-button modifier-controls__square-button"
+                    onClick={() => removeModifier(modifier.id.toString())}
+                    onPointerDown={stopEventPropagation}
+                    title="Remove Modifier"
+                  >
+                    <TldrawUiButtonIcon icon="cross-2" />
+                  </TldrawUiButton>
+                </div>
+                
+                {/* Render different controls based on modifier type */}
+                {anyModifier.type === 'linear-array' && (
+                  <LinearArrayControls
+                    settings={(anyModifier as TLLinearArrayModifier).props}
+                    onChange={(settings) => updateModifier(modifier.id.toString(), settings)}
+                  />
+                )}
+                
+                {anyModifier.type === 'circular-array' && (
+                  <CircularArrayControls
+                    settings={(anyModifier as TLCircularArrayModifier).props}
+                    onChange={(settings) => updateModifier(modifier.id.toString(), settings as any)}
+                  />
+                )}
+                
+                {anyModifier.type === 'grid-array' && (
+                  <GridArrayControls
+                    settings={(anyModifier as TLGridArrayModifier).props}
+                    onChange={(settings) => updateModifier(modifier.id.toString(), settings as any)}
+                  />
+                )}
               </div>
-              
-              <LinearArrayControls
-                settings={modifier.props}
-                onChange={(settings) => updateModifier(modifier.id.toString(), settings)}
-              />
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
@@ -394,6 +616,6 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
 }
 
 // Export the modifiers for use in the canvas
-export function getShapeModifiers(shapeId: TLShapeId): TLLinearArrayModifier[] {
+export function getShapeModifiers(shapeId: TLShapeId): TLModifier[] {
   return getMockModifiersForShape(shapeId)
 } 

@@ -1,7 +1,9 @@
 import { useMemo, useEffect } from 'react'
 import { useEditor, type TLShape, type TLShapePartial, createShapeId } from 'tldraw'
 import { 
-  type LinearArraySettings
+  type LinearArraySettings,
+  type CircularArraySettings,
+  type GridArraySettings
 } from '../../types/modifiers'
 
 interface LinearArrayModifierProps {
@@ -9,6 +11,20 @@ interface LinearArrayModifierProps {
   settings: LinearArraySettings
   enabled: boolean
 }
+
+interface CircularArrayModifierProps {
+  shape: TLShape
+  settings: CircularArraySettings
+  enabled: boolean
+}
+
+interface GridArrayModifierProps {
+  shape: TLShape
+  settings: GridArraySettings
+  enabled: boolean
+}
+
+type ArrayModifierProps = LinearArrayModifierProps | CircularArrayModifierProps | GridArrayModifierProps
 
 interface ArrayPosition {
   x: number
@@ -47,6 +63,67 @@ function calculateArrayPositions(
       scaleY,
       index: i
     })
+  }
+  
+  return positions
+}
+
+// Calculate circular array positions based on settings
+function calculateCircularArrayPositions(
+  originalShape: TLShape,
+  settings: CircularArraySettings
+): ArrayPosition[] {
+  const positions: ArrayPosition[] = []
+  const centerX = originalShape.x + (settings.centerX || 0)
+  const centerY = originalShape.y + (settings.centerY || 0)
+  
+  const totalAngle = settings.endAngle - settings.startAngle
+  const angleStep = totalAngle / (settings.count - 1)
+  
+  for (let i = 1; i < settings.count; i++) {
+    const angle = (settings.startAngle + (angleStep * (i - 1))) * Math.PI / 180
+    
+    const x = centerX + Math.cos(angle) * settings.radius
+    const y = centerY + Math.sin(angle) * settings.radius
+    
+    positions.push({
+      x,
+      y,
+      rotation: 0, // No rotation for circular arrays by default
+      scaleX: 1,
+      scaleY: 1,
+      index: i
+    })
+  }
+  
+  return positions
+}
+
+// Calculate grid array positions based on settings
+function calculateGridArrayPositions(
+  originalShape: TLShape,
+  settings: GridArraySettings
+): ArrayPosition[] {
+  const positions: ArrayPosition[] = []
+  let index = 1
+  
+  for (let row = 0; row < settings.rows; row++) {
+    for (let col = 0; col < settings.columns; col++) {
+      // Skip the original position (0,0)
+      if (row === 0 && col === 0) continue
+      
+      const x = originalShape.x + (settings.offsetX || 0) + (col * settings.spacingX)
+      const y = originalShape.y + (settings.offsetY || 0) + (row * settings.spacingY)
+      
+      positions.push({
+        x,
+        y,
+        rotation: 0, // No rotation for grid arrays by default
+        scaleX: 1,
+        scaleY: 1,
+        index: index++
+      })
+    }
   }
   
   return positions
@@ -209,6 +286,182 @@ export function LinearArrayModifier({
   }, [editor, shape, arrayPositions, enabled, settings])
 
   // This component doesn't render anything visible - the shapes are managed directly in the editor
+  return null
+}
+
+// Circular Array Modifier Component
+export function CircularArrayModifier({ 
+  shape, 
+  settings, 
+  enabled 
+}: CircularArrayModifierProps) {
+  const editor = useEditor()
+  
+  // Calculate positions for circular array
+  const arrayPositions = useMemo(() => {
+    if (!enabled) return []
+    return calculateCircularArrayPositions(shape, settings)
+  }, [shape, settings, enabled])
+  
+  // Create and manage clones using the same logic as linear array
+  useEffect(() => {
+    if (!enabled || arrayPositions.length === 0) {
+      // Remove any existing clones for this shape
+      const allShapes = editor.getCurrentPageShapes()
+      const clonesToDelete = allShapes.filter(s => 
+        isArrayClone(s) && getOriginalShapeId(s) === shape.id
+      )
+      
+      if (clonesToDelete.length > 0) {
+        editor.run(() => {
+          editor.deleteShapes(clonesToDelete.map(s => s.id))
+        }, { ignoreShapeLock: true, history: 'ignore' })
+      }
+      return
+    }
+    
+    // Create native shapes for tldraw
+    const allShapes = editor.getCurrentPageShapes()
+    const existingClones = allShapes.filter(s => 
+      isArrayClone(s) && getOriginalShapeId(s) === shape.id
+    )
+    
+    // Calculate which clones need to be created, updated, or deleted
+    const targetCloneCount = arrayPositions.length
+    const currentCloneCount = existingClones.length
+    
+    if (currentCloneCount < targetCloneCount) {
+      // Create missing clones
+      const newPositions = arrayPositions.slice(currentCloneCount)
+      const newClones = createNativeShapeClones(editor, shape, newPositions)
+      
+      editor.run(() => {
+        editor.createShapes(newClones)
+      }, { ignoreShapeLock: true, history: 'ignore' })
+      
+    } else if (currentCloneCount > targetCloneCount) {
+      // Delete excess clones
+      const clonesToDelete = existingClones.slice(targetCloneCount)
+      
+      editor.run(() => {
+        editor.deleteShapes(clonesToDelete.map(s => s.id))
+      }, { ignoreShapeLock: true, history: 'ignore' })
+    }
+    
+    // Update existing clones positions
+    if (targetCloneCount > 0) {
+      const clonesToUpdate = allShapes
+        .filter(s => isArrayClone(s) && getOriginalShapeId(s) === shape.id)
+        .slice(0, targetCloneCount)
+      
+      const updatedClones = clonesToUpdate.map((clone, index) => {
+        const position = arrayPositions[index]
+        if (!position) return null
+        
+        return {
+          id: clone.id,
+          x: position.x,
+          y: position.y,
+          rotation: (shape.rotation || 0) + (position.rotation * Math.PI / 180)
+        }
+      }).filter(Boolean) as TLShapePartial[]
+
+      if (updatedClones.length > 0) {
+        editor.run(() => {
+          editor.updateShapes(updatedClones)
+        }, { ignoreShapeLock: true, history: 'ignore' })
+      }
+    }
+  }, [editor, shape, arrayPositions, enabled, settings])
+
+  return null
+}
+
+// Grid Array Modifier Component
+export function GridArrayModifier({ 
+  shape, 
+  settings, 
+  enabled 
+}: GridArrayModifierProps) {
+  const editor = useEditor()
+  
+  // Calculate positions for grid array
+  const arrayPositions = useMemo(() => {
+    if (!enabled) return []
+    return calculateGridArrayPositions(shape, settings)
+  }, [shape, settings, enabled])
+  
+  // Create and manage clones using the same logic as linear array
+  useEffect(() => {
+    if (!enabled || arrayPositions.length === 0) {
+      // Remove any existing clones for this shape
+      const allShapes = editor.getCurrentPageShapes()
+      const clonesToDelete = allShapes.filter(s => 
+        isArrayClone(s) && getOriginalShapeId(s) === shape.id
+      )
+      
+      if (clonesToDelete.length > 0) {
+        editor.run(() => {
+          editor.deleteShapes(clonesToDelete.map(s => s.id))
+        }, { ignoreShapeLock: true, history: 'ignore' })
+      }
+      return
+    }
+    
+    // Create native shapes for tldraw
+    const allShapes = editor.getCurrentPageShapes()
+    const existingClones = allShapes.filter(s => 
+      isArrayClone(s) && getOriginalShapeId(s) === shape.id
+    )
+    
+    // Calculate which clones need to be created, updated, or deleted
+    const targetCloneCount = arrayPositions.length
+    const currentCloneCount = existingClones.length
+    
+    if (currentCloneCount < targetCloneCount) {
+      // Create missing clones
+      const newPositions = arrayPositions.slice(currentCloneCount)
+      const newClones = createNativeShapeClones(editor, shape, newPositions)
+      
+      editor.run(() => {
+        editor.createShapes(newClones)
+      }, { ignoreShapeLock: true, history: 'ignore' })
+      
+    } else if (currentCloneCount > targetCloneCount) {
+      // Delete excess clones
+      const clonesToDelete = existingClones.slice(targetCloneCount)
+      
+      editor.run(() => {
+        editor.deleteShapes(clonesToDelete.map(s => s.id))
+      }, { ignoreShapeLock: true, history: 'ignore' })
+    }
+    
+    // Update existing clones positions
+    if (targetCloneCount > 0) {
+      const clonesToUpdate = allShapes
+        .filter(s => isArrayClone(s) && getOriginalShapeId(s) === shape.id)
+        .slice(0, targetCloneCount)
+      
+      const updatedClones = clonesToUpdate.map((clone, index) => {
+        const position = arrayPositions[index]
+        if (!position) return null
+        
+        return {
+          id: clone.id,
+          x: position.x,
+          y: position.y,
+          rotation: (shape.rotation || 0) + (position.rotation * Math.PI / 180)
+        }
+      }).filter(Boolean) as TLShapePartial[]
+
+      if (updatedClones.length > 0) {
+        editor.run(() => {
+          editor.updateShapes(updatedClones)
+        }, { ignoreShapeLock: true, history: 'ignore' })
+      }
+    }
+  }, [editor, shape, arrayPositions, enabled, settings])
+
   return null
 }
 

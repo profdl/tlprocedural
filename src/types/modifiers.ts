@@ -20,14 +20,24 @@ export interface LinearArraySettings {
   scaleStep: number // scale change per copy
 }
 
-// Radial Array Modifier Settings (for future)
-export interface RadialArraySettings {
+// Circular Array Modifier Settings
+export interface CircularArraySettings {
   count: number
   radius: number
   startAngle: number
   endAngle: number
   centerX: number
   centerY: number
+}
+
+// Grid Array Modifier Settings
+export interface GridArraySettings {
+  rows: number
+  columns: number
+  spacingX: number
+  spacingY: number
+  offsetX: number
+  offsetY: number
 }
 
 // Mirror Modifier Settings (for future)
@@ -40,7 +50,8 @@ export interface MirrorSettings {
 // Union of all modifier types
 export type TLModifier = 
   | TLLinearArrayModifier
-  | TLRadialArrayModifier
+  | TLCircularArrayModifier
+  | TLGridArrayModifier
   | TLMirrorModifier
 
 // Specific modifier types
@@ -49,9 +60,14 @@ export interface TLLinearArrayModifier extends TLModifierRecord {
   props: LinearArraySettings
 }
 
-export interface TLRadialArrayModifier extends TLModifierRecord {
-  type: 'radial-array'
-  props: RadialArraySettings
+export interface TLCircularArrayModifier extends TLModifierRecord {
+  type: 'circular-array'
+  props: CircularArraySettings
+}
+
+export interface TLGridArrayModifier extends TLModifierRecord {
+  type: 'grid-array'
+  props: GridArraySettings
 }
 
 export interface TLMirrorModifier extends TLModifierRecord {

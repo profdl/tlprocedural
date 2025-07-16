@@ -406,3 +406,33 @@
 .custom-style-panel__content {
   padding: 0;
 }
+
+/* Array Type Dropdown Styles */
+.modifier-controls__dropdown {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-panel-contrast);
+  background: var(--color-panel);
+}
+
+.modifier-controls__select {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--color-muted-1);
+  border: 1px solid var(--color-panel-contrast);
+  border-radius: 4px;
+  color: var(--color-text-1);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.modifier-controls__select:hover {
+  background: var(--color-muted-2);
+  border-color: var(--color-text-3);
+}
+
+.modifier-controls__select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  background: var(--color-background);
+}
