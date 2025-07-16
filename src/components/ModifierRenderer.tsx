@@ -1,0 +1,67 @@
+import { useValue, useEditor } from 'tldraw'
+import { LinearArrayModifier } from './modifiers/LinearArrayModifier'
+import { getShapeModifiers, useModifierRefresh } from './modifiers/ModifierControls'
+
+export function ModifierRenderer() {
+  const editor = useEditor()
+  const modifierRefreshKey = useModifierRefresh() // Subscribe to modifier changes
+  
+  // Get all shapes and their modifiers
+  const shapesWithModifiers = useValue(
+    'shapes-with-modifiers',
+    () => {
+      const allShapes = editor.getCurrentPageShapes()
+      const shapesWithMods = allShapes
+        .map(shape => ({
+          shape,
+          modifiers: getShapeModifiers(shape.id)
+        }))
+        .filter(item => item.modifiers.length > 0)
+      
+      return shapesWithMods
+    },
+    [editor, modifierRefreshKey] // Add modifierRefreshKey as dependency
+  )
+
+  return (
+    <div className="modifier-renderer">
+      {shapesWithModifiers.map(({ shape, modifiers }) =>
+        modifiers.map(modifier => {
+          switch (modifier.type) {
+            case 'linear-array':
+              return (
+                <LinearArrayModifier
+                  key={`${shape.id}-${modifier.id}`}
+                  shape={shape}
+                  settings={modifier.props}
+                  enabled={modifier.enabled}
+                />
+              )
+            default:
+              return null
+          }
+        })
+      )}
+    </div>
+  )
+}
+
+// Helper component to integrate with tldraw's UI zones
+export function ModifierOverlay() {
+  return (
+    <div 
+      className="modifier-overlay"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+        zIndex: 1000, // Above canvas but below UI
+      }}
+    >
+      <ModifierRenderer />
+    </div>
+  )
+} 
