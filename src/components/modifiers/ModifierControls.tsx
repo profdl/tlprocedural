@@ -105,6 +105,7 @@ export function notifyModifierChanges() {
 export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
   const editor = useEditor()
   const [localModifiers, setLocalModifiers] = useState<Map<TLShapeId, TLModifier[]>>(new Map())
+  const [collapsedModifiers, setCollapsedModifiers] = useState<Set<string>>(new Set())
   
   // Get modifiers for the first selected shape (simplified for now)
   const selectedShape = selectedShapes[0]
@@ -170,6 +171,18 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
       updateModifier(modifierId, { enabled: !modifier.enabled })
     }
   }, [selectedShape, shapeModifiers, updateModifier])
+
+  const toggleCollapsed = useCallback((modifierId: string) => {
+    setCollapsedModifiers(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(modifierId)) {
+        newSet.delete(modifierId)
+      } else {
+        newSet.add(modifierId)
+      }
+      return newSet
+    })
+  }, [])
 
   const handleAddModifier = useCallback((optionId: string) => {
     const typeMap: Record<string, ModifierType> = {
@@ -237,63 +250,88 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
         </div>
       ) : (
         <div className="modifier-controls__list">
-          {shapeModifiers.map((modifier) => (
-            <div key={modifier.id} className="modifier-controls__item">
-              <div className="modifier-controls__item-header">
-                <div className="modifier-controls__item-title">
-                  <input
-                    type="checkbox"
-                    checked={modifier.enabled}
-                    onChange={() => toggleModifier(modifier.id)}
-                    onPointerDown={stopEventPropagation}
-                  />
-                  <span>{MODIFIER_DISPLAY_NAMES[modifier.type] || modifier.type}</span>
+          {shapeModifiers.map((modifier) => {
+            const isCollapsed = collapsedModifiers.has(modifier.id)
+            const isEnabled = modifier.enabled
+            
+            return (
+              <div key={modifier.id} className="modifier-controls__item">
+                <div className="modifier-controls__item-header">
+                  <div className="modifier-controls__item-title">
+                    <TldrawUiButton
+                      type="icon"
+                      onPointerDown={(e) => {
+                        stopEventPropagation(e)
+                        toggleCollapsed(modifier.id)
+                      }}
+                      title={isCollapsed ? "Expand" : "Collapse"}
+                      className="modifier-controls__caret"
+                    >
+                      <TldrawUiButtonIcon 
+                        icon={isCollapsed ? "chevron-right" : "chevron-down"} 
+                      />
+                    </TldrawUiButton>
+                    
+                    <label className="modifier-controls__checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={isEnabled}
+                        onChange={() => toggleModifier(modifier.id)}
+                        onPointerDown={stopEventPropagation}
+                        className="modifier-controls__checkbox"
+                      />
+                      <span className="modifier-controls__checkbox-text">
+                        {MODIFIER_DISPLAY_NAMES[modifier.type] || modifier.type}
+                      </span>
+                    </label>
+                  </div>
+                  <TldrawUiButton
+                    type="icon"
+                    onPointerDown={(e) => {
+                      stopEventPropagation(e)
+                      removeModifier(modifier.id)
+                    }}
+                    title="Remove Modifier"
+                    className="modifier-controls__remove-button"
+                  >
+                    ×
+                  </TldrawUiButton>
                 </div>
-                <TldrawUiButton
-                  type="icon"
-                  onPointerDown={(e) => {
-                    stopEventPropagation(e)
-                    removeModifier(modifier.id)
-                  }}
-                  title="Remove Modifier"
-                >
-                  <TldrawUiButtonIcon icon="trash" />
-                </TldrawUiButton>
+                
+                {isEnabled && !isCollapsed && (
+                  <div className="modifier-controls__item-content">
+                    {modifier.type === 'linear-array' && (
+                      <LinearArrayControls
+                        settings={modifier.props}
+                        onChange={(settings) => updateModifier(modifier.id, { props: settings })}
+                      />
+                    )}
+                    
+                    {modifier.type === 'circular-array' && (
+                      <CircularArrayControls
+                        settings={modifier.props}
+                        onChange={(settings) => updateModifier(modifier.id, { props: settings })}
+                      />
+                    )}
+                    
+                    {modifier.type === 'grid-array' && (
+                      <GridArrayControls
+                        settings={modifier.props}
+                        onChange={(settings) => updateModifier(modifier.id, { props: settings })}
+                      />
+                    )}
+                    
+                    {modifier.type === 'mirror' && (
+                      <MirrorControls
+                        settings={modifier.props}
+                        onChange={(settings) => updateModifier(modifier.id, { props: settings })}
+                      />
+                    )}
+                  </div>
+                )}
               </div>
-              
-              {modifier.enabled && (
-                <div className="modifier-controls__item-content">
-                  {modifier.type === 'linear-array' && (
-                    <LinearArrayControls
-                      settings={modifier.props}
-                      onChange={(settings) => updateModifier(modifier.id, { props: settings })}
-                    />
-                  )}
-                  
-                  {modifier.type === 'circular-array' && (
-                    <CircularArrayControls
-                      settings={modifier.props}
-                      onChange={(settings) => updateModifier(modifier.id, { props: settings })}
-                    />
-                  )}
-                  
-                  {modifier.type === 'grid-array' && (
-                    <GridArrayControls
-                      settings={modifier.props}
-                      onChange={(settings) => updateModifier(modifier.id, { props: settings })}
-                    />
-                  )}
-                  
-                  {modifier.type === 'mirror' && (
-                    <MirrorControls
-                      settings={modifier.props}
-                      onChange={(settings) => updateModifier(modifier.id, { props: settings })}
-                    />
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

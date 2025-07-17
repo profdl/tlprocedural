@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { type CircularArraySettings } from '../../../types/modifiers'
 import { ModifierPropertyInput } from './ModifierPropertyInput'
+import { ModifierCheckboxInput } from './ModifierCheckboxInput'
 import { INPUT_CONSTRAINTS } from '../constants'
 
 interface CircularArrayControlsProps {
@@ -88,16 +89,11 @@ export function CircularArrayControls({ settings, onChange }: CircularArrayContr
           onChange={(value) => updateSetting('rotateAll', value)}
         />
         
-        <div className="modifier-controls__checkbox">
-          <label>
-            <input
-              type="checkbox"
-              checked={settings.pointToCenter}
-              onChange={(e) => updateSetting('pointToCenter', e.target.checked)}
-            />
-            Point to Center
-          </label>
-        </div>
+        <ModifierCheckboxInput
+          label="Point to Center"
+          checked={settings.pointToCenter}
+          onChange={(checked) => updateSetting('pointToCenter', checked)}
+        />
       </div>
     </div>
   )
