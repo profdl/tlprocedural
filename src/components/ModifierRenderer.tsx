@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { useEditor, type TLShape, type TLShapeId, track, useValue, SVGContainer, HTMLContainer } from 'tldraw'
 import { LinearArrayModifier, CircularArrayModifier, GridArrayModifier } from './modifiers/LinearArrayModifier'
 import { StackedModifier } from './modifiers/StackedModifier'
-import { getShapeModifiers, useModifierRefresh } from './modifiers/ModifierControls'
+import { getShapeModifiers, subscribeToModifierChanges } from './modifiers/ModifierControls'
 
 // Component to render actual mirrored shape content
 const MirroredShapeClone = track(({ shape, originalShape, transform }: {
@@ -185,7 +185,15 @@ const MirrorTransformOverlay = track(() => {
 // Main modifier renderer component
 export function ModifierRenderer() {
   const editor = useEditor()
-  const modifierRefreshKey = useModifierRefresh() // Subscribe to modifier changes
+  const [modifierUpdateTrigger, setModifierUpdateTrigger] = useState(0)
+  
+  // Subscribe to modifier changes
+  useEffect(() => {
+    const unsubscribe = subscribeToModifierChanges(() => {
+      setModifierUpdateTrigger(prev => prev + 1)
+    })
+    return unsubscribe
+  }, [])
   
   // Feature flag to toggle between old and new modifier processing
   // TODO: This will become a user setting later
@@ -196,7 +204,7 @@ export function ModifierRenderer() {
     'shapes-with-modifiers',
     () => {
       const allShapes = editor.getCurrentPageShapes()
-      console.log('ModifierRenderer: All shapes:', allShapes.length)
+      console.log('ModifierRenderer: All shapes:', allShapes.length, 'trigger:', modifierUpdateTrigger)
       
       const shapesWithMods = allShapes
         .map(shape => ({
@@ -212,7 +220,7 @@ export function ModifierRenderer() {
       
       return shapesWithMods
     },
-    [editor, modifierRefreshKey] // Add modifierRefreshKey as dependency
+    [editor, modifierUpdateTrigger] // Track both editor and modifier changes
   )
   
   if (useStackedModifiers) {

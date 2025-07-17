@@ -1,0 +1,105 @@
+.add-button {
+  position: relative;
+  display: inline-block;
+  background: transparent;
+  width: auto;
+}
+
+.add-button__main {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: #2f80ed;
+  border: none;
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-height: 28px;
+  width: auto;
+}
+
+.add-button__main:hover {
+  background: #1a6fd8;
+}
+
+.add-button__main:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.add-button__dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 2px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-divider);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  min-width: 120px;
+  padding: 4px 0;
+}
+
+.add-button__option {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.add-button__option:hover {
+  background: var(--color-hover);
+}
+
+.add-button__option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Modifier controls specific styling */
+.modifier-controls__add-button {
+  margin-bottom: 12px;
+}
+
+/* Override existing styles to remove blue background from containers only */
+.modifier-controls {
+  background: transparent !important;
+}
+
+.modifier-controls__add-section {
+  background: transparent !important;
+  border-bottom: none !important;
+  padding: 0 !important;
+}
+
+.modifier-controls__add-button {
+  background: transparent !important;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 0 !important;
+}
+
+/* Keep the button itself blue, but make the container transparent */
+.modifier-controls__add-button .add-button {
+  background: transparent !important;
+}
+
+.modifier-controls__add-button .add-button__main {
+  background: #2f80ed !important;
+}
+
+.modifier-controls__add-button .add-button__main:hover {
+  background: #1a6fd8 !important;
+} 

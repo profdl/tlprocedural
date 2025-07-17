@@ -2,7 +2,11 @@ import { useMemo, useEffect } from 'react'
 import { useEditor, type TLShape, type TLShapePartial, createShapeId } from 'tldraw'
 import { ModifierStack, extractShapesFromState } from '../../store/modifierStack'
 import type { TLModifier } from '../../types/modifiers'
-import { isArrayClone, getOriginalShapeId } from './LinearArrayModifier'
+import { 
+  getOriginalShapeId, 
+  getShapeDimensions,
+  logShapeOperation 
+} from './utils/shapeUtils'
 
 interface StackedModifierProps {
   shape: TLShape
@@ -14,16 +18,20 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
   
   // Process all modifiers using ModifierStack
   const processedShapes = useMemo(() => {
-    console.log('StackedModifier: Processing modifiers for shape', shape.id, 'with', modifiers.length, 'modifiers')
-    console.log('Modifiers:', modifiers)
+    logShapeOperation('StackedModifier', shape.id, {
+      modifierCount: modifiers.length,
+      modifiers: modifiers.map(m => ({ type: m.type, enabled: m.enabled }))
+    })
     
     if (!modifiers.length) return []
     
     const result = ModifierStack.processModifiers(shape, modifiers)
-    console.log('ModifierStack result:', result)
-    
     const shapes = extractShapesFromState(result)
-    console.log('Extracted shapes:', shapes)
+    
+    logShapeOperation('StackedModifier Result', shape.id, {
+      instances: result.instances.length,
+      extractedShapes: shapes.length
+    })
     
     // Convert to TLShapePartial for tldraw, excluding the original (first shape)
     return shapes.slice(1).map((processedShape, index) => {
@@ -39,9 +47,8 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
         let adjustedX = processedShape.x
         let adjustedY = processedShape.y
         
-        // Get the shape dimensions
-        const shapeWidth = 'w' in shape.props ? (shape.props.w as number) : 100
-        const shapeHeight = 'h' in shape.props ? (shape.props.h as number) : 100
+        // Get the shape dimensions using utility function
+        const { width: shapeWidth, height: shapeHeight } = getShapeDimensions(shape)
         
         // Adjust position based on the flip direction
         if (processedShape.meta.isFlippedX) {
@@ -54,7 +61,7 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
           adjustedY = processedShape.y - shapeHeight
         }
         
-        console.log(`Adjusting mirrored shape position:`, {
+        logShapeOperation('Mirrored Shape Position', cloneId, {
           original: { x: processedShape.x, y: processedShape.y },
           adjusted: { x: adjustedX, y: adjustedY },
           flips: { x: processedShape.meta.isFlippedX, y: processedShape.meta.isFlippedY },
@@ -112,9 +119,9 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
           }
         }
 
-        console.log(`Creating clone ${index + 1} with props:`, {
-          w: processedShape.props && 'w' in processedShape.props ? processedShape.props.w : 'N/A',
-          h: processedShape.props && 'h' in processedShape.props ? processedShape.props.h : 'N/A',
+        logShapeOperation('Stacked Clone', cloneId, {
+          index: index + 1,
+          shapeType: shape.type,
           opacity: cloneShape.opacity,
           position: { x: processedShape.x, y: processedShape.y }
         })
@@ -128,7 +135,9 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
   useEffect(() => {
     if (!editor) return
 
-    console.log('StackedModifier useEffect: Processing', processedShapes.length, 'shapes')
+    logShapeOperation('StackedModifier Effect', shape.id, {
+      processedShapes: processedShapes.length
+    })
 
     // Clean up existing clones for this shape
     const existingClones = editor.getCurrentPageShapes().filter((s: TLShape) => {
@@ -136,34 +145,26 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
       return originalId === shape.id && s.meta?.stackProcessed
     })
 
-    console.log('Found existing clones:', existingClones.length)
+    logShapeOperation('StackedModifier Cleanup', shape.id, {
+      existingClones: existingClones.length
+    })
 
     // Delete existing clones
     if (existingClones.length > 0) {
       editor.run(() => {
         editor.deleteShapes(existingClones.map((s: TLShape) => s.id))
       }, { ignoreShapeLock: true, history: 'ignore' })
-      console.log('Deleted existing clones')
     }
 
     // Create new clones if we have processed shapes
     if (processedShapes.length > 0) {
-      console.log('Creating new clones:', processedShapes.length)
-      console.log('Clone details:', processedShapes.map((s, i) => ({
-        index: i,
-        id: s.id,
-        type: s.type,
-        x: s.x,
-        y: s.y,
-        w: s.props && 'w' in s.props ? s.props.w : 'N/A',
-        h: s.props && 'h' in s.props ? s.props.h : 'N/A',
-        opacity: s.opacity
-      })))
+      logShapeOperation('StackedModifier Create', shape.id, {
+        newClones: processedShapes.length
+      })
       
       editor.run(() => {
         editor.createShapes(processedShapes)
       }, { history: 'ignore' })
-      console.log('Created clones successfully')
     }
 
     // Cleanup function

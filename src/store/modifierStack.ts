@@ -6,6 +6,7 @@ import type {
   Transform,
   ModifierProcessor 
 } from '../types/modifiers'
+import { applyShapeScaling } from '../components/modifiers/utils/shapeUtils'
 
 // Helper function to create initial ShapeState from a TLShape
 export function createInitialShapeState(shape: TLShape): ShapeState {
@@ -71,9 +72,9 @@ export function extractShapesFromState(state: ShapeState): TLShape[] {
       })
     }
     
-    // For mirrored shapes, we need to handle the negative scaling specially
+    // Handle scaling - for mirrored shapes, we don't apply negative scaling to dimensions
     if (instance.metadata?.isMirrored) {
-      // Store the original dimensions - don't modify them
+      // For mirrored shapes, keep original dimensions and store flip info in metadata
       if ('w' in instance.shape.props && 'h' in instance.shape.props) {
         baseShape.props = {
           ...baseShape.props,
@@ -100,27 +101,24 @@ export function extractShapesFromState(state: ShapeState): TLShape[] {
         scaleY: instance.transform.scaleY
       })
     } else {
-      // For non-mirrored shapes, apply scaling normally to shape props
-      if ('w' in instance.shape.props && 'h' in instance.shape.props) {
-        const newW = Math.abs((instance.shape.props.w as number) * instance.transform.scaleX)
-        const newH = Math.abs((instance.shape.props.h as number) * instance.transform.scaleY)
-        
-        console.log(`Applying scaling to instance ${index}:`, {
-          originalW: instance.shape.props.w,
-          originalH: instance.shape.props.h,
-          scaleX: instance.transform.scaleX,
-          scaleY: instance.transform.scaleY,
-          newW,
-          newH
-        })
-        
-        baseShape.props = {
-          ...baseShape.props,
-          w: newW,
-          h: newH
+      // Apply comprehensive scaling to all shape types (only for positive scales)
+      if (instance.transform.scaleX !== 1 || instance.transform.scaleY !== 1) {
+        // Only apply scaling if both values are positive (to avoid negative dimensions)
+        if (instance.transform.scaleX > 0 && instance.transform.scaleY > 0) {
+          const scaledShape = applyShapeScaling(instance.shape, instance.transform.scaleX, instance.transform.scaleY)
+          baseShape.props = scaledShape.props
+          
+          console.log(`Applied comprehensive scaling to instance ${index}:`, {
+            shapeType: instance.shape.type,
+            scaleX: instance.transform.scaleX,
+            scaleY: instance.transform.scaleY
+          })
+        } else {
+          console.warn(`Skipping negative scaling for instance ${index}:`, {
+            scaleX: instance.transform.scaleX,
+            scaleY: instance.transform.scaleY
+          })
         }
-      } else {
-        console.log(`Instance ${index} doesn't have w/h props, skipping scaling`)
       }
     }
     
