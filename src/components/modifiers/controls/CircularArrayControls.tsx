@@ -53,42 +53,6 @@ export function CircularArrayControls({ settings, onChange }: CircularArrayContr
           onChange={(value) => updateSetting('endAngle', value)}
         />
         
-        <ModifierPropertyInput
-          label="Center X"
-          value={settings.centerX}
-          min={INPUT_CONSTRAINTS.centerX.min}
-          max={INPUT_CONSTRAINTS.centerX.max}
-          step={INPUT_CONSTRAINTS.centerX.step}
-          onChange={(value) => updateSetting('centerX', value)}
-        />
-        
-        <ModifierPropertyInput
-          label="Center Y"
-          value={settings.centerY}
-          min={INPUT_CONSTRAINTS.centerY.min}
-          max={INPUT_CONSTRAINTS.centerY.max}
-          step={INPUT_CONSTRAINTS.centerY.step}
-          onChange={(value) => updateSetting('centerY', value)}
-        />
-        
-        <ModifierPropertyInput
-          label="Rotate Each"
-          value={settings.rotateEach}
-          min={INPUT_CONSTRAINTS.rotateEach.min}
-          max={INPUT_CONSTRAINTS.rotateEach.max}
-          step={INPUT_CONSTRAINTS.rotateEach.step}
-          onChange={(value) => updateSetting('rotateEach', value)}
-        />
-        
-        <ModifierPropertyInput
-          label="Rotate All"
-          value={settings.rotateAll}
-          min={INPUT_CONSTRAINTS.rotateAll.min}
-          max={INPUT_CONSTRAINTS.rotateAll.max}
-          step={INPUT_CONSTRAINTS.rotateAll.step}
-          onChange={(value) => updateSetting('rotateAll', value)}
-        />
-        
         <ModifierCheckboxInput
           label="Point to Center"
           checked={settings.pointToCenter}

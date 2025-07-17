@@ -33,13 +33,12 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
       extractedShapes: shapes.length
     })
     
-    // Convert to TLShapePartial for tldraw, excluding the original (first shape)
-    return shapes.slice(1).map((processedShape, index) => {
+    // Convert to TLShapePartial for tldraw, including all shapes (original is now positioned in the array)
+    return shapes.map((processedShape, index) => {
       const cloneId = createShapeId()
       
       // Get the corresponding instance with metadata from the result
-      const instanceIndex = index + 1 // Skip original shape
-      const instance = result.instances[instanceIndex]
+      const instance = result.instances[index]
       
       // Handle mirrored shapes specially
       if (instance?.metadata?.isMirrored && processedShape.meta?.isMirrored) {
@@ -86,7 +85,7 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
             ...shape.meta,
             isArrayClone: true,
             originalShapeId: shape.id,
-            arrayIndex: index + 1,
+            arrayIndex: index,
             stackProcessed: true,
             modifierCount: modifiers.filter(m => m.enabled).length,
             isMirrored: true,
@@ -107,20 +106,20 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
           y: processedShape.y,
           rotation: processedShape.rotation,
           isLocked: true,
-          opacity: (shape.opacity || 1) * 0.75,
+          opacity: processedShape.meta?.isFirstClone ? 0 : (shape.opacity || 1) * 0.75,
           props: { ...processedShape.props }, // Use processed shape props instead of original
           meta: {
             ...shape.meta,
             isArrayClone: true,
             originalShapeId: shape.id,
-            arrayIndex: index + 1,
+            arrayIndex: index,
             stackProcessed: true,
             modifierCount: modifiers.filter(m => m.enabled).length
           }
         }
 
         logShapeOperation('Stacked Clone', cloneId, {
-          index: index + 1,
+          index: index,
           shapeType: shape.type,
           opacity: cloneShape.opacity,
           position: { x: processedShape.x, y: processedShape.y }
@@ -154,6 +153,31 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
       editor.run(() => {
         editor.deleteShapes(existingClones.map((s: TLShape) => s.id))
       }, { ignoreShapeLock: true, history: 'ignore' })
+    }
+
+    // Move the original shape to the first array position and make the first clone transparent
+    if (processedShapes.length > 0) {
+      // Find the first clone to get its position
+      const firstClone = processedShapes.find(s => s.meta?.isFirstClone)
+      if (firstClone) {
+        editor.run(() => {
+          // Move the original shape to the first array position
+          editor.updateShape({
+            id: shape.id,
+            type: shape.type,
+            x: firstClone.x,
+            y: firstClone.y,
+            rotation: firstClone.rotation
+          })
+          
+          // Make the first clone transparent since it's now redundant
+          editor.updateShape({
+            id: firstClone.id,
+            type: firstClone.type,
+            opacity: 0
+          })
+        }, { history: 'ignore' })
+      }
     }
 
     // Create new clones if we have processed shapes

@@ -249,22 +249,85 @@ const CircularArrayProcessor: ModifierProcessor = {
     
     const newInstances: ShapeInstance[] = []
     
-    // For each existing instance, create the circular array
-    input.instances.forEach(inputInstance => {
-      // Add the original instance first
-      newInstances.push(inputInstance)
-      
-      // Calculate center point relative to the instance
-      const centerPointX = inputInstance.transform.x + (centerX || 0)
-      const centerPointY = inputInstance.transform.y + (centerY || 0)
+          // For each existing instance, create the circular array
+      input.instances.forEach(inputInstance => {
+        // Get shape dimensions to calculate offset
+        const shapeWidth = 'w' in inputInstance.shape.props ? (inputInstance.shape.props.w as number) : 100
+        const shapeHeight = 'h' in inputInstance.shape.props ? (inputInstance.shape.props.h as number) : 100
+        
+        // Calculate the offset needed to move the array center so the original shape becomes the first position
+        const firstAngle = startAngle * Math.PI / 180
+        let offsetX = Math.cos(firstAngle) * radius
+        let offsetY = Math.sin(firstAngle) * radius
+        
+        // If pointToCenter is enabled, we need to adjust the offset to account for the rotation
+        if (pointToCenter) {
+          // When pointing to center, the shape rotates to face the center
+          // We need to adjust the offset so the original shape aligns exactly with the first clone position
+          const angleFromCenter = Math.atan2(offsetY, offsetX)
+          // Calculate the offset needed to compensate for the rotation effect
+          // The shape will rotate to point toward center, so we need to offset in the opposite direction
+          const additionalOffsetX = Math.cos(angleFromCenter + Math.PI)   - shapeWidth 
+          const additionalOffsetY = Math.sin(angleFromCenter + Math.PI) - shapeHeight
+          offsetX += additionalOffsetX
+          offsetY += additionalOffsetY
+        }
+        
+        // Calculate center point relative to the instance, offset so original becomes first position
+        const centerPointX = inputInstance.transform.x + (centerX || 0) - offsetX
+        const centerPointY = inputInstance.transform.y + (centerY || 0) - offsetY
       
       const totalAngle = endAngle - startAngle
       const angleStep = totalAngle / (count - 1)
       
-      // Create circular array copies
-      for (let i = 1; i < count; i++) {
-        const angle = (startAngle + (angleStep * (i - 1))) * Math.PI / 180
+      // Create circular array copies (including the original at the first position)
+      for (let i = 0; i < count; i++) {
+        const angle = (startAngle + (angleStep * i)) * Math.PI / 180
         
+        // For the first instance (i=0), position it at the start angle in the circle
+        if (i === 0) {
+          const x = centerPointX + Math.cos(angle) * radius
+          const y = centerPointY + Math.sin(angle) * radius
+          
+          // Calculate base rotation for pointing away from center
+          let baseRotation = 0
+          if (pointToCenter) {
+            // Calculate the angle from center to this position, then add 180° to point away
+            const angleFromCenter = Math.atan2(y - centerPointY, x - centerPointX)
+            baseRotation = angleFromCenter + Math.PI // Add 180° (π radians) to point away
+          }
+          
+          // Calculate additional rotations: rotateAll applies to all, rotateEach applies per clone
+          const rotateAllRadians = (rotateAll || 0) * Math.PI / 180
+          const rotateEachRadians = (rotateEach || 0) * i * Math.PI / 180
+          const totalRotationRadians = baseRotation + rotateAllRadians + rotateEachRadians
+          const finalRotation = inputInstance.transform.rotation + totalRotationRadians
+          
+          const newTransform: Transform = {
+            x: x,
+            y: y,
+            rotation: finalRotation,
+            scaleX: inputInstance.transform.scaleX,
+            scaleY: inputInstance.transform.scaleY
+          }
+          
+          const newInstance: ShapeInstance = {
+            shape: { ...inputInstance.shape },
+            transform: newTransform,
+            index: newInstances.length,
+            metadata: {
+              ...inputInstance.metadata,
+              arrayIndex: i,
+              sourceInstance: inputInstance.index,
+              isFirstClone: true // Mark this as the first clone to hide it
+            }
+          }
+          
+          newInstances.push(newInstance)
+          continue
+        }
+        
+        // For other instances, calculate circular positions
         const x = centerPointX + Math.cos(angle) * radius
         const y = centerPointY + Math.sin(angle) * radius
         
