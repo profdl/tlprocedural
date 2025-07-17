@@ -57,6 +57,9 @@ export interface CircularArraySettings {
   endAngle: number
   centerX: number
   centerY: number
+  rotateEach: number // rotation per clone in degrees
+  rotateAll: number // rotation applied to all clones in degrees
+  pointToCenter: boolean // automatically rotate shapes to point away from center
 }
 
 // Grid Array Modifier Settings

@@ -247,7 +247,7 @@ const LinearArrayProcessor: ModifierProcessor = {
 // Circular Array Processor implementation
 const CircularArrayProcessor: ModifierProcessor = {
   process(input: ShapeState, settings: any): ShapeState {
-    const { count, radius, startAngle, endAngle, centerX, centerY } = settings
+    const { count, radius, startAngle, endAngle, centerX, centerY, rotateAll, rotateEach, pointToCenter } = settings
     
     const newInstances: ShapeInstance[] = []
     
@@ -267,10 +267,27 @@ const CircularArrayProcessor: ModifierProcessor = {
       for (let i = 1; i < count; i++) {
         const angle = (startAngle + (angleStep * (i - 1))) * Math.PI / 180
         
+        const x = centerPointX + Math.cos(angle) * radius
+        const y = centerPointY + Math.sin(angle) * radius
+        
+        // Calculate base rotation for pointing away from center
+        let baseRotation = 0
+        if (pointToCenter) {
+          // Calculate the angle from center to this position, then add 180° to point away
+          const angleFromCenter = Math.atan2(y - centerPointY, x - centerPointX)
+          baseRotation = angleFromCenter + Math.PI // Add 180° (π radians) to point away
+        }
+        
+        // Calculate additional rotations: rotateAll applies to all, rotateEach applies per clone
+        const rotateAllRadians = (rotateAll || 0) * Math.PI / 180
+        const rotateEachRadians = (rotateEach || 0) * i * Math.PI / 180
+        const totalRotationRadians = baseRotation + rotateAllRadians + rotateEachRadians
+        const finalRotation = inputInstance.transform.rotation + totalRotationRadians
+        
         const newTransform: Transform = {
-          x: centerPointX + Math.cos(angle) * radius,
-          y: centerPointY + Math.sin(angle) * radius,
-          rotation: inputInstance.transform.rotation, // Keep original rotation
+          x: x,
+          y: y,
+          rotation: finalRotation, // Apply all rotations
           scaleX: inputInstance.transform.scaleX,
           scaleY: inputInstance.transform.scaleY
         }

@@ -314,14 +314,14 @@ function CircularArrayControls({
   settings: CircularArraySettings
   onChange: (settings: CircularArraySettings) => void 
 }) {
-  const updateSetting = useCallback((key: keyof CircularArraySettings, value: number) => {
+  const updateSetting = useCallback((key: keyof CircularArraySettings, value: number | boolean) => {
     onChange({ ...settings, [key]: value })
   }, [settings, onChange])
 
   return (
     <div className="modifier-controls__section">
       <div className="modifier-controls__grid">
-        <ModifierSlider
+        <ModifierPropertyInput
           label="Count"
           value={settings.count}
           min={2}
@@ -330,7 +330,7 @@ function CircularArrayControls({
           onChange={(value) => updateSetting('count', value)}
         />
         
-        <ModifierSlider
+        <ModifierPropertyInput
           label="Radius"
           value={settings.radius}
           min={10}
@@ -339,7 +339,7 @@ function CircularArrayControls({
           onChange={(value) => updateSetting('radius', value)}
         />
         
-        <ModifierSlider
+        <ModifierPropertyInput
           label="Start Angle"
           value={settings.startAngle}
           min={0}
@@ -348,7 +348,7 @@ function CircularArrayControls({
           onChange={(value) => updateSetting('startAngle', value)}
         />
         
-        <ModifierSlider
+        <ModifierPropertyInput
           label="End Angle"
           value={settings.endAngle}
           min={0}
@@ -356,6 +356,35 @@ function CircularArrayControls({
           step={5}
           onChange={(value) => updateSetting('endAngle', value)}
         />
+        
+        <ModifierPropertyInput
+          label="Rotate All"
+          value={settings.rotateAll}
+          min={-180}
+          max={180}
+          step={5}
+          onChange={(value) => updateSetting('rotateAll', value)}
+        />
+        
+        <ModifierPropertyInput
+          label="Rotate Each"
+          value={settings.rotateEach}
+          min={-180}
+          max={180}
+          step={5}
+          onChange={(value) => updateSetting('rotateEach', value)}
+        />
+      </div>
+      
+      <div className="modifier-controls__checkbox-section">
+        <label className="modifier-controls__checkbox">
+          <input
+            type="checkbox"
+            checked={settings.pointToCenter}
+            onChange={(e) => updateSetting('pointToCenter', e.target.checked)}
+          />
+          <span>Point to Center</span>
+        </label>
       </div>
     </div>
   )
@@ -529,7 +558,10 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
             startAngle: 0,
             endAngle: 360,
             centerX: 0,
-            centerY: 0
+            centerY: 0,
+            rotateAll: 0,
+            rotateEach: 0,
+            pointToCenter: false
           }
         } as TLCircularArrayModifier
         break

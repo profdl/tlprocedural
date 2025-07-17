@@ -116,10 +116,23 @@ function calculateCircularArrayPositions(
     const x = centerX + Math.cos(angle) * settings.radius
     const y = centerY + Math.sin(angle) * settings.radius
     
+    // Calculate base rotation for pointing away from center
+    let baseRotation = 0
+    if (settings.pointToCenter) {
+      // Calculate the angle from center to this position, then add 180° to point away
+      const angleFromCenter = Math.atan2(y - centerY, x - centerX)
+      baseRotation = angleFromCenter + Math.PI // Add 180° (π radians) to point away
+    }
+    
+    // Calculate additional rotations: rotateAll applies to all, rotateEach applies per clone
+    const rotateAllRadians = (settings.rotateAll || 0) * Math.PI / 180
+    const rotateEachRadians = (settings.rotateEach || 0) * i * Math.PI / 180
+    const totalRotationRadians = baseRotation + rotateAllRadians + rotateEachRadians
+    
     positions.push({
       x,
       y,
-      rotation: 0, // No rotation for circular arrays by default
+      rotation: totalRotationRadians, // Apply all rotations
       scaleX: 1,
       scaleY: 1,
       index: i

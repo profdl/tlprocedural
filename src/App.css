@@ -510,6 +510,40 @@
   background: var(--color-panel);
 }
 
+/* Checkbox Section Styles */
+.modifier-controls__checkbox-section {
+  padding: 8px 12px;
+  border-top: 1px solid var(--color-panel-contrast);
+  margin-top: 8px;
+}
+
+.modifier-controls__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--color-text-1);
+  font-weight: 500;
+  user-select: none;
+}
+
+.modifier-controls__checkbox input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.modifier-controls__checkbox:hover {
+  color: var(--color-text-0);
+}
+
+.modifier-controls__checkbox span {
+  flex: 1;
+}
+
 /* Collapse/Expand Carat Button */
 .modifier-controls__collapse-btn {
   background: none;
