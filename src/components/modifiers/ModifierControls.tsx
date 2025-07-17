@@ -433,7 +433,7 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
     addMockModifier(primaryShape.id, newModifier)
     
     // Mark for undo/redo
-    editor.mark('add-modifier')
+    editor.markHistoryStoppingPoint()
   }, [primaryShape, modifiers.length, editor, selectedArrayType])
   
   // Update modifier settings
@@ -450,7 +450,7 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
     removeMockModifier(primaryShape.id, modifierId)
     
     // Mark for undo/redo
-    editor.mark('remove-modifier')
+    editor.markHistoryStoppingPoint()
   }, [primaryShape, editor])
 
   // Break apart clones - convert all modifier clones to unique editable shapes

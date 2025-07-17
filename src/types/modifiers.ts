@@ -1,4 +1,4 @@
-import type { BaseRecord, TLShapeId, RecordId } from 'tldraw'
+import type { BaseRecord, TLShapeId, RecordId, TLShape } from 'tldraw'
 
 // Modifier ID type
 export type TLModifierId = RecordId<TLModifierRecord>
@@ -8,6 +8,35 @@ export interface TLModifierRecord extends BaseRecord<'modifier', TLModifierId> {
   targetShapeId: TLShapeId
   enabled: boolean
   order: number // For modifier stack ordering
+}
+
+// NEW: Transform representation for modifier processing
+export interface Transform {
+  x: number
+  y: number
+  rotation: number // in radians
+  scaleX: number
+  scaleY: number
+}
+
+// NEW: Individual shape instance in a modifier stack
+export interface ShapeInstance {
+  shape: TLShape
+  transform: Transform
+  index: number
+  metadata?: Record<string, any>
+}
+
+// NEW: State object passed between modifiers in the stack
+export interface ShapeState {
+  originalShape: TLShape
+  instances: ShapeInstance[]
+  metadata?: Record<string, any>
+}
+
+// NEW: Interface that all modifiers must implement for stacking
+export interface ModifierProcessor<T = any> {
+  process(input: ShapeState, settings: T): ShapeState
 }
 
 // Linear Array Modifier Settings
