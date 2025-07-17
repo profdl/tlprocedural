@@ -29,6 +29,98 @@ interface ModifierControlsProps {
   selectedShapes: TLShape[]
 }
 
+interface ModifierPropertyInputProps {
+  label: string
+  value: number
+  min: number
+  max: number
+  step: number
+  onChange: (value: number) => void
+  precision?: number // Number of decimal places to show
+}
+
+// Reusable Modifier Property Input Component
+function ModifierPropertyInput({ 
+  label, 
+  value, 
+  min, 
+  max, 
+  step, 
+  onChange, 
+  precision = 0 
+}: ModifierPropertyInputProps) {
+  const [inputValue, setInputValue] = useState(value.toString())
+  
+  // Update input value when prop value changes
+  useMemo(() => {
+    setInputValue(value.toFixed(precision))
+  }, [value, precision])
+  
+  const handleSliderChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = Number(e.target.value)
+    onChange(newValue)
+  }, [onChange])
+  
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const newInputValue = e.target.value
+    setInputValue(newInputValue)
+    
+    const numValue = Number(newInputValue)
+    if (!isNaN(numValue) && numValue >= min && numValue <= max) {
+      onChange(numValue)
+    }
+  }, [onChange, min, max])
+  
+  const handleInputBlur = useCallback(() => {
+    const numValue = Number(inputValue)
+    if (isNaN(numValue) || numValue < min) {
+      setInputValue(min.toFixed(precision))
+      onChange(min)
+    } else if (numValue > max) {
+      setInputValue(max.toFixed(precision))
+      onChange(max)
+    } else {
+      setInputValue(numValue.toFixed(precision))
+    }
+  }, [inputValue, min, max, precision, onChange])
+  
+  const handleInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur()
+    }
+  }, [])
+
+  return (
+    <div className="modifier-property-input" onPointerDown={stopEventPropagation}>
+      <div className="modifier-property-input__label">
+        <span>{label}</span>
+        <input
+          type="number"
+          value={inputValue}
+          onChange={handleInputChange}
+          onBlur={handleInputBlur}
+          onKeyDown={handleInputKeyDown}
+          min={min}
+          max={max}
+          step={step}
+          className="modifier-property-input__number"
+          onPointerDown={stopEventPropagation}
+        />
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={handleSliderChange}
+        onPointerDown={stopEventPropagation}
+        className="modifier-property-input__slider"
+      />
+    </div>
+  )
+}
+
 interface SliderProps {
   label: string
   value: number
@@ -86,30 +178,7 @@ function NumberInput({
   )
 }
 
-// Modifier Type Dropdown Component
-function ModifierTypeDropdown({
-  modifierType,
-  onChange
-}: {
-  modifierType: ModifierType
-  onChange: (type: ModifierType) => void
-}) {
-  return (
-    <div className="modifier-controls__dropdown">
-      <select 
-        value={modifierType}
-        onChange={(e) => onChange(e.target.value as ModifierType)}
-        className="modifier-controls__select"
-        onPointerDown={stopEventPropagation}
-      >
-        <option value="linear">Linear Array</option>
-        <option value="circular">Circular Array</option>
-        <option value="grid">Grid Array</option>
-        <option value="mirror">Mirror</option>
-      </select>
-    </div>
-  )
-}
+
 
 // Mirror Controls Component
 function MirrorControls({ 
@@ -177,7 +246,7 @@ function LinearArrayControls({
     return (
     <div className="modifier-controls__section">
       <div className="modifier-controls__grid">
-        <ModifierSlider
+        <ModifierPropertyInput
           label="Count"
           value={settings.count}
           min={2}
@@ -186,7 +255,7 @@ function LinearArrayControls({
           onChange={(value) => updateSetting('count', value)}
         />
         
-        <ModifierSlider
+        <ModifierPropertyInput
           label="Offset X"
           value={settings.offsetX}
           min={-200}
@@ -195,7 +264,7 @@ function LinearArrayControls({
           onChange={(value) => updateSetting('offsetX', value)}
         />
         
-        <ModifierSlider
+        <ModifierPropertyInput
           label="Offset Y"
           value={settings.offsetY}
           min={-200}
@@ -204,7 +273,7 @@ function LinearArrayControls({
           onChange={(value) => updateSetting('offsetY', value)}
         />
         
-        <ModifierSlider
+        <ModifierPropertyInput
           label="Rotation"
           value={settings.rotation}
           min={-180}
@@ -213,21 +282,23 @@ function LinearArrayControls({
           onChange={(value) => updateSetting('rotation', value)}
         />
         
-        <ModifierSlider
+        <ModifierPropertyInput
           label="Spacing"
           value={settings.spacing}
           min={0.1}
           max={3}
           step={0.1}
+          precision={1}
           onChange={(value) => updateSetting('spacing', value)}
         />
         
-        <ModifierSlider
+        <ModifierPropertyInput
           label="Scale Step"
           value={settings.scaleStep}
-          min={0.5}
-          max={2}
-          step={0.05}
+          min={0.8}
+          max={1.5}
+          step={0.001}
+          precision={3}
           onChange={(value) => updateSetting('scaleStep', value)}
         />
       </div>
@@ -405,7 +476,9 @@ function removeMockModifier(shapeId: TLShapeId, modifierId: string) {
 export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
   const editor = useEditor()
   const refreshKey = useModifierRefresh() // Use the global refresh mechanism
-  const [selectedModifierType, setSelectedModifierType] = useState<ModifierType>('linear')
+  const [showModifierDropdown, setShowModifierDropdown] = useState(false)
+  // Collapsed state for each modifier by id
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   
   // Get the first selected shape (for now, we'll work with single selection)
   const primaryShape = selectedShapes[0]
@@ -417,12 +490,12 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
   }, [primaryShape, refreshKey])
   
   // Add a new array modifier based on selected type
-  const addArrayModifier = useCallback(() => {
+  const addArrayModifier = useCallback((modifierType: ModifierType) => {
     if (!primaryShape) return
     
     let newModifier: TLModifier
     
-    switch (selectedModifierType) {
+    switch (modifierType) {
       case 'linear':
         newModifier = {
           id: createModifierId(),
@@ -437,7 +510,7 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
             offsetY: 0,
             rotation: 0,
             spacing: 1,
-            scaleStep: 1
+            scaleStep: 1.1
           }
         } as TLLinearArrayModifier
         break
@@ -502,9 +575,12 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
     
     addMockModifier(primaryShape.id, newModifier)
     
+    // Close the dropdown after adding
+    setShowModifierDropdown(false)
+    
     // Mark for undo/redo
     editor.markHistoryStoppingPoint()
-  }, [primaryShape, modifiers.length, editor, selectedModifierType])
+  }, [primaryShape, modifiers.length, editor])
   
   // Update modifier settings
   const updateModifier = useCallback((modifierId: string, settings: LinearArraySettings) => {
@@ -583,38 +659,69 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
   
   return (
     <div className="modifier-controls" onPointerDown={stopEventPropagation}>
-      {/* Header with Add Button */}
-      <div className="modifier-controls__header">
-        <div className="modifier-controls__title">Modifiers</div>
+      {/* Add Button Section */}
+      <div className="modifier-controls__add-section">
         <TldrawUiButton 
-          type="icon" 
-          className="modifier-controls__add-button modifier-controls__square-button"
-          onClick={addArrayModifier}
+          type="normal" 
+          className="modifier-controls__add-button"
+          onClick={() => setShowModifierDropdown(!showModifierDropdown)}
           onPointerDown={stopEventPropagation}
-          title={`Add ${selectedModifierType === 'mirror' ? 'Mirror' : selectedModifierType + ' Array'} Modifier`}
+          title="Add Modifier"
         >
           <TldrawUiButtonIcon icon="plus" />
+          Add Modifier
         </TldrawUiButton>
+        
+        {/* Modifier Type Dropdown */}
+        {showModifierDropdown && (
+          <div className="modifier-controls__dropdown-menu">
+            <TldrawUiButton 
+              type="menu" 
+              className="modifier-controls__dropdown-item"
+              onClick={() => addArrayModifier('linear')}
+              onPointerDown={stopEventPropagation}
+            >
+              Linear Array
+            </TldrawUiButton>
+            <TldrawUiButton 
+              type="menu" 
+              className="modifier-controls__dropdown-item"
+              onClick={() => addArrayModifier('circular')}
+              onPointerDown={stopEventPropagation}
+            >
+              Circular Array
+            </TldrawUiButton>
+            <TldrawUiButton 
+              type="menu" 
+              className="modifier-controls__dropdown-item"
+              onClick={() => addArrayModifier('grid')}
+              onPointerDown={stopEventPropagation}
+            >
+              Grid Array
+            </TldrawUiButton>
+            <TldrawUiButton 
+              type="menu" 
+              className="modifier-controls__dropdown-item"
+              onClick={() => addArrayModifier('mirror')}
+              onPointerDown={stopEventPropagation}
+            >
+              Mirror
+            </TldrawUiButton>
+          </div>
+        )}
       </div>
       
-      {/* Array Type Dropdown */}
-              <ModifierTypeDropdown
-          modifierType={selectedModifierType}
-          onChange={setSelectedModifierType}
-      />
-      
-      {/* Break Apart Button Section */}
+      {/* Apply Button Section */}
       {modifiers.length > 0 && (
-        <div className="modifier-controls__break-apart-section">
+        <div className="modifier-controls__apply-section">
           <TldrawUiButton 
             type="normal" 
-            className="modifier-controls__break-apart-button"
+            className="modifier-controls__apply-button"
             onClick={breakApartClones}
             onPointerDown={stopEventPropagation}
-            title="Break Apart - Make clones unique and remove modifiers"
+            title="Apply - Make clones unique and remove modifiers"
           >
-            <TldrawUiButtonIcon icon="external-link" />
-            Break Apart Clones
+            Apply
           </TldrawUiButton>
         </div>
       )}
@@ -622,12 +729,13 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
       {/* Modifier List */}
       {modifiers.length === 0 ? (
         <div className="modifier-controls__empty">
-          No modifiers. Click + to add an Array.
+          No modifiers. Click "Add Modifier" to add one.
         </div>
       ) : (
         <div className="modifier-controls__list">
           {modifiers.map((modifier) => {
             const anyModifier = modifier as TLModifier
+            const isCollapsed = collapsed[modifier.id] || false
             
             const getModifierTypeName = (type: string) => {
               switch (type) {
@@ -641,13 +749,23 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
             
             return (
               <div key={modifier.id.toString()} className="modifier-controls__item">
-                <div className="modifier-controls__item-header">
-                  <span className="modifier-controls__item-title">
+                <div className="modifier-controls__item-header modifier-controls__item-header--borderless">
+                  <span className="modifier-controls__item-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button
+                      className="modifier-controls__collapse-btn"
+                      onClick={() => setCollapsed(c => ({ ...c, [modifier.id]: !isCollapsed }))}
+                      tabIndex={-1}
+                      aria-label={isCollapsed ? 'Expand' : 'Collapse'}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 14 14" style={{ transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>
+                        <polyline points="4,6 7,9 10,6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
                     {getModifierTypeName(anyModifier.type)} #{modifier.order + 1}
                   </span>
                   <TldrawUiButton 
                     type="icon" 
-                    className="modifier-controls__remove-button modifier-controls__square-button"
+                    className="modifier-controls__remove-button modifier-controls__remove-button--small"
                     onClick={() => removeModifier(modifier.id.toString())}
                     onPointerDown={stopEventPropagation}
                     title="Remove Modifier"
@@ -656,33 +774,36 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
                   </TldrawUiButton>
                 </div>
                 
-                {/* Render different controls based on modifier type */}
-                {anyModifier.type === 'linear-array' && (
-                  <LinearArrayControls
-                    settings={(anyModifier as TLLinearArrayModifier).props}
-                    onChange={(settings) => updateModifier(modifier.id.toString(), settings)}
-                  />
-                )}
-                
-                {anyModifier.type === 'circular-array' && (
-                  <CircularArrayControls
-                    settings={(anyModifier as TLCircularArrayModifier).props}
-                    onChange={(settings) => updateModifier(modifier.id.toString(), settings as any)}
-                  />
-                )}
-                
-                {anyModifier.type === 'grid-array' && (
-                  <GridArrayControls
-                    settings={(anyModifier as TLGridArrayModifier).props}
-                    onChange={(settings) => updateModifier(modifier.id.toString(), settings as any)}
-                  />
-                )}
-                
-                {anyModifier.type === 'mirror' && (
-                  <MirrorControls
-                    settings={(anyModifier as TLMirrorModifier).props}
-                    onChange={(settings) => updateModifier(modifier.id.toString(), settings as any)}
-                  />
+                {!isCollapsed && (
+                  <div className="modifier-controls__inputs-wrapper">
+                    {anyModifier.type === 'linear-array' && (
+                      <LinearArrayControls
+                        settings={(anyModifier as TLLinearArrayModifier).props}
+                        onChange={(settings) => updateModifier(modifier.id.toString(), settings)}
+                      />
+                    )}
+                    
+                    {anyModifier.type === 'circular-array' && (
+                      <CircularArrayControls
+                        settings={(anyModifier as TLCircularArrayModifier).props}
+                        onChange={(settings) => updateModifier(modifier.id.toString(), settings as any)}
+                      />
+                    )}
+                    
+                    {anyModifier.type === 'grid-array' && (
+                      <GridArrayControls
+                        settings={(anyModifier as TLGridArrayModifier).props}
+                        onChange={(settings) => updateModifier(modifier.id.toString(), settings as any)}
+                      />
+                    )}
+                    
+                    {anyModifier.type === 'mirror' && (
+                      <MirrorControls
+                        settings={(anyModifier as TLMirrorModifier).props}
+                        onChange={(settings) => updateModifier(modifier.id.toString(), settings as any)}
+                      />
+                    )}
+                  </div>
                 )}
               </div>
             )

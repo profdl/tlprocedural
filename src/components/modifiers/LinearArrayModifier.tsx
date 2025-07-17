@@ -67,9 +67,9 @@ function calculateArrayPositions(
     // Calculate rotation in radians for this clone
     const rotationRadians = settings.rotation * i * Math.PI / 180
     
-    // Calculate scale with step
-    const scaleX = Math.pow(settings.scaleStep, i)
-    const scaleY = Math.pow(settings.scaleStep, i)
+    // Calculate scale with step - additive scaling
+    const scaleX = 1 + (settings.scaleStep - 1) * i
+    const scaleY = 1 + (settings.scaleStep - 1) * i
     
     // Debug logging to verify calculations
     console.log(`Array clone ${i}:`, {
@@ -232,6 +232,8 @@ function createNativeShapeClones(
     }
 
     // Handle scaling for different shape types
+    console.log(`Shape type: ${originalShape.type}, props:`, originalShape.props)
+    
     if ('w' in originalShape.props && 'h' in originalShape.props) {
       cloneShape.props = {
         ...cloneShape.props,
@@ -240,6 +242,23 @@ function createNativeShapeClones(
       }
       
       console.log(`Applied scaling to clone ${position.index}: ${originalWidth}x${originalHeight} -> ${scaledWidth}x${scaledHeight}`)
+    } else {
+      // Try alternative scaling methods for shapes without w/h props
+      console.log(`Shape ${originalShape.type} doesn't have w/h props, trying alternative scaling`)
+      
+      // For shapes that might use different scaling properties
+      if (position.scaleX !== 1 || position.scaleY !== 1) {
+        // Try to apply scaling through props if available
+        if ('scale' in originalShape.props) {
+          cloneShape.props = {
+            ...cloneShape.props,
+            scale: position.scaleX // Use scaleX as the scale factor
+          }
+          console.log(`Applied scale prop to clone ${position.index}: ${position.scaleX}`)
+        } else {
+          console.log(`No scaling method found for shape type: ${originalShape.type}`)
+        }
+      }
     }
 
     return cloneShape

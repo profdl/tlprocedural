@@ -7,15 +7,15 @@
 /* Custom Modifiers section styles */
 .tlui-style-panel__section {
   border-top: 1px solid var(--color-panel-contrast);
-  padding-top: 8px;
+  padding-top: 2px;
 }
 
 .tlui-style-panel__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 4px 8px;
+  gap: 2px;
+  padding: 0px 0px;
 }
 
 .tlui-style-panel__section-label {
@@ -64,21 +64,13 @@
   font-size: 12px;
 }
 
-.modifier-controls__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
+.modifier-controls__add-section {
+  position: relative;
+  padding: 2px 2px;
   border-bottom: 1px solid var(--color-panel-contrast);
   background: var(--color-panel);
-}
-
-.modifier-controls__title {
-  font-weight: 500;
-  color: var(--color-text-1);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  display: flex;
+  justify-content: center;
 }
 
 .modifier-controls__buttons {
@@ -88,47 +80,47 @@
 }
 
 .modifier-controls__add-button {
-  width: 20px;
-  height: 20px;
-  padding: 0;
+  padding: 6px 12px;
   background: var(--color-primary);
-  border-radius: 3px;
+  border-radius: 4px;
   border: none;
   color: white;
   cursor: pointer;
   transition: all 0.1s ease;
+  font-size: 11px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .modifier-controls__add-button:hover {
   background: var(--color-accent);
 }
 
-.modifier-controls__break-apart-section {
+.modifier-controls__apply-section {
   padding: 8px 12px;
   border-bottom: 1px solid var(--color-panel-contrast);
-  background: var(--color-muted-1);
 }
 
-.modifier-controls__break-apart-button {
+.modifier-controls__apply-button {
   width: 100%;
   padding: 8px 12px;
-  background: var(--color-warn);
+  background: var(--color-muted-1);
   border-radius: 4px;
-  border: none;
-  color: white;
+  border: 1px solid var(--color-panel-contrast);
+  color: var(--color-text-1);
   cursor: pointer;
   transition: all 0.1s ease;
   font-size: 12px;
   font-weight: 500;
   display: flex;
   align-items: center;
-  gap: 6px;
   justify-content: center;
 }
 
-.modifier-controls__break-apart-button:hover {
-  background: var(--color-warn);
-  opacity: 0.8;
+.modifier-controls__apply-button:hover {
+  background: var(--color-muted-2);
 }
 
 .modifier-controls__add-button svg {
@@ -144,8 +136,9 @@
 }
 
 .modifier-controls__list {
-  max-height: 400px;
+  max-height: 300px;
   overflow-y: auto;
+  padding-bottom: 8px;
 }
 
 .modifier-controls__item {
@@ -158,8 +151,12 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: var(--color-muted-1);
   border-bottom: 1px solid var(--color-panel-contrast);
+}
+
+/* Remove background for borderless header */
+.modifier-controls__item-header--borderless {
+  background: none !important;
 }
 
 .modifier-controls__item-title {
@@ -191,6 +188,17 @@
   height: 10px;
 }
 
+.modifier-controls__remove-button--small {
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  min-height: 16px !important;
+}
+.modifier-controls__remove-button--small .tlui-button__icon {
+  width: 10px !important;
+  height: 10px !important;
+}
+
 .modifier-controls__section {
   padding: 12px;
 }
@@ -205,7 +213,8 @@
 .modifier-controls__grid {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
+  align-items: stretch;
 }
 
 /* Modifier Slider Styles */
@@ -237,6 +246,8 @@
 
 .modifier-slider__input {
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   height: 4px;
   background: var(--color-muted-1);
   border-radius: 2px;
@@ -379,7 +390,7 @@
 
 .custom-style-panel__tab {
   flex: 1;
-  padding: 8px 12px;
+  padding: 8px 16px;
   border: none;
   background: transparent;
   color: var(--color-text-2);
@@ -390,6 +401,13 @@
   cursor: pointer;
   transition: all 0.1s ease;
   border-radius: 0;
+  text-align: center;
+}
+
+/* Give MODIFIERS tab more space */
+.custom-style-panel__tab:last-child {
+  flex: 1.2;
+  padding-right: 20px;
 }
 
 .custom-style-panel__tab:hover {
@@ -405,6 +423,14 @@
 
 .custom-style-panel__content {
   padding: 0;
+  min-height: 400px;
+  overflow-y: auto;
+}
+
+/* Ensure the style panel itself has proper height */
+.tlui-style-panel {
+  min-height: 500px !important;
+  max-height: 80vh !important;
 }
 
 /* Array Type Dropdown Styles */
@@ -435,4 +461,165 @@
   outline: none;
   border-color: var(--color-accent);
   background: var(--color-background);
+}
+
+.modifier-controls__dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-panel-contrast);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 140px;
+}
+
+.modifier-controls__dropdown-item {
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-1);
+  cursor: pointer;
+  transition: all 0.1s ease;
+  font-size: 11px;
+  text-align: left;
+  border-radius: 0;
+}
+
+.modifier-controls__dropdown-item:first-child {
+  border-radius: 4px 4px 0 0;
+}
+
+.modifier-controls__dropdown-item:last-child {
+  border-radius: 0 0 4px 4px;
+}
+
+.modifier-controls__dropdown-item:hover {
+  background: var(--color-muted-1);
+}
+
+/* Modifier Inputs Wrapper with border */
+.modifier-controls__inputs-wrapper {
+  border: none;
+  border-radius: 6px;
+  padding: 2px 2px;
+  margin: 0 2px 12px 2px;
+  background: var(--color-panel);
+}
+
+/* Collapse/Expand Carat Button */
+.modifier-controls__collapse-btn {
+  background: none;
+  border: none;
+  padding: 0 1px 0 0;
+  margin-right: 2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  color: var(--color-text-2);
+  height: 18px;
+}
+.modifier-controls__collapse-btn:focus {
+  outline: none;
+}
+.modifier-controls__collapse-btn svg {
+  display: block;
+}
+
+/* Modifier Property Input Component */
+.modifier-property-input {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.modifier-property-input__label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--color-text-2);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.modifier-property-input__number {
+  width: 60px;
+  padding: 2px 4px;
+  border: 1px solid var(--color-panel-contrast);
+  border-radius: 3px;
+  background: var(--color-panel);
+  color: var(--color-text-1);
+  font-size: 11px;
+  font-family: var(--tl-font-mono);
+  text-align: center;
+}
+
+.modifier-property-input__number:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.modifier-property-input__slider {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  height: 4px;
+  background: var(--color-muted-1);
+  border-radius: 2px;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.modifier-property-input__slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 2px solid white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+}
+
+.modifier-property-input__slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 2px solid white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  border: none;
+}
+
+.modifier-property-input__slider::-webkit-slider-track {
+  height: 4px;
+  background: var(--color-muted-1);
+  border-radius: 2px;
+}
+
+.modifier-property-input__slider::-moz-range-track {
+  height: 4px;
+  background: var(--color-muted-1);
+  border-radius: 2px;
+  border: none;
+}
+
+/* Dark mode adjustments for property input sliders */
+@media (prefers-color-scheme: dark) {
+  .modifier-property-input__slider::-webkit-slider-thumb {
+    border-color: var(--color-panel);
+  }
+  
+  .modifier-property-input__slider::-moz-range-thumb {
+    border-color: var(--color-panel);
+  }
 }

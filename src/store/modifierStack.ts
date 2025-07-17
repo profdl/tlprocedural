@@ -33,7 +33,19 @@ export function createInitialShapeState(shape: TLShape): ShapeState {
 
 // Helper function to convert ShapeState back to TLShape array for rendering
 export function extractShapesFromState(state: ShapeState): TLShape[] {
-  return state.instances.map(instance => {
+  console.log('extractShapesFromState called with instances:', state.instances.length)
+  
+  return state.instances.map((instance, index) => {
+    console.log(`Processing instance ${index}:`, {
+      transform: instance.transform,
+      hasW: 'w' in instance.shape.props,
+      hasH: 'h' in instance.shape.props,
+      originalW: 'w' in instance.shape.props ? instance.shape.props.w : 'N/A',
+      originalH: 'h' in instance.shape.props ? instance.shape.props.h : 'N/A',
+      scaleX: instance.transform.scaleX,
+      scaleY: instance.transform.scaleY
+    })
+    
     const baseShape = {
       ...instance.shape,
       x: instance.transform.x,
@@ -93,14 +105,26 @@ export function extractShapesFromState(state: ShapeState): TLShape[] {
         const newW = Math.abs((instance.shape.props.w as number) * instance.transform.scaleX)
         const newH = Math.abs((instance.shape.props.h as number) * instance.transform.scaleY)
         
+        console.log(`Applying scaling to instance ${index}:`, {
+          originalW: instance.shape.props.w,
+          originalH: instance.shape.props.h,
+          scaleX: instance.transform.scaleX,
+          scaleY: instance.transform.scaleY,
+          newW,
+          newH
+        })
+        
         baseShape.props = {
           ...baseShape.props,
           w: newW,
           h: newH
         }
+      } else {
+        console.log(`Instance ${index} doesn't have w/h props, skipping scaling`)
       }
     }
     
+    console.log(`Final shape ${index} props:`, baseShape.props)
     return baseShape
   })
 }
@@ -112,6 +136,13 @@ export class ModifierStack {
     originalShape: TLShape, 
     modifiers: TLModifier[]
   ): ShapeState {
+    console.log('ModifierStack.processModifiers called with:', {
+      shapeId: originalShape.id,
+      shapeType: originalShape.type,
+      modifierCount: modifiers.length,
+      modifiers: modifiers.map(m => ({ type: m.type, enabled: m.enabled, order: m.order }))
+    })
+    
     // Start with the original shape as initial state
     let currentState = createInitialShapeState(originalShape)
     
@@ -170,6 +201,7 @@ export class ModifierStack {
 // Linear Array Processor implementation
 const LinearArrayProcessor: ModifierProcessor = {
   process(input: ShapeState, settings: any): ShapeState {
+    console.log('LinearArrayProcessor.process called with settings:', settings)
     const { count, offsetX, offsetY, rotation, spacing, scaleStep } = settings
     
     // Start with empty instances (we'll generate new ones)
@@ -186,8 +218,8 @@ const LinearArrayProcessor: ModifierProcessor = {
           x: inputInstance.transform.x + (offsetX * i * spacing),
           y: inputInstance.transform.y + (offsetY * i * spacing),
           rotation: inputInstance.transform.rotation + (rotation * i * Math.PI / 180),
-          scaleX: inputInstance.transform.scaleX * Math.pow(scaleStep, i),
-          scaleY: inputInstance.transform.scaleY * Math.pow(scaleStep, i)
+          scaleX: inputInstance.transform.scaleX * (1 + (scaleStep - 1) * i),
+          scaleY: inputInstance.transform.scaleY * (1 + (scaleStep - 1) * i)
         }
         
         const newInstance: ShapeInstance = {

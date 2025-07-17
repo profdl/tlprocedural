@@ -196,12 +196,19 @@ export function ModifierRenderer() {
     'shapes-with-modifiers',
     () => {
       const allShapes = editor.getCurrentPageShapes()
+      console.log('ModifierRenderer: All shapes:', allShapes.length)
+      
       const shapesWithMods = allShapes
         .map(shape => ({
           shape,
           modifiers: getShapeModifiers(shape.id)
         }))
         .filter(item => item.modifiers.length > 0)
+      
+      console.log('ModifierRenderer: Shapes with modifiers:', shapesWithMods.length)
+      shapesWithMods.forEach(item => {
+        console.log(`Shape ${item.shape.id} has ${item.modifiers.length} modifiers:`, item.modifiers.map(m => m.type))
+      })
       
       return shapesWithMods
     },
