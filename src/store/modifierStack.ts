@@ -33,12 +33,76 @@ export function createInitialShapeState(shape: TLShape): ShapeState {
 
 // Helper function to convert ShapeState back to TLShape array for rendering
 export function extractShapesFromState(state: ShapeState): TLShape[] {
-  return state.instances.map(instance => ({
-    ...instance.shape,
-    x: instance.transform.x,
-    y: instance.transform.y,
-    rotation: instance.transform.rotation
-  }))
+  return state.instances.map(instance => {
+    const baseShape = {
+      ...instance.shape,
+      x: instance.transform.x,
+      y: instance.transform.y,
+      rotation: instance.transform.rotation
+    }
+    
+    // Debug logging to see what values we're applying
+    if (instance.metadata?.isMirrored && 'w' in instance.shape.props && 'h' in instance.shape.props) {
+      console.log('Mirror transform:', {
+        originalW: instance.shape.props.w,
+        originalH: instance.shape.props.h,
+        scaleX: instance.transform.scaleX,
+        scaleY: instance.transform.scaleY,
+        willFlipX: instance.transform.scaleX < 0,
+        willFlipY: instance.transform.scaleY < 0,
+        rotationTransfer: {
+          originalShapeRotation: instance.shape.rotation,
+          transformRotation: instance.transform.rotation,
+          finalShapeRotation: instance.transform.rotation,
+          rotationInDegrees: (instance.transform.rotation * 180 / Math.PI).toFixed(1) + '°'
+        }
+      })
+    }
+    
+    // For mirrored shapes, we need to handle the negative scaling specially
+    if (instance.metadata?.isMirrored) {
+      // Store the original dimensions - don't modify them
+      if ('w' in instance.shape.props && 'h' in instance.shape.props) {
+        baseShape.props = {
+          ...baseShape.props,
+          w: instance.shape.props.w,  // Keep original width
+          h: instance.shape.props.h   // Keep original height
+        }
+      }
+      
+      // Store all the transform information in metadata for CSS rendering
+      baseShape.meta = {
+        ...baseShape.meta,
+        isFlippedX: instance.transform.scaleX < 0,
+        isFlippedY: instance.transform.scaleY < 0,
+        mirrorAxis: instance.metadata.mirrorAxis,
+        scaleX: instance.transform.scaleX,
+        scaleY: instance.transform.scaleY,
+        isMirrored: true
+      }
+      
+      console.log('Stored flip metadata:', {
+        isFlippedX: instance.transform.scaleX < 0,
+        isFlippedY: instance.transform.scaleY < 0,
+        scaleX: instance.transform.scaleX,
+        scaleY: instance.transform.scaleY
+      })
+    } else {
+      // For non-mirrored shapes, apply scaling normally to shape props
+      if ('w' in instance.shape.props && 'h' in instance.shape.props) {
+        const newW = Math.abs((instance.shape.props.w as number) * instance.transform.scaleX)
+        const newH = Math.abs((instance.shape.props.h as number) * instance.transform.scaleY)
+        
+        baseShape.props = {
+          ...baseShape.props,
+          w: newW,
+          h: newH
+        }
+      }
+    }
+    
+    return baseShape
+  })
 }
 
 // Main ModifierStack class
@@ -94,6 +158,8 @@ export class ModifierStack {
         return CircularArrayProcessor
       case 'grid-array':
         return GridArrayProcessor
+      case 'mirror':
+        return MirrorProcessor
       default:
         console.warn(`No processor found for modifier type: ${modifierType}`)
         return null
@@ -247,4 +313,222 @@ const GridArrayProcessor: ModifierProcessor = {
       instances: newInstances
     }
   }
+}
+
+// Mirror Processor implementation
+const MirrorProcessor: ModifierProcessor = {
+  process(input: ShapeState, settings: any): ShapeState {
+    const { axis, offset, mergeThreshold } = settings
+    
+    const newInstances: ShapeInstance[] = []
+    
+    // Add all original instances first
+    newInstances.push(...input.instances)
+    
+    // Group instances by their source modifier to handle arrays as units
+    const instanceGroups = new Map<string, ShapeInstance[]>()
+    
+    input.instances.forEach(instance => {
+      // Group instances that were created by the same modifier operation
+      const groupKey = instance.metadata?.sourceInstance !== undefined 
+        ? `modifier-${instance.metadata.sourceInstance}` 
+        : 'original'
+      
+      if (!instanceGroups.has(groupKey)) {
+        instanceGroups.set(groupKey, [])
+      }
+      instanceGroups.get(groupKey)!.push(instance)
+    })
+    
+    console.log(`🪞 Mirror processor: Found ${instanceGroups.size} groups to mirror:`, 
+      Array.from(instanceGroups.keys()).map(key => 
+        `${key} (${instanceGroups.get(key)?.length} instances)`
+      )
+    )
+    
+    // Process each group as a unit
+    instanceGroups.forEach((groupInstances, groupKey) => {
+      // Calculate the bounding box of the entire group
+      const groupBounds = calculateGroupBounds(groupInstances)
+      
+      console.log(`🪞 Mirroring group "${groupKey}":`, {
+        instances: groupInstances.length,
+        bounds: groupBounds,
+        axis,
+        offset
+      })
+      
+      // Mirror each instance in the group relative to the group's center
+      groupInstances.forEach(inputInstance => {
+        console.log(`🪞 Processing instance for mirroring:`, {
+          inputRotation: inputInstance.transform.rotation,
+          inputRotationDegrees: (inputInstance.transform.rotation * 180 / Math.PI).toFixed(1) + '°',
+          axis,
+          position: { x: inputInstance.transform.x, y: inputInstance.transform.y }
+        })
+        
+        let mirroredTransform: Transform
+        
+        switch (axis) {
+          case 'x': // Horizontal mirror (flip across vertical axis)
+            const groupCenterX = groupBounds.centerX
+            const mirrorLineX = groupCenterX + offset
+            const distanceFromCenter = inputInstance.transform.x - groupCenterX
+            const mirroredX = mirrorLineX - distanceFromCenter
+            
+            mirroredTransform = {
+              x: mirroredX,
+              y: inputInstance.transform.y,
+              rotation: Math.PI - inputInstance.transform.rotation, // Flip rotation for horizontal mirror
+              scaleX: -inputInstance.transform.scaleX, // Flip horizontally
+              scaleY: inputInstance.transform.scaleY
+            }
+            break
+            
+          case 'y': // Vertical mirror (flip across horizontal axis)
+            const groupCenterY = groupBounds.centerY
+            const mirrorLineY = groupCenterY + offset
+            const distanceFromCenterY = inputInstance.transform.y - groupCenterY
+            const mirroredY = mirrorLineY - distanceFromCenterY
+            
+            mirroredTransform = {
+              x: inputInstance.transform.x,
+              y: mirroredY,
+              rotation: -inputInstance.transform.rotation, // Flip rotation for vertical mirror
+              scaleX: inputInstance.transform.scaleX,
+              scaleY: -inputInstance.transform.scaleY // Flip vertically
+            }
+            break
+            
+          case 'diagonal': // Diagonal mirror (swap X/Y and flip both)
+            const groupCenterDiag = { x: groupBounds.centerX, y: groupBounds.centerY }
+            mirroredTransform = {
+              x: groupCenterDiag.y + (inputInstance.transform.y - groupCenterDiag.y) + offset,
+              y: groupCenterDiag.x + (inputInstance.transform.x - groupCenterDiag.x) + offset,
+              rotation: Math.PI/2 - inputInstance.transform.rotation, // Adjust rotation for diagonal flip
+              scaleX: -inputInstance.transform.scaleY,
+              scaleY: -inputInstance.transform.scaleX
+            }
+            break
+            
+          default:
+            // Default to horizontal mirror
+            const defGroupCenterX = groupBounds.centerX
+            const defMirrorLineX = defGroupCenterX + offset
+            const defDistanceFromCenter = inputInstance.transform.x - defGroupCenterX
+            const defMirroredX = defMirrorLineX - defDistanceFromCenter
+            
+            mirroredTransform = {
+              x: defMirroredX,
+              y: inputInstance.transform.y,
+              rotation: Math.PI - inputInstance.transform.rotation, // Flip rotation for horizontal mirror
+              scaleX: -inputInstance.transform.scaleX,
+              scaleY: inputInstance.transform.scaleY
+            }
+        }
+        
+        // Check if mirrored position is too close to any existing instance (merge threshold)
+        const shouldMerge = mergeThreshold > 0 && newInstances.some(existing => {
+          const dx = existing.transform.x - mirroredTransform.x
+          const dy = existing.transform.y - mirroredTransform.y
+          const distance = Math.sqrt(dx * dx + dy * dy)
+          return distance < mergeThreshold
+        })
+        
+        console.log(`🪞 Calculated mirrored transform:`, {
+          inputRotation: inputInstance.transform.rotation,
+          outputRotation: mirroredTransform.rotation,
+          inputRotationDegrees: (inputInstance.transform.rotation * 180 / Math.PI).toFixed(1) + '°',
+          outputRotationDegrees: (mirroredTransform.rotation * 180 / Math.PI).toFixed(1) + '°',
+          axis,
+          shouldMerge
+        })
+        
+        if (!shouldMerge) {
+          const mirroredInstance: ShapeInstance = {
+            shape: { ...inputInstance.shape },
+            transform: mirroredTransform,
+            index: newInstances.length,
+            metadata: {
+              ...inputInstance.metadata,
+              mirrorAxis: axis,
+              sourceInstance: inputInstance.index,
+              isMirrored: true,
+              originalGroup: groupKey, // Track which group this came from
+              mirrorOfGroup: true // Mark as a group mirror operation
+            }
+          }
+          
+          newInstances.push(mirroredInstance)
+        }
+      })
+    })
+    
+    // After processing all groups, reverse the order of mirrored instances within each group
+    // to match the expected mirror behavior (first becomes last, etc.)
+    const originalInstanceCount = input.instances.length
+    const mirroredInstances = newInstances.slice(originalInstanceCount)
+    
+    // Group mirrored instances by their original group
+    const mirroredGroups = new Map<string, ShapeInstance[]>()
+    mirroredInstances.forEach(instance => {
+      const groupKey = instance.metadata?.originalGroup || 'unknown'
+      if (!mirroredGroups.has(groupKey)) {
+        mirroredGroups.set(groupKey, [])
+      }
+      mirroredGroups.get(groupKey)!.push(instance)
+    })
+    
+    // Reverse the order within each mirrored group
+    mirroredGroups.forEach((instances, groupKey) => {
+      instances.reverse()
+      console.log(`🪞 Reversed order for mirrored group "${groupKey}": ${instances.length} instances`)
+    })
+    
+    // Rebuild the final instances array with original + reversed mirrored groups
+    const finalInstances = [
+      ...input.instances, // Original instances first
+      ...Array.from(mirroredGroups.values()).flat() // Then reversed mirrored instances
+    ]
+    
+    return {
+      ...input,
+      instances: finalInstances
+    }
+  }
+}
+
+// Helper function to calculate the bounding box of a group of instances
+function calculateGroupBounds(instances: ShapeInstance[]): {
+  minX: number, maxX: number, minY: number, maxY: number, 
+  centerX: number, centerY: number, width: number, height: number
+} {
+  if (instances.length === 0) {
+    return { minX: 0, maxX: 0, minY: 0, maxY: 0, centerX: 0, centerY: 0, width: 0, height: 0 }
+  }
+  
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+  
+  instances.forEach(instance => {
+    // Estimate shape bounds (this could be improved with actual shape geometry)
+    const shapeWidth = 'w' in instance.shape.props ? (instance.shape.props.w as number) : 100
+    const shapeHeight = 'h' in instance.shape.props ? (instance.shape.props.h as number) : 100
+    
+    const left = instance.transform.x
+    const right = instance.transform.x + shapeWidth
+    const top = instance.transform.y
+    const bottom = instance.transform.y + shapeHeight
+    
+    minX = Math.min(minX, left)
+    maxX = Math.max(maxX, right)
+    minY = Math.min(minY, top)
+    maxY = Math.max(maxY, bottom)
+  })
+  
+  const centerX = (minX + maxX) / 2
+  const centerY = (minY + maxY) / 2
+  const width = maxX - minX
+  const height = maxY - minY
+  
+  return { minX, maxX, minY, maxY, centerX, centerY, width, height }
 } 

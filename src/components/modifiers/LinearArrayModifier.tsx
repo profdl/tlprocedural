@@ -42,23 +42,53 @@ function calculateArrayPositions(
 ): ArrayPosition[] {
   const positions: ArrayPosition[] = []
   
+  // Get shape dimensions for center calculations
+  let shapeWidth = 100  // default fallback
+  let shapeHeight = 100 // default fallback
+  
+  if ('w' in originalShape.props && 'h' in originalShape.props) {
+    shapeWidth = originalShape.props.w as number
+    shapeHeight = originalShape.props.h as number
+  }
+  
   for (let i = 1; i < settings.count; i++) {
-    // Calculate offset with spacing
-    const offsetX = settings.offsetX * i * settings.spacing
-    const offsetY = settings.offsetY * i * settings.spacing
+    // Calculate position relative to original shape
+    const offsetX = settings.offsetX * i
+    const offsetY = settings.offsetY * i
     
-    // Calculate rotation
-    const rotation = settings.rotation * i
+    // Apply spacing as a multiplier to the offset
+    const spacedOffsetX = offsetX * settings.spacing
+    const spacedOffsetY = offsetY * settings.spacing
+    
+    // Calculate the final position (top-left of the shape)
+    const finalX = originalShape.x + spacedOffsetX
+    const finalY = originalShape.y + spacedOffsetY
+    
+    // Calculate rotation in radians for this clone
+    const rotationRadians = settings.rotation * i * Math.PI / 180
     
     // Calculate scale with step
-    const scaleStep = settings.scaleStep
-    const scaleX = Math.pow(scaleStep, i)
-    const scaleY = Math.pow(scaleStep, i)
+    const scaleX = Math.pow(settings.scaleStep, i)
+    const scaleY = Math.pow(settings.scaleStep, i)
+    
+    // Debug logging to verify calculations
+    console.log(`Array clone ${i}:`, {
+      rotationDegrees: settings.rotation * i,
+      rotationRadians: rotationRadians,
+      finalPosition: { x: finalX, y: finalY },
+      originalPos: { x: originalShape.x, y: originalShape.y },
+      offset: { x: offsetX, y: offsetY },
+      spacedOffset: { x: spacedOffsetX, y: spacedOffsetY },
+      scale: { x: scaleX, y: scaleY },
+      spacing: settings.spacing,
+      scaleStep: settings.scaleStep,
+      shapeDimensions: { w: shapeWidth, h: shapeHeight }
+    })
     
     positions.push({
-      x: originalShape.x + offsetX,
-      y: originalShape.y + offsetY,
-      rotation,
+      x: finalX,
+      y: finalY,
+      rotation: rotationRadians,
       scaleX,
       scaleY,
       index: i
@@ -154,13 +184,40 @@ function createNativeShapeClones(
   return positions.map((position, index) => {
     const cloneId = generateArrayCloneId(originalShape.id, position.index)
     
+    // Calculate final rotation by adding original shape rotation to array rotation
+    const finalRotation = (originalShape.rotation || 0) + position.rotation
+    
+    // Get original dimensions
+    let originalWidth = 100
+    let originalHeight = 100
+    if ('w' in originalShape.props && 'h' in originalShape.props) {
+      originalWidth = originalShape.props.w as number
+      originalHeight = originalShape.props.h as number
+    }
+    
+    // Calculate scaled dimensions
+    const scaledWidth = originalWidth * position.scaleX
+    const scaledHeight = originalHeight * position.scaleY
+    
+    // Debug logging for both positioning and scaling
+    console.log(`Creating clone ${position.index}:`, {
+      originalRotation: originalShape.rotation || 0,
+      arrayRotation: position.rotation,
+      finalRotation: finalRotation,
+      finalRotationDegrees: (finalRotation * 180 / Math.PI).toFixed(1) + '°',
+      position: { x: position.x, y: position.y },
+      originalDimensions: { w: originalWidth, h: originalHeight },
+      scaledDimensions: { w: scaledWidth, h: scaledHeight },
+      scaleFactors: { x: position.scaleX, y: position.scaleY }
+    })
+    
     // Create the clone shape with all original properties
     const cloneShape: TLShapePartial = {
       id: cloneId,
       type: originalShape.type,
       x: position.x,
       y: position.y,
-      rotation: (originalShape.rotation || 0) + (position.rotation * Math.PI / 180),
+      rotation: finalRotation, // Use radians directly
       isLocked: true, // Make array clones non-interactive
       opacity: (originalShape.opacity || 1) * 0.8, // Slightly more transparent
       props: {
@@ -178,9 +235,11 @@ function createNativeShapeClones(
     if ('w' in originalShape.props && 'h' in originalShape.props) {
       cloneShape.props = {
         ...cloneShape.props,
-        w: originalShape.props.w * position.scaleX,
-        h: originalShape.props.h * position.scaleY
+        w: scaledWidth,
+        h: scaledHeight
       }
+      
+      console.log(`Applied scaling to clone ${position.index}: ${originalWidth}x${originalHeight} -> ${scaledWidth}x${scaledHeight}`)
     }
 
     return cloneShape
@@ -260,12 +319,15 @@ export function LinearArrayModifier({
         
         if (!position) return null
 
+        // Calculate final rotation consistently
+        const finalRotation = (shape.rotation || 0) + position.rotation
+
         return {
           id: clone.id,
           type: shape.type,
           x: position.x,
           y: position.y,
-          rotation: (shape.rotation || 0) + (position.rotation * Math.PI / 180),
+          rotation: finalRotation, // Use radians directly
           opacity: (shape.opacity || 1) * 0.8,
           props: {
             ...shape.props,
@@ -358,11 +420,14 @@ export function CircularArrayModifier({
         const position = arrayPositions[index]
         if (!position) return null
         
+        // Calculate final rotation (circular arrays typically don't add rotation, but keep consistent)
+        const finalRotation = (shape.rotation || 0) + position.rotation
+        
         return {
           id: clone.id,
           x: position.x,
           y: position.y,
-          rotation: (shape.rotation || 0) + (position.rotation * Math.PI / 180)
+          rotation: finalRotation // Use radians directly
         }
       }).filter(Boolean) as TLShapePartial[]
 
@@ -446,11 +511,14 @@ export function GridArrayModifier({
         const position = arrayPositions[index]
         if (!position) return null
         
+        // Calculate final rotation (grid arrays typically don't add rotation, but keep consistent)
+        const finalRotation = (shape.rotation || 0) + position.rotation
+        
         return {
           id: clone.id,
           x: position.x,
           y: position.y,
-          rotation: (shape.rotation || 0) + (position.rotation * Math.PI / 180)
+          rotation: finalRotation // Use radians directly
         }
       }).filter(Boolean) as TLShapePartial[]
 
@@ -472,18 +540,41 @@ export function applyLinearArrayModifier(
 ): TLShape[] {
   const results = [shape] // Start with original
   
+  // Get shape dimensions for center calculations
+  let shapeWidth = 100  // default fallback
+  let shapeHeight = 100 // default fallback
+  
+  if ('w' in shape.props && 'h' in shape.props) {
+    shapeWidth = shape.props.w as number
+    shapeHeight = shape.props.h as number
+  }
+  
   for (let i = 1; i < settings.count; i++) {
-    // Calculate position
-    const offsetX = settings.offsetX * i * settings.spacing
-    const offsetY = settings.offsetY * i * settings.spacing
+    // Calculate position relative to original shape
+    const offsetX = settings.offsetX * i
+    const offsetY = settings.offsetY * i
+    
+    // Apply spacing as a multiplier to the offset
+    const spacedOffsetX = offsetX * settings.spacing
+    const spacedOffsetY = offsetY * settings.spacing
+    
+    // Calculate the final position (top-left of the shape)
+    const finalX = shape.x + spacedOffsetX
+    const finalY = shape.y + spacedOffsetY
+    
+    // Calculate rotation in radians for this clone
+    const rotationRadians = settings.rotation * i * Math.PI / 180
+    
+    // Calculate final rotation by adding original shape rotation to array rotation
+    const finalRotation = (shape.rotation || 0) + rotationRadians
     
     // Create modified copy
     const copy = {
       ...shape,
       id: generateArrayCloneId(shape.id, i),
-      x: shape.x + offsetX,
-      y: shape.y + offsetY,
-      rotation: (shape.rotation || 0) + (settings.rotation * i * Math.PI / 180),
+      x: finalX,
+      y: finalY,
+      rotation: finalRotation, // Use radians directly
       isLocked: true,
       meta: {
         ...shape.meta,

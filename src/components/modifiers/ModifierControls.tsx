@@ -12,16 +12,18 @@ import {
   type LinearArraySettings, 
   type CircularArraySettings,
   type GridArraySettings,
+  type MirrorSettings,
   type TLLinearArrayModifier,
   type TLCircularArrayModifier,
   type TLGridArrayModifier,
+  type TLMirrorModifier,
   type TLModifier,
   createModifierId 
 } from '../../types/modifiers'
 import { isArrayClone, getOriginalShapeId } from './LinearArrayModifier'
 
-// Array type options
-type ArrayType = 'linear' | 'circular' | 'grid'
+// Modifier type options
+type ModifierType = 'linear' | 'circular' | 'grid' | 'mirror'
 
 interface ModifierControlsProps {
   selectedShapes: TLShape[]
@@ -84,26 +86,78 @@ function NumberInput({
   )
 }
 
-// Array Type Dropdown Component
-function ArrayTypeDropdown({
-  arrayType,
+// Modifier Type Dropdown Component
+function ModifierTypeDropdown({
+  modifierType,
   onChange
 }: {
-  arrayType: ArrayType
-  onChange: (type: ArrayType) => void
+  modifierType: ModifierType
+  onChange: (type: ModifierType) => void
 }) {
   return (
     <div className="modifier-controls__dropdown">
       <select 
-        value={arrayType}
-        onChange={(e) => onChange(e.target.value as ArrayType)}
+        value={modifierType}
+        onChange={(e) => onChange(e.target.value as ModifierType)}
         className="modifier-controls__select"
         onPointerDown={stopEventPropagation}
       >
         <option value="linear">Linear Array</option>
         <option value="circular">Circular Array</option>
         <option value="grid">Grid Array</option>
+        <option value="mirror">Mirror</option>
       </select>
+    </div>
+  )
+}
+
+// Mirror Controls Component
+function MirrorControls({ 
+  settings, 
+  onChange 
+}: { 
+  settings: MirrorSettings
+  onChange: (settings: MirrorSettings) => void 
+}) {
+  const updateSetting = useCallback((key: keyof MirrorSettings, value: string | number) => {
+    onChange({ ...settings, [key]: value })
+  }, [settings, onChange])
+
+  return (
+    <div className="modifier-controls__section">
+      <div className="modifier-controls__grid">
+        <div className="modifier-controls__dropdown">
+          <label>Mirror Axis</label>
+          <select
+            value={settings.axis}
+            onChange={(e) => updateSetting('axis', e.target.value)}
+            className="modifier-controls__select"
+            onPointerDown={stopEventPropagation}
+          >
+            <option value="x">Horizontal (X)</option>
+            <option value="y">Vertical (Y)</option>
+            <option value="diagonal">Diagonal</option>
+          </select>
+        </div>
+        
+        <ModifierSlider
+          label="Offset"
+          value={settings.offset}
+          min={-200}
+          max={200}
+          step={1}
+          onChange={(value) => updateSetting('offset', value)}
+        />
+        
+        <ModifierSlider
+          label="Merge Threshold"
+          value={settings.mergeThreshold}
+          min={0}
+          max={50}
+          step={1}
+          onChange={(value) => updateSetting('mergeThreshold', value)}
+        />
+      </div>
     </div>
   )
 }
@@ -351,7 +405,7 @@ function removeMockModifier(shapeId: TLShapeId, modifierId: string) {
 export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
   const editor = useEditor()
   const refreshKey = useModifierRefresh() // Use the global refresh mechanism
-  const [selectedArrayType, setSelectedArrayType] = useState<ArrayType>('linear')
+  const [selectedModifierType, setSelectedModifierType] = useState<ModifierType>('linear')
   
   // Get the first selected shape (for now, we'll work with single selection)
   const primaryShape = selectedShapes[0]
@@ -368,7 +422,7 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
     
     let newModifier: TLModifier
     
-    switch (selectedArrayType) {
+    switch (selectedModifierType) {
       case 'linear':
         newModifier = {
           id: createModifierId(),
@@ -426,6 +480,22 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
         } as TLGridArrayModifier
         break
         
+      case 'mirror':
+        newModifier = {
+          id: createModifierId(),
+          typeName: 'modifier',
+          type: 'mirror',
+          targetShapeId: primaryShape.id,
+          enabled: true,
+          order: modifiers.length,
+          props: {
+            axis: 'x',
+            offset: 0,
+            mergeThreshold: 10
+          }
+        } as TLMirrorModifier
+        break
+        
       default:
         return
     }
@@ -434,7 +504,7 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
     
     // Mark for undo/redo
     editor.markHistoryStoppingPoint()
-  }, [primaryShape, modifiers.length, editor, selectedArrayType])
+  }, [primaryShape, modifiers.length, editor, selectedModifierType])
   
   // Update modifier settings
   const updateModifier = useCallback((modifierId: string, settings: LinearArraySettings) => {
@@ -521,16 +591,16 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
           className="modifier-controls__add-button modifier-controls__square-button"
           onClick={addArrayModifier}
           onPointerDown={stopEventPropagation}
-          title={`Add ${selectedArrayType} Array Modifier`}
+          title={`Add ${selectedModifierType === 'mirror' ? 'Mirror' : selectedModifierType + ' Array'} Modifier`}
         >
           <TldrawUiButtonIcon icon="plus" />
         </TldrawUiButton>
       </div>
       
       {/* Array Type Dropdown */}
-      <ArrayTypeDropdown 
-        arrayType={selectedArrayType}
-        onChange={setSelectedArrayType}
+              <ModifierTypeDropdown
+          modifierType={selectedModifierType}
+          onChange={setSelectedModifierType}
       />
       
       {/* Break Apart Button Section */}
@@ -559,12 +629,13 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
           {modifiers.map((modifier) => {
             const anyModifier = modifier as TLModifier
             
-            const getArrayTypeName = (type: string) => {
+            const getModifierTypeName = (type: string) => {
               switch (type) {
-                case 'linear-array': return 'Linear'
-                case 'circular-array': return 'Circular'
-                case 'grid-array': return 'Grid'
-                default: return 'Array'
+                case 'linear-array': return 'Linear Array'
+                case 'circular-array': return 'Circular Array'
+                case 'grid-array': return 'Grid Array'
+                case 'mirror': return 'Mirror'
+                default: return 'Modifier'
               }
             }
             
@@ -572,7 +643,7 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
               <div key={modifier.id.toString()} className="modifier-controls__item">
                 <div className="modifier-controls__item-header">
                   <span className="modifier-controls__item-title">
-                    {getArrayTypeName(anyModifier.type)} Array #{modifier.order + 1}
+                    {getModifierTypeName(anyModifier.type)} #{modifier.order + 1}
                   </span>
                   <TldrawUiButton 
                     type="icon" 
@@ -603,6 +674,13 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
                 {anyModifier.type === 'grid-array' && (
                   <GridArrayControls
                     settings={(anyModifier as TLGridArrayModifier).props}
+                    onChange={(settings) => updateModifier(modifier.id.toString(), settings as any)}
+                  />
+                )}
+                
+                {anyModifier.type === 'mirror' && (
+                  <MirrorControls
+                    settings={(anyModifier as TLMirrorModifier).props}
                     onChange={(settings) => updateModifier(modifier.id.toString(), settings as any)}
                   />
                 )}
