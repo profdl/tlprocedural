@@ -94,8 +94,7 @@ export const useModifierStore = create<ModifierStoreState>()(
             offsetX: 50,
             offsetY: 0,
             rotation: 0,
-            spacing: 1,
-            scaleStep: 1,
+            scaleStep: 1.0,
             ...settings
           }
         } as TLLinearArrayModifier

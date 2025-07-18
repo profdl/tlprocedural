@@ -45,7 +45,6 @@ export interface LinearArraySettings {
   offsetX: number
   offsetY: number
   rotation: number // in degrees
-  spacing: number
   scaleStep: number // scale change per copy
 }
 

@@ -187,8 +187,8 @@ export function calculateLinearPosition(
   offsetX: number,
   offsetY: number,
   rotation: number,
-  spacing: number,
-  scaleStep: number
+  scaleStep: number,
+  count: number
 ): Position {
   // Get shape dimensions for center calculations
   const { width: shapeWidth, height: shapeHeight } = getShapeDimensions(originalShape)
@@ -197,16 +197,16 @@ export function calculateLinearPosition(
   const originalCenterX = originalShape.x + shapeWidth / 2
   const originalCenterY = originalShape.y + shapeHeight / 2
   
-  // Apply spacing as a multiplier to the offset
-  const spacedOffsetX = offsetX * spacing
-  const spacedOffsetY = offsetY * spacing
+  // Convert percentage offsets to pixel values based on shape width
+  const pixelOffsetX = (offsetX / 100) * shapeWidth
+  const pixelOffsetY = (offsetY / 100) * shapeHeight
   
   // Calculate rotation in radians for this clone
   const rotationRadians = degreesToRadians(rotation * index)
   
   // Calculate the offset from the original center
-  const offsetFromCenterX = spacedOffsetX * index
-  const offsetFromCenterY = spacedOffsetY * index
+  const offsetFromCenterX = pixelOffsetX * index
+  const offsetFromCenterY = pixelOffsetY * index
   
   // Apply rotation to the offset around the center
   const cos = Math.cos(rotationRadians)
@@ -231,8 +231,11 @@ export function calculateLinearPosition(
   const compensatedX = finalCenterX - shapeWidth / 2 - centerOffsetX
   const compensatedY = finalCenterY - shapeHeight / 2 - centerOffsetY
   
-  const scaleX = 1 + (scaleStep - 1) * index
-  const scaleY = 1 + (scaleStep - 1) * index
+  // Calculate scale using linear interpolation from original (1.0) to final scale
+  const progress = index / (count - 1) // 0 for first clone, 1 for last clone
+  const interpolatedScale = 1 + (scaleStep - 1) * progress
+  const scaleX = interpolatedScale
+  const scaleY = interpolatedScale
   
   // Debug logging for center-based rotation with compensation
   logShapeOperation('calculateLinearPosition', originalShape.id, {

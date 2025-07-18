@@ -12,11 +12,10 @@ export type ModifierType = typeof MODIFIER_TYPES[keyof typeof MODIFIER_TYPES]
 export const DEFAULT_SETTINGS = {
   [MODIFIER_TYPES.LINEAR_ARRAY]: {
     count: 25,
-    offsetX: 10,
-    offsetY: 0,
+    offsetX: 100, // 100% = shape width
+    offsetY: 0,   // 0% = no vertical offset
     rotation: 0,
-    spacing: 1,
-    scaleStep: 0.98
+    scaleStep: 1.0
   },
   [MODIFIER_TYPES.CIRCULAR_ARRAY]: {
     count: 8,
@@ -46,12 +45,11 @@ export const DEFAULT_SETTINGS = {
 
 // Input constraints
 export const INPUT_CONSTRAINTS = {
-  count: { min: 2, max: 50, step: 0.01 },
-  offsetX: { min: -50, max: 50, step: 0.01 },
-  offsetY: { min: -50, max: 50, step: 0.01 },
-  rotation: { min: -60, max: 60, step: 0.01 },
-  spacing: { min: 0.1, max: 5, step: 0.01, precision: 2 },
-  scaleStep: { min: 0.1, max: 3, step: 0.01, precision: 2 },
+  count: { min: 2, max: 50, step: 1 },
+  offsetX: { min: -200, max: 200, step: 0.1 },
+  offsetY: { min: -200, max: 200, step: 0.1 },
+  rotation: { min: -30, max: 30, step: 0.01 },
+  scaleStep: { min: 0.1, max: 2, step: 0.01, precision: 2 },
   radius: { min: 10, max: 1000, step: 0.01 },
   startAngle: { min: 0, max: 360, step: 0.01 },
   endAngle: { min: 0, max: 360, step: 0.01 },

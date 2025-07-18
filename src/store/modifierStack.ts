@@ -204,7 +204,7 @@ export class ModifierStack {
 const LinearArrayProcessor: ModifierProcessor = {
   process(input: ShapeState, settings: LinearArraySettings): ShapeState {
     console.log('LinearArrayProcessor.process called with settings:', settings)
-    const { count, offsetX, offsetY, rotation, spacing, scaleStep } = settings
+    const { count, offsetX, offsetY, rotation, scaleStep } = settings
     
     // Start with empty instances (we'll generate new ones)
     const newInstances: ShapeInstance[] = []
@@ -230,16 +230,16 @@ const LinearArrayProcessor: ModifierProcessor = {
       
       // Create array copies
       for (let i = 1; i < count; i++) {
-        // Apply spacing as a multiplier to the offset
-        const spacedOffsetX = offsetX * spacing
-        const spacedOffsetY = offsetY * spacing
+        // Convert percentage offsets to pixel values based on shape width
+        const pixelOffsetX = (offsetX / 100) * shapeWidth
+        const pixelOffsetY = (offsetY / 100) * shapeHeight
         
         // Calculate rotation in radians for this clone
         const rotationRadians = (rotation * i * Math.PI / 180)
         
         // Calculate the offset from the original center
-        const offsetFromCenterX = spacedOffsetX * i
-        const offsetFromCenterY = spacedOffsetY * i
+        const offsetFromCenterX = pixelOffsetX * i
+        const offsetFromCenterY = pixelOffsetY * i
         
         // Apply rotation to the offset around the center
         const cos = Math.cos(rotationRadians)
@@ -274,12 +274,16 @@ const LinearArrayProcessor: ModifierProcessor = {
           finalPosition: { x: finalX, y: finalY }
         })
         
+        // Calculate scale using linear interpolation from original (1.0) to final scale
+        const progress = i / (count - 1) // 0 for first clone, 1 for last clone
+        const interpolatedScale = 1 + (scaleStep - 1) * progress
+        
         const newTransform: Transform = {
           x: finalX,
           y: finalY,
           rotation: inputInstance.transform.rotation + rotationRadians,
-          scaleX: inputInstance.transform.scaleX * (1 + (scaleStep - 1) * i),
-          scaleY: inputInstance.transform.scaleY * (1 + (scaleStep - 1) * i)
+          scaleX: inputInstance.transform.scaleX * interpolatedScale,
+          scaleY: inputInstance.transform.scaleY * interpolatedScale
         }
         
         const newInstance: ShapeInstance = {

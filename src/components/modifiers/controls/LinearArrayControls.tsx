@@ -22,27 +22,27 @@ export function LinearArrayControls({ settings, onChange }: LinearArrayControlsP
           min={INPUT_CONSTRAINTS.count.min}
           max={INPUT_CONSTRAINTS.count.max}
           step={INPUT_CONSTRAINTS.count.step}
-          precision={2}
+          precision={0}
           onChange={(value) => updateSetting('count', value)}
         />
         
         <ModifierPropertyInput
-          label="Offset X"
+          label="Offset X (%)"
           value={settings.offsetX}
           min={INPUT_CONSTRAINTS.offsetX.min}
           max={INPUT_CONSTRAINTS.offsetX.max}
           step={INPUT_CONSTRAINTS.offsetX.step}
-          precision={2}
+          precision={1}
           onChange={(value) => updateSetting('offsetX', value)}
         />
         
         <ModifierPropertyInput
-          label="Offset Y"
+          label="Offset Y (%)"
           value={settings.offsetY}
           min={INPUT_CONSTRAINTS.offsetY.min}
           max={INPUT_CONSTRAINTS.offsetY.max}
           step={INPUT_CONSTRAINTS.offsetY.step}
-          precision={2}
+          precision={1}
           onChange={(value) => updateSetting('offsetY', value)}
         />
         
@@ -57,17 +57,7 @@ export function LinearArrayControls({ settings, onChange }: LinearArrayControlsP
         />
         
         <ModifierPropertyInput
-          label="Spacing"
-          value={settings.spacing}
-          min={INPUT_CONSTRAINTS.spacing.min}
-          max={INPUT_CONSTRAINTS.spacing.max}
-          step={INPUT_CONSTRAINTS.spacing.step}
-          precision={INPUT_CONSTRAINTS.spacing.precision}
-          onChange={(value) => updateSetting('spacing', value)}
-        />
-        
-        <ModifierPropertyInput
-          label="Scale Step"
+          label="Final Scale"
           value={settings.scaleStep}
           min={INPUT_CONSTRAINTS.scaleStep.min}
           max={INPUT_CONSTRAINTS.scaleStep.max}
