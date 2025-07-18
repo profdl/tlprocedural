@@ -281,6 +281,12 @@
   height: 10px !important;
 }
 
+.modifier-controls__item-details {
+  padding: 8px;
+  border-top: 1px solid var(--color-panel-contrast);
+  background: var(--color-panel);
+}
+
 .modifier-controls__section {
   padding: 12px;
 }

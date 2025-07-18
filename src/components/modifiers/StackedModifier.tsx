@@ -128,7 +128,16 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
         return cloneShape
       }
     })
-  }, [shape, modifiers])
+  }, [
+    shape.id, 
+    shape.x, 
+    shape.y, 
+    shape.rotation, 
+    // Track all props changes (including style properties)
+    JSON.stringify(shape.props),
+    // Use a stable key for modifiers instead of the array reference
+    modifiers.map(m => `${m.id}-${m.enabled}-${JSON.stringify(m.props)}`).join('|')
+  ])
 
   // Create and manage shape clones
   useEffect(() => {
@@ -206,7 +215,57 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
         }, { ignoreShapeLock: true, history: 'ignore' })
       }
     }
-  }, [editor, shape, processedShapes])
+  }, [editor, shape.id, processedShapes.length])
+
+  // Update existing clones when original shape changes (second effect for live updates)
+  useEffect(() => {
+    if (!editor || !processedShapes.length) return
+    
+    console.log('StackedModifier: Live update triggered for shape:', shape.id, {
+      shapeProps: shape.props,
+      modifierProps: modifiers.map(m => ({ type: m.type, props: m.props }))
+    })
+
+    const existingClones = editor.getCurrentPageShapes().filter((s: TLShape) => {
+      const originalId = getOriginalShapeId(s)
+      return originalId === shape.id && s.meta?.stackProcessed
+    })
+
+    if (existingClones.length > 0) {
+      // Recalculate positions based on current shape state
+      const result = ModifierStack.processModifiers(shape, modifiers)
+      const updatedShapes = extractShapesFromState(result)
+      
+      // Update existing clones with new positions
+      const updatedClones = existingClones.map((clone: TLShape) => {
+        const cloneIndex = clone.meta?.arrayIndex as number
+        const updatedShape = updatedShapes.find(s => s.meta?.arrayIndex === cloneIndex)
+        
+        if (!updatedShape) return null
+
+        return {
+          id: clone.id,
+          type: shape.type,
+          x: updatedShape.x,
+          y: updatedShape.y,
+          rotation: updatedShape.rotation,
+          props: { ...updatedShape.props }
+        }
+      }).filter(Boolean) as TLShapePartial[]
+
+      if (updatedClones.length > 0) {
+        editor.run(() => {
+          editor.updateShapes(updatedClones)
+        }, { ignoreShapeLock: true, history: 'ignore' })
+        
+        console.log('StackedModifier: Updated clones with new style properties:', {
+          shapeId: shape.id,
+          updatedClones: updatedClones.length,
+          hasStyleChanges: true
+        })
+      }
+    }
+  }, [editor, shape.id, shape.x, shape.y, shape.rotation, shape.props, processedShapes])
 
   // This component doesn't render anything visible - shapes are managed directly in the editor
   return null

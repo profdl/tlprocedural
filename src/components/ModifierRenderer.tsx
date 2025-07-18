@@ -1,8 +1,9 @@
-import React, { useMemo, useState, useEffect } from 'react'
-import { useEditor, type TLShape, type TLShapeId, track, useValue, SVGContainer, HTMLContainer } from 'tldraw'
+import React, { useMemo } from 'react'
+import { useEditor, type TLShape, type TLShapeId, track, useValue, SVGContainer } from 'tldraw'
 import { LinearArrayModifier, CircularArrayModifier, GridArrayModifier } from './modifiers/LinearArrayModifier'
 import { StackedModifier } from './modifiers/StackedModifier'
-import { getShapeModifiers, subscribeToModifierChanges } from './modifiers/ModifierControls'
+import { useModifierStore } from '../store/modifierStore'
+import type { TLModifier } from '../types/modifiers'
 
 // Component to render actual mirrored shape content
 const MirroredShapeClone = track(({ shape, originalShape, transform }: {
@@ -124,7 +125,7 @@ const MirrorTransformOverlay = track(() => {
   const editor = useEditor()
   
   // Track camera changes for responsive positioning
-  const camera = editor.getCamera()
+  // const camera = editor.getCamera() // Unused for now
   
   // Get all shapes that are mirrored clones, but deduplicate to avoid double processing
   const mirroredShapes = useMemo(() => {
@@ -185,15 +186,7 @@ const MirrorTransformOverlay = track(() => {
 // Main modifier renderer component
 export function ModifierRenderer() {
   const editor = useEditor()
-  const [modifierUpdateTrigger, setModifierUpdateTrigger] = useState(0)
-  
-  // Subscribe to modifier changes
-  useEffect(() => {
-    const unsubscribe = subscribeToModifierChanges(() => {
-      setModifierUpdateTrigger(prev => prev + 1)
-    })
-    return unsubscribe
-  }, [])
+  const store = useModifierStore()
   
   // Feature flag to toggle between old and new modifier processing
   // TODO: This will become a user setting later
@@ -204,32 +197,37 @@ export function ModifierRenderer() {
     'shapes-with-modifiers',
     () => {
       const allShapes = editor.getCurrentPageShapes()
-      console.log('ModifierRenderer: All shapes:', allShapes.length, 'trigger:', modifierUpdateTrigger)
+      console.log('ModifierRenderer: All shapes:', allShapes.length)
       
       const shapesWithMods = allShapes
-        .map(shape => ({
-          shape,
-          modifiers: getShapeModifiers(shape.id)
-        }))
+        .map(shape => {
+          const modifiers = store.getModifiersForShape(shape.id)
+          return {
+            shape,
+            modifiers,
+            // Create a stable key for memoization that includes shape position, style properties, and modifier properties
+            modifiersKey: `${modifiers.map(m => `${m.id}-${m.enabled}-${JSON.stringify(m.props)}`).join('|')}-${shape.x}-${shape.y}-${shape.rotation}-${JSON.stringify(shape.props)}`
+          }
+        })
         .filter(item => item.modifiers.length > 0)
       
       console.log('ModifierRenderer: Shapes with modifiers:', shapesWithMods.length)
       shapesWithMods.forEach(item => {
-        console.log(`Shape ${item.shape.id} has ${item.modifiers.length} modifiers:`, item.modifiers.map(m => m.type))
+        console.log(`Shape ${item.shape.id} has ${item.modifiers.length} modifiers:`, item.modifiers.map((m: TLModifier) => m.type))
       })
       
       return shapesWithMods
     },
-    [editor, modifierUpdateTrigger] // Track both editor and modifier changes
+    [editor, store] // Track both editor and store changes
   )
   
   if (useStackedModifiers) {
     // NEW: Use StackedModifier approach - one component per shape processes all modifiers
     return (
       <div className="modifier-renderer">
-        {shapesWithModifiers.map(({ shape, modifiers }) => (
+        {shapesWithModifiers.map(({ shape, modifiers, modifiersKey }) => (
           <StackedModifier
-            key={`stacked-${shape.id}`}
+            key={`stacked-${shape.id}-${modifiersKey}`}
             shape={shape}
             modifiers={modifiers}
           />
@@ -243,16 +241,16 @@ export function ModifierRenderer() {
     <div className="modifier-renderer">
       {shapesWithModifiers.map(({ shape, modifiers }) =>
         modifiers.map(modifier => {
-          const anyModifier = modifier as any // Cast to handle different modifier types
+          const typedModifier = modifier as TLModifier // Cast to handle different modifier types
           
-          switch (anyModifier.type) {
+          switch (typedModifier.type) {
             case 'linear-array':
               return (
                 <LinearArrayModifier
                   key={`${shape.id}-${modifier.id}`}
                   shape={shape}
-                  settings={anyModifier.props}
-                  enabled={anyModifier.enabled}
+                  settings={typedModifier.props}
+                  enabled={typedModifier.enabled}
                 />
               )
             case 'circular-array':
@@ -260,8 +258,8 @@ export function ModifierRenderer() {
                 <CircularArrayModifier
                   key={`${shape.id}-${modifier.id}`}
                   shape={shape}
-                  settings={anyModifier.props}
-                  enabled={anyModifier.enabled}
+                  settings={typedModifier.props}
+                  enabled={typedModifier.enabled}
                 />
               )
             case 'grid-array':
@@ -269,8 +267,8 @@ export function ModifierRenderer() {
                 <GridArrayModifier
                   key={`${shape.id}-${modifier.id}`}
                   shape={shape}
-                  settings={anyModifier.props}
-                  enabled={anyModifier.enabled}
+                  settings={typedModifier.props}
+                  enabled={typedModifier.enabled}
                 />
               )
             default:

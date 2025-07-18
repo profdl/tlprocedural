@@ -1,3 +1,5 @@
+import { create } from 'zustand'
+import { subscribeWithSelector } from 'zustand/middleware'
 import { 
   type Editor,
   type TLShapeId
@@ -6,31 +8,298 @@ import {
   type TLModifier, 
   type TLModifierId, 
   type TLLinearArrayModifier, 
-  type LinearArraySettings
+  type TLCircularArrayModifier,
+  type TLGridArrayModifier,
+  type TLMirrorModifier,
+  type LinearArraySettings,
+  createModifierId
 } from '../types/modifiers'
-import { createModifierId } from '../types/modifiers'
 
-// In-memory modifier storage (we'll use tldraw's meta system later)
-const modifiersStore: Record<string, TLModifier> = {}
+// Zustand store state interface
+interface ModifierStoreState {
+  // State
+  modifiers: Record<string, TLModifier>
+  editor: Editor | null
+  
+  // Actions
+  setEditor: (editor: Editor) => void
+  
+  // Core operations
+  getModifiersForShape: (shapeId: TLShapeId) => TLModifier[]
+  getModifier: (id: TLModifierId) => TLModifier | undefined
+  /**
+   * Generic modifier creation supporting all types
+   * settings type depends on modifier type
+   */
+  createModifier: (
+    targetShapeId: TLShapeId,
+    type: 'linear-array' | 'circular-array' | 'grid-array' | 'mirror',
+    settings?: object
+  ) => TLModifier
+  /**
+   * Deprecated: Use createModifier instead
+   */
+  createLinearArrayModifier: (targetShapeId: TLShapeId, settings?: Partial<LinearArraySettings>) => TLLinearArrayModifier
+  updateModifier: (id: TLModifierId, changes: Partial<TLModifier>) => void
+  deleteModifier: (id: TLModifierId) => void
+  deleteModifiersForShape: (shapeId: TLShapeId) => void
+  getAllModifiers: () => TLModifier[]
+  hasModifiers: (shapeId: TLShapeId) => boolean
+  getEnabledModifiersForShape: (shapeId: TLShapeId) => TLModifier[]
+  reorderModifiers: (shapeId: TLShapeId, newOrder: TLModifierId[]) => void
+  toggleModifier: (id: TLModifierId) => void
+  clearAll: () => void
+  exportModifiers: () => string
+  importModifiers: (json: string) => void
+  notifyChange: () => void
+}
 
-// Helper functions for working with modifiers
+// Create the Zustand store
+export const useModifierStore = create<ModifierStoreState>()(
+  subscribeWithSelector((set, get) => ({
+    // Initial state
+    modifiers: {},
+    editor: null,
+    
+    // Set editor reference
+    setEditor: (editor: Editor) => {
+      set({ editor })
+    },
+    
+    // Get all modifiers for a shape
+    getModifiersForShape: (shapeId: TLShapeId) => {
+      const { modifiers } = get()
+      return Object.values(modifiers)
+        .filter(modifier => modifier.targetShapeId === shapeId)
+        .sort((a, b) => a.order - b.order)
+    },
+    
+    // Get a specific modifier by ID
+    getModifier: (id: TLModifierId) => {
+      const { modifiers } = get()
+      return modifiers[id]
+    },
+    
+    // Create a new generic modifier
+    createModifier: (targetShapeId: TLShapeId, type: 'linear-array' | 'circular-array' | 'grid-array' | 'mirror', settings: object = {}) => {
+      const { getModifiersForShape } = get()
+      const id = createModifierId()
+      let modifier: TLModifier
+      if (type === 'linear-array') {
+        modifier = {
+          id,
+          typeName: 'modifier',
+          type: 'linear-array',
+          targetShapeId,
+          enabled: true,
+          order: getModifiersForShape(targetShapeId).length,
+          props: {
+            count: 3,
+            offsetX: 50,
+            offsetY: 0,
+            rotation: 0,
+            spacing: 1,
+            scaleStep: 1,
+            ...settings
+          }
+        } as TLLinearArrayModifier
+      } else if (type === 'circular-array') {
+        modifier = {
+          id,
+          typeName: 'modifier',
+          type: 'circular-array',
+          targetShapeId,
+          enabled: true,
+          order: getModifiersForShape(targetShapeId).length,
+          props: {
+            count: 6,
+            radius: 100,
+            startAngle: 0,
+            endAngle: 360,
+            centerX: 0,
+            centerY: 0,
+            rotateEach: 0,
+            rotateAll: 0,
+            pointToCenter: false,
+            ...settings
+          }
+        } as TLCircularArrayModifier
+      } else if (type === 'grid-array') {
+        modifier = {
+          id,
+          typeName: 'modifier',
+          type: 'grid-array',
+          targetShapeId,
+          enabled: true,
+          order: getModifiersForShape(targetShapeId).length,
+          props: {
+            rows: 2,
+            columns: 2,
+            spacingX: 50,
+            spacingY: 50,
+            offsetX: 0,
+            offsetY: 0,
+            ...settings
+          }
+        } as TLGridArrayModifier
+      } else if (type === 'mirror') {
+        modifier = {
+          id,
+          typeName: 'modifier',
+          type: 'mirror',
+          targetShapeId,
+          enabled: true,
+          order: getModifiersForShape(targetShapeId).length,
+          props: {
+            axis: 'x',
+            offset: 0,
+            mergeThreshold: 0,
+            ...settings
+          }
+        } as TLMirrorModifier
+      } else {
+        throw new Error(`Unknown modifier type: ${type}`)
+      }
+      set(state => ({
+        modifiers: { ...state.modifiers, [id]: modifier }
+      }))
+      get().notifyChange()
+      return modifier
+    },
+    // Deprecated: createLinearArrayModifier for backward compatibility
+    createLinearArrayModifier: (targetShapeId: TLShapeId, settings: Partial<LinearArraySettings> = {}) => {
+      return get().createModifier(targetShapeId, 'linear-array', settings) as TLLinearArrayModifier
+    },
+    
+    // Update modifier settings
+    updateModifier: (id: TLModifierId, changes: Partial<TLModifier>) => {
+      const { modifiers } = get()
+      const existing = modifiers[id]
+      
+      if (existing) {
+        const updated = { ...existing, ...changes }
+        set(state => ({
+          modifiers: { ...state.modifiers, [id]: updated as TLModifier }
+        }))
+        get().notifyChange()
+      }
+    },
+    
+    // Delete a modifier
+    deleteModifier: (id: TLModifierId) => {
+      const { modifiers } = get()
+      if (modifiers[id]) {
+        set(state => {
+          const newModifiers = { ...state.modifiers }
+          delete newModifiers[id]
+          return { modifiers: newModifiers }
+        })
+        get().notifyChange()
+      }
+    },
+    
+    // Delete all modifiers for a shape
+    deleteModifiersForShape: (shapeId: TLShapeId) => {
+      const { modifiers } = get()
+      const modifiersToDelete = Object.values(modifiers)
+        .filter(modifier => modifier.targetShapeId === shapeId)
+        .map(modifier => modifier.id)
+      
+      if (modifiersToDelete.length > 0) {
+        set(state => {
+          const newModifiers = { ...state.modifiers }
+          modifiersToDelete.forEach(id => delete newModifiers[id])
+          return { modifiers: newModifiers }
+        })
+        get().notifyChange()
+      }
+    },
+    
+    // Get all modifiers
+    getAllModifiers: () => {
+      const { modifiers } = get()
+      return Object.values(modifiers)
+    },
+    
+    // Check if a shape has modifiers
+    hasModifiers: (shapeId: TLShapeId) => {
+      const { getModifiersForShape } = get()
+      return getModifiersForShape(shapeId).length > 0
+    },
+    
+    // Get enabled modifiers for a shape
+    getEnabledModifiersForShape: (shapeId: TLShapeId) => {
+      const { getModifiersForShape } = get()
+      return getModifiersForShape(shapeId).filter(m => m.enabled)
+    },
+    
+    // Reorder modifiers
+    reorderModifiers: (shapeId: TLShapeId, newOrder: TLModifierId[]) => {
+      const { updateModifier } = get()
+      newOrder.forEach((id, index) => {
+        updateModifier(id, { order: index })
+      })
+    },
+    
+    // Toggle modifier enabled state
+    toggleModifier: (id: TLModifierId) => {
+      const { getModifier, updateModifier } = get()
+      const modifier = getModifier(id)
+      if (modifier) {
+        updateModifier(id, { enabled: !modifier.enabled })
+      }
+    },
+    
+    // Notify tldraw that something changed (force re-render)
+    notifyChange: () => {
+      const { editor } = get()
+      if (editor) {
+        editor.mark('modifier-change')
+      }
+    },
+    
+    // Clear all modifiers (useful for cleanup)
+    clearAll: () => {
+      set({ modifiers: {} })
+      get().notifyChange()
+    },
+    
+    // Export modifiers as JSON (for persistence)
+    exportModifiers: () => {
+      const { modifiers } = get()
+      return JSON.stringify(modifiers)
+    },
+    
+    // Import modifiers from JSON
+    importModifiers: (json: string) => {
+      try {
+        const modifiers = JSON.parse(json) as Record<string, TLModifier>
+        set({ modifiers })
+        get().notifyChange()
+      } catch (error) {
+        console.error('Failed to import modifiers:', error)
+      }
+    }
+  }))
+)
+
+// Legacy ModifierManager class for backward compatibility during transition
 export class ModifierManager {
   private editor: Editor
   
   constructor(editor: Editor) {
     this.editor = editor
+    useModifierStore.getState().setEditor(editor)
   }
 
   // Get all modifiers for a shape
   getModifiersForShape(shapeId: TLShapeId): TLModifier[] {
-    return Object.values(modifiersStore)
-      .filter(modifier => modifier.targetShapeId === shapeId)
-      .sort((a, b) => a.order - b.order)
+    return useModifierStore.getState().getModifiersForShape(shapeId)
   }
 
   // Get a specific modifier by ID
   getModifier(id: TLModifierId): TLModifier | undefined {
-    return modifiersStore[id]
+    return useModifierStore.getState().getModifier(id)
   }
 
   // Create a new linear array modifier
@@ -38,70 +307,37 @@ export class ModifierManager {
     targetShapeId: TLShapeId, 
     settings: Partial<LinearArraySettings> = {}
   ): TLLinearArrayModifier {
-    const id = createModifierId()
-    const modifier: TLLinearArrayModifier = {
-      id,
-      typeName: 'modifier',
-      type: 'linear-array',
-      targetShapeId,
-      enabled: true,
-      order: this.getNextOrder(targetShapeId),
-      props: {
-        count: 3,
-        offsetX: 50,
-        offsetY: 0,
-        rotation: 0,
-        spacing: 1,
-        scaleStep: 1,
-        ...settings
-      }
-    }
-    
-    modifiersStore[id] = modifier
-    this.notifyChange()
-    return modifier
+    return useModifierStore.getState().createLinearArrayModifier(targetShapeId, settings)
   }
 
   // Update modifier settings
   updateModifier(id: TLModifierId, changes: Partial<TLModifier>): void {
-    const existing = this.getModifier(id)
-    if (existing) {
-      const updated = { ...existing, ...changes }
-      modifiersStore[id] = updated as TLModifier
-      this.notifyChange()
-    }
+    useModifierStore.getState().updateModifier(id, changes)
   }
 
   // Delete a modifier
   deleteModifier(id: TLModifierId): void {
-    if (modifiersStore[id]) {
-      delete modifiersStore[id]
-      this.notifyChange()
-    }
+    useModifierStore.getState().deleteModifier(id)
   }
 
   // Delete all modifiers for a shape
   deleteModifiersForShape(shapeId: TLShapeId): void {
-    const modifiers = this.getModifiersForShape(shapeId)
-    modifiers.forEach(modifier => {
-      delete modifiersStore[modifier.id]
-    })
-    this.notifyChange()
+    useModifierStore.getState().deleteModifiersForShape(shapeId)
   }
 
   // Get all modifiers
   getAllModifiers(): TLModifier[] {
-    return Object.values(modifiersStore)
+    return useModifierStore.getState().getAllModifiers()
   }
 
   // Check if a shape has modifiers
   hasModifiers(shapeId: TLShapeId): boolean {
-    return this.getModifiersForShape(shapeId).length > 0
+    return useModifierStore.getState().hasModifiers(shapeId)
   }
 
   // Get enabled modifiers for a shape
   getEnabledModifiersForShape(shapeId: TLShapeId): TLModifier[] {
-    return this.getModifiersForShape(shapeId).filter(m => m.enabled)
+    return useModifierStore.getState().getEnabledModifiersForShape(shapeId)
   }
 
   // Get the next order number for a shape's modifiers
@@ -113,46 +349,32 @@ export class ModifierManager {
   }
 
   // Reorder modifiers
-  reorderModifiers(_shapeId: TLShapeId, newOrder: TLModifierId[]): void {
-    newOrder.forEach((id, index) => {
-      this.updateModifier(id, { order: index })
-    })
+  reorderModifiers(shapeId: TLShapeId, newOrder: TLModifierId[]): void {
+    useModifierStore.getState().reorderModifiers(shapeId, newOrder)
   }
 
   // Toggle modifier enabled state
   toggleModifier(id: TLModifierId): void {
-    const modifier = this.getModifier(id)
-    if (modifier) {
-      this.updateModifier(id, { enabled: !modifier.enabled })
-    }
+    useModifierStore.getState().toggleModifier(id)
   }
 
   // Notify tldraw that something changed (force re-render)
   private notifyChange(): void {
-    // We can use editor's history system to trigger updates
-    this.editor.mark('modifier-change')
+    useModifierStore.getState().notifyChange()
   }
 
   // Clear all modifiers (useful for cleanup)
   clearAll(): void {
-    Object.keys(modifiersStore).forEach(key => delete modifiersStore[key])
-    this.notifyChange()
+    useModifierStore.getState().clearAll()
   }
 
   // Export modifiers as JSON (for persistence)
   exportModifiers(): string {
-    return JSON.stringify(modifiersStore)
+    return useModifierStore.getState().exportModifiers()
   }
 
   // Import modifiers from JSON
   importModifiers(json: string): void {
-    try {
-      const modifiers = JSON.parse(json) as Record<string, TLModifier>
-      Object.keys(modifiersStore).forEach(key => delete modifiersStore[key])
-      Object.assign(modifiersStore, modifiers)
-      this.notifyChange()
-    } catch (error) {
-      console.error('Failed to import modifiers:', error)
-    }
+    useModifierStore.getState().importModifiers(json)
   }
 } 

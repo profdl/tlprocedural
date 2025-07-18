@@ -1,17 +1,17 @@
-import { useState, useCallback, useMemo } from 'react'
-import { type TLShape, type TLShapeId } from 'tldraw'
-import { type TLModifier, createModifierId } from '../../../types/modifiers'
+import { useCallback, useMemo } from 'react'
+import { type TLShapeId } from 'tldraw'
+import { type TLModifier, type TLModifierId, createModifierId } from '../../../types/modifiers'
 import { DEFAULT_SETTINGS } from '../constants'
+import { useModifierStore } from '../../../store/modifierStore'
 
 /**
  * Hook for managing modifiers on shapes
  * 
  * Provides a simple API for adding, updating, removing, and querying modifiers
- * associated with shapes.
+ * associated with shapes. Now uses the centralized Zustand store.
  */
 export function useModifierManager() {
-  // Internal storage for modifiers (in a real app, this would be in a store)
-  const [modifiers, setModifiers] = useState<Map<TLShapeId, any[]>>(new Map())
+  const store = useModifierStore()
 
   /**
    * Get all modifiers for a specific shape
@@ -20,8 +20,8 @@ export function useModifierManager() {
    * @returns Array of modifiers for the shape
    */
   const getModifiers = useCallback((shapeId: TLShapeId): TLModifier[] => {
-    return (modifiers.get(shapeId) || []) as TLModifier[]
-  }, [modifiers])
+    return store.getModifiersForShape(shapeId)
+  }, [store])
 
   /**
    * Get enabled modifiers for a specific shape
@@ -30,8 +30,8 @@ export function useModifierManager() {
    * @returns Array of enabled modifiers for the shape
    */
   const getEnabledModifiers = useCallback((shapeId: TLShapeId): TLModifier[] => {
-    return getModifiers(shapeId).filter(modifier => modifier.enabled)
-  }, [getModifiers])
+    return store.getEnabledModifiersForShape(shapeId)
+  }, [store])
 
   /**
    * Add a new modifier to a shape
@@ -41,23 +41,29 @@ export function useModifierManager() {
    * @returns The created modifier
    */
   const addModifier = useCallback((shapeId: TLShapeId, type: 'linear-array' | 'circular-array' | 'grid-array' | 'mirror'): TLModifier => {
-    const existingModifiers = getModifiers(shapeId)
+    // For now, we only support linear-array in the store
+    // TODO: Add support for other modifier types
+    if (type === 'linear-array') {
+      return store.createLinearArrayModifier(shapeId, DEFAULT_SETTINGS[type])
+    }
     
+    // Fallback for other types - create a basic modifier structure
     const newModifier = {
       id: createModifierId(),
       typeName: 'modifier',
       targetShapeId: shapeId,
       enabled: true,
-      order: existingModifiers.length,
+      order: store.getModifiersForShape(shapeId).length,
       type,
       props: DEFAULT_SETTINGS[type]
-    } as any
+    } as TLModifier
 
-    const updatedModifiers = [...existingModifiers, newModifier]
-    setModifiers(prev => new Map(prev).set(shapeId, updatedModifiers))
-
+    // For now, we'll need to add support for other types in the store
+    // This is a temporary workaround
+    console.warn(`Modifier type ${type} not yet supported in Zustand store`)
+    
     return newModifier
-  }, [getModifiers])
+  }, [store])
 
   /**
    * Update a specific modifier
@@ -71,13 +77,8 @@ export function useModifierManager() {
     modifierId: string, 
     updates: Partial<TLModifier>
   ) => {
-    const existingModifiers = getModifiers(shapeId)
-    const updatedModifiers = existingModifiers.map(modifier => 
-      modifier.id === modifierId ? { ...modifier, ...updates } : modifier
-    )
-    
-    setModifiers(prev => new Map(prev).set(shapeId, updatedModifiers))
-  }, [getModifiers])
+    store.updateModifier(modifierId as TLModifierId, updates)
+  }, [store])
 
   /**
    * Remove a modifier from a shape
@@ -86,11 +87,8 @@ export function useModifierManager() {
    * @param modifierId - The ID of the modifier to remove
    */
   const removeModifier = useCallback((shapeId: TLShapeId, modifierId: string) => {
-    const existingModifiers = getModifiers(shapeId)
-    const filteredModifiers = existingModifiers.filter(modifier => modifier.id !== modifierId)
-    
-    setModifiers(prev => new Map(prev).set(shapeId, filteredModifiers))
-  }, [getModifiers])
+    store.deleteModifier(modifierId as TLModifierId)
+  }, [store])
 
   /**
    * Toggle the enabled state of a modifier
@@ -99,13 +97,8 @@ export function useModifierManager() {
    * @param modifierId - The ID of the modifier to toggle
    */
   const toggleModifier = useCallback((shapeId: TLShapeId, modifierId: string) => {
-    const existingModifiers = getModifiers(shapeId)
-    const modifier = existingModifiers.find(m => m.id === modifierId)
-    
-    if (modifier) {
-      updateModifier(shapeId, modifierId, { enabled: !modifier.enabled })
-    }
-  }, [getModifiers, updateModifier])
+    store.toggleModifier(modifierId as TLModifierId)
+  }, [store])
 
   /**
    * Remove all modifiers from a shape
@@ -113,12 +106,8 @@ export function useModifierManager() {
    * @param shapeId - The ID of the shape
    */
   const clearModifiers = useCallback((shapeId: TLShapeId) => {
-    setModifiers(prev => {
-      const newMap = new Map(prev)
-      newMap.delete(shapeId)
-      return newMap
-    })
-  }, [])
+    store.deleteModifiersForShape(shapeId)
+  }, [store])
 
   /**
    * Get statistics about modifiers
@@ -126,26 +115,19 @@ export function useModifierManager() {
    * @returns Object with modifier statistics
    */
   const getStats = useMemo(() => {
-    let totalModifiers = 0
-    let enabledModifiers = 0
-    let shapesWithModifiers = 0
-    
-    modifiers.forEach(shapeModifiers => {
-      if (shapeModifiers.length > 0) {
-        shapesWithModifiers++
-        totalModifiers += shapeModifiers.length
-        enabledModifiers += shapeModifiers.filter(m => m.enabled).length
-      }
-    })
+    const allModifiers = store.getAllModifiers()
+    const totalModifiers = allModifiers.length
+    const enabledModifiers = allModifiers.filter(m => m.enabled).length
+    const shapesWithModifiers = new Set(allModifiers.map(m => m.targetShapeId)).size
 
     return {
       totalModifiers,
       enabledModifiers,
       disabledModifiers: totalModifiers - enabledModifiers,
       shapesWithModifiers,
-      totalShapes: modifiers.size
+      totalShapes: shapesWithModifiers // This is an approximation
     }
-  }, [modifiers])
+  }, [store])
 
   /**
    * Check if a shape has any modifiers
@@ -154,8 +136,8 @@ export function useModifierManager() {
    * @returns True if the shape has modifiers
    */
   const hasModifiers = useCallback((shapeId: TLShapeId): boolean => {
-    return getModifiers(shapeId).length > 0
-  }, [getModifiers])
+    return store.hasModifiers(shapeId)
+  }, [store])
 
   /**
    * Check if a shape has any enabled modifiers
@@ -197,8 +179,8 @@ export function useModifierManager() {
     getModifiersByType,
     getStats,
     
-    // Internal state (for debugging)
-    modifiers: modifiers as ReadonlyMap<TLShapeId, any[]>
+    // Internal state (for debugging) - now from store
+    modifiers: store.getAllModifiers()
   }
 }
 

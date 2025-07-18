@@ -1,176 +1,64 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { 
-  TldrawUiButton,
-  TldrawUiButtonIcon,
-  useEditor,
-  stopEventPropagation,
-  createShapeId,
-  type TLShape,
-  type TLShapeId
-} from 'tldraw'
-import { AddButton, type AddButtonOption } from './components'
-
-/**
- * Props for the ModifierControls component
- */
-interface ModifierControlsProps {
-  /** Array of currently selected shapes */
-  selectedShapes: TLShape[]
-}
-import { 
-  type LinearArraySettings, 
-  type CircularArraySettings,
-  type GridArraySettings,
-  type MirrorSettings,
-  type TLLinearArrayModifier,
-  type TLCircularArrayModifier,
-  type TLGridArrayModifier,
-  type TLMirrorModifier,
-  type TLModifier,
-  createModifierId 
-} from '../../types/modifiers'
-import { isArrayClone, getOriginalShapeId } from './LinearArrayModifier'
-
-// Import the new control components
+import React, { useCallback, useMemo, useState } from 'react'
+import { useModifierStore } from '../../store/modifierStore'
+import { DEFAULT_SETTINGS } from './constants'
+import { TldrawUiButton, TldrawUiButtonIcon } from 'tldraw'
+import { MODIFIER_DISPLAY_NAMES } from './constants'
+import type { TLModifierId } from '../../types/modifiers'
+import type { TLShape } from 'tldraw'
 import { LinearArrayControls } from './controls/LinearArrayControls'
 import { CircularArrayControls } from './controls/CircularArrayControls'
 import { GridArrayControls } from './controls/GridArrayControls'
 import { MirrorControls } from './controls/MirrorControls'
-import { MODIFIER_TYPES, DEFAULT_SETTINGS, MODIFIER_DISPLAY_NAMES } from './constants'
+import { AddButton, type AddButtonOption } from './components/AddButton'
 
-// Modifier type options
+// Local stopEventPropagation implementation
+function stopEventPropagation(e: React.SyntheticEvent | Event) {
+  e.stopPropagation()
+}
+
+interface ModifierControlsProps {
+  /** Array of currently selected shapes */
+  selectedShapes: TLShape[]
+}
+
 type ModifierType = 'linear' | 'circular' | 'grid' | 'mirror'
 
-// Mock modifier storage (replace with proper state management)
-const mockModifiers = new Map<TLShapeId, TLModifier[]>()
+// Using the AddButtonOption interface from the imported AddButton component
 
-function getMockModifiersForShape(shapeId: TLShapeId): TLModifier[] {
-  return mockModifiers.get(shapeId) || []
-}
-
-function addMockModifier(shapeId: TLShapeId, modifier: TLModifier) {
-  const existing = getMockModifiersForShape(shapeId)
-  mockModifiers.set(shapeId, [...existing, modifier])
-}
-
-function updateMockModifier(shapeId: TLShapeId, modifierId: string, changes: any) {
-  const existing = getMockModifiersForShape(shapeId)
-  const updated = existing.map(mod => 
-    mod.id === modifierId ? { ...mod, ...changes } : mod
-  )
-  mockModifiers.set(shapeId, updated)
-}
-
-function removeMockModifier(shapeId: TLShapeId, modifierId: string) {
-  const existing = getMockModifiersForShape(shapeId)
-  const filtered = existing.filter(mod => mod.id !== modifierId)
-  mockModifiers.set(shapeId, filtered)
-}
-
-// Global state to track local modifiers from ModifierControls
-let globalLocalModifiers = new Map<TLShapeId, TLModifier[]>()
-
-export function setGlobalLocalModifiers(modifiers: Map<TLShapeId, TLModifier[]>) {
-  globalLocalModifiers = modifiers
-}
-
-// Create a reactive state for modifier changes
-let modifierChangeListeners: (() => void)[] = []
-
-export function subscribeToModifierChanges(listener: () => void) {
-  modifierChangeListeners.push(listener)
-  return () => {
-    const index = modifierChangeListeners.indexOf(listener)
-    if (index > -1) {
-      modifierChangeListeners.splice(index, 1)
-    }
-  }
-}
-
-export function notifyModifierChanges() {
-  modifierChangeListeners.forEach(listener => listener())
-}
-
-/**
- * Main component for managing shape modifiers
- * 
- * Provides UI controls for adding, configuring, and removing modifiers
- * from selected shapes. Supports linear arrays, circular arrays, grid arrays,
- * and mirror effects.
- * 
- * @param props - Component props
- * @param props.selectedShapes - Array of currently selected shapes
- * @returns JSX element with modifier controls UI
- */
 export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
-  const editor = useEditor()
-  const [localModifiers, setLocalModifiers] = useState<Map<TLShapeId, TLModifier[]>>(new Map())
+  const store = useModifierStore()
   const [collapsedModifiers, setCollapsedModifiers] = useState<Set<string>>(new Set())
-  
+
   // Get modifiers for the first selected shape (simplified for now)
   const selectedShape = selectedShapes[0]
-  const shapeModifiers = selectedShape ? (localModifiers.get(selectedShape.id) || getMockModifiersForShape(selectedShape.id)) : []
-  
-  // Sync local state with global state whenever it changes
-  useEffect(() => {
-    setGlobalLocalModifiers(localModifiers)
-    notifyModifierChanges() // Notify listeners that modifiers have changed
-  }, [localModifiers])
-  
+  const shapeModifiers = useMemo(() => {
+    return selectedShape ? store.getModifiersForShape(selectedShape.id) : []
+  }, [store, selectedShape])
+
   const addModifier = useCallback((type: ModifierType) => {
     if (!selectedShape) return
-    
-    const newModifier: TLModifier = {
-      id: createModifierId(),
-      typeName: 'modifier',
-      targetShapeId: selectedShape.id,
-      enabled: true,
-      order: shapeModifiers.length,
-      type: type === 'linear' ? 'linear-array' : 
-            type === 'circular' ? 'circular-array' : 
-            type === 'grid' ? 'grid-array' : 'mirror',
-      props: DEFAULT_SETTINGS[type === 'linear' ? 'linear-array' : 
-                             type === 'circular' ? 'circular-array' : 
-                             type === 'grid' ? 'grid-array' : 'mirror']
-    } as TLModifier
-    
-    // Update both local state and mock storage
-    const existing = localModifiers.get(selectedShape.id) || getMockModifiersForShape(selectedShape.id)
-    const updated = [...existing, newModifier]
-    
-    setLocalModifiers(prev => new Map(prev).set(selectedShape.id, updated))
-    addMockModifier(selectedShape.id, newModifier)
-  }, [selectedShape, shapeModifiers.length, localModifiers])
-  
-  const updateModifier = useCallback((modifierId: string, changes: any) => {
-    if (!selectedShape) return
-    
-    const existing = localModifiers.get(selectedShape.id) || getMockModifiersForShape(selectedShape.id)
-    const updated = existing.map(mod => 
-      mod.id === modifierId ? { ...mod, ...changes } : mod
-    )
-    
-    setLocalModifiers(prev => new Map(prev).set(selectedShape.id, updated))
-    updateMockModifier(selectedShape.id, modifierId, changes)
-  }, [selectedShape, localModifiers])
-  
+    // Map UI type to store type
+    const typeMap: Record<ModifierType, 'linear-array' | 'circular-array' | 'grid-array' | 'mirror'> = {
+      linear: 'linear-array',
+      circular: 'circular-array',
+      grid: 'grid-array',
+      mirror: 'mirror',
+    }
+    const storeType = typeMap[type]
+    const settings = DEFAULT_SETTINGS[storeType] || {}
+    store.createModifier(selectedShape.id, storeType, settings)
+  }, [selectedShape, store])
+
   const removeModifier = useCallback((modifierId: string) => {
-    if (!selectedShape) return
-    
-    const existing = localModifiers.get(selectedShape.id) || getMockModifiersForShape(selectedShape.id)
-    const filtered = existing.filter(mod => mod.id !== modifierId)
-    
-    setLocalModifiers(prev => new Map(prev).set(selectedShape.id, filtered))
-    removeMockModifier(selectedShape.id, modifierId)
-  }, [selectedShape, localModifiers])
-  
+    store.deleteModifier(modifierId as TLModifierId)
+  }, [store])
+
   const toggleModifier = useCallback((modifierId: string) => {
-    if (!selectedShape) return
     const modifier = shapeModifiers.find(m => m.id === modifierId)
     if (modifier) {
-      updateModifier(modifierId, { enabled: !modifier.enabled })
+      store.updateModifier(modifierId as TLModifierId, { enabled: !modifier.enabled })
     }
-  }, [selectedShape, shapeModifiers, updateModifier])
+  }, [shapeModifiers, store])
 
   const toggleCollapsed = useCallback((modifierId: string) => {
     setCollapsedModifiers(prev => {
@@ -187,17 +75,16 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
   const handleAddModifier = useCallback((optionId: string) => {
     const typeMap: Record<string, ModifierType> = {
       'linear': 'linear',
-      'circular': 'circular', 
+      'circular': 'circular',
       'grid': 'grid',
       'mirror': 'mirror'
     }
-    
     const type = typeMap[optionId]
     if (type) {
       addModifier(type)
     }
   }, [addModifier])
-  
+
   if (!selectedShape) {
     return (
       <div className="modifier-controls">
@@ -207,7 +94,7 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
       </div>
     )
   }
-  
+
   // Define modifier options for the AddButton
   const modifierOptions: AddButtonOption[] = [
     {
@@ -217,7 +104,7 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
     },
     {
       id: 'circular',
-      label: 'Circular Array', 
+      label: 'Circular Array',
       icon: 'circle'
     },
     {
@@ -242,7 +129,6 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
         disabled={!selectedShape}
         className="modifier-controls__add-button"
       />
-      
       {shapeModifiers.length === 0 ? (
         <div className="modifier-controls__empty">
           <p>No modifiers added yet</p>
@@ -253,7 +139,6 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
           {shapeModifiers.map((modifier) => {
             const isCollapsed = collapsedModifiers.has(modifier.id)
             const isEnabled = modifier.enabled
-            
             return (
               <div key={modifier.id} className="modifier-controls__item">
                 <div className="modifier-controls__item-header">
@@ -267,11 +152,10 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
                       title={isCollapsed ? "Expand" : "Collapse"}
                       className="modifier-controls__caret"
                     >
-                      <TldrawUiButtonIcon 
-                        icon={isCollapsed ? "chevron-right" : "chevron-down"} 
+                      <TldrawUiButtonIcon
+                        icon={isCollapsed ? "chevron-right" : "chevron-down"}
                       />
                     </TldrawUiButton>
-                    
                     <label className="modifier-controls__checkbox-label">
                       <input
                         type="checkbox"
@@ -297,34 +181,43 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
                     ×
                   </TldrawUiButton>
                 </div>
-                
-                {isEnabled && !isCollapsed && (
-                  <div className="modifier-controls__item-content">
+                {/* Modifier details UI */}
+                {!isCollapsed && (
+                  <div className="modifier-controls__item-details">
                     {modifier.type === 'linear-array' && (
                       <LinearArrayControls
                         settings={modifier.props}
-                        onChange={(settings) => updateModifier(modifier.id, { props: settings })}
+                        onChange={(newSettings) => {
+                          console.log('LinearArrayControls onChange:', newSettings)
+                          store.updateModifier(modifier.id as TLModifierId, { props: newSettings })
+                        }}
                       />
                     )}
-                    
                     {modifier.type === 'circular-array' && (
                       <CircularArrayControls
                         settings={modifier.props}
-                        onChange={(settings) => updateModifier(modifier.id, { props: settings })}
+                        onChange={(newSettings) => {
+                          console.log('CircularArrayControls onChange:', newSettings)
+                          store.updateModifier(modifier.id as TLModifierId, { props: newSettings })
+                        }}
                       />
                     )}
-                    
                     {modifier.type === 'grid-array' && (
                       <GridArrayControls
                         settings={modifier.props}
-                        onChange={(settings) => updateModifier(modifier.id, { props: settings })}
+                        onChange={(newSettings) => {
+                          console.log('GridArrayControls onChange:', newSettings)
+                          store.updateModifier(modifier.id as TLModifierId, { props: newSettings })
+                        }}
                       />
                     )}
-                    
                     {modifier.type === 'mirror' && (
                       <MirrorControls
                         settings={modifier.props}
-                        onChange={(settings) => updateModifier(modifier.id, { props: settings })}
+                        onChange={(newSettings) => {
+                          console.log('MirrorControls onChange:', newSettings)
+                          store.updateModifier(modifier.id as TLModifierId, { props: newSettings })
+                        }}
                       />
                     )}
                   </div>
@@ -338,17 +231,4 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
   )
 }
 
-/**
- * Retrieves all modifiers associated with a specific shape
- * 
- * @param shapeId - The ID of the shape to get modifiers for
- * @returns Array of modifiers associated with the shape
- */
-export function getShapeModifiers(shapeId: TLShapeId): TLModifier[] {
-  // Check local modifiers first, then fall back to mock storage
-  const localMods = globalLocalModifiers.get(shapeId)
-  if (localMods) {
-    return localMods
-  }
-  return getMockModifiersForShape(shapeId)
-} 
+// Remove the local AddButton function - using the imported one instead 
