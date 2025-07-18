@@ -34,9 +34,16 @@ export interface ShapeState {
   metadata?: Record<string, unknown>
 }
 
+// Group context for modifier processing
+export interface GroupContext {
+  groupCenter: { x: number; y: number }
+  groupShapes: TLShape[]
+  groupBounds: { width: number; height: number; centerX: number; centerY: number }
+}
+
 // NEW: Interface that all modifiers must implement for stacking
 export interface ModifierProcessor<T = LinearArraySettings | CircularArraySettings | GridArraySettings | MirrorSettings> {
-  process(input: ShapeState, settings: T): ShapeState
+  process(input: ShapeState, settings: T, groupContext?: GroupContext): ShapeState
 }
 
 // Linear Array Modifier Settings

@@ -219,13 +219,31 @@ export function ModifierRenderer() {
   // Use StackedModifier approach - one component per shape processes all modifiers
   return (
     <div className="modifier-renderer">
-      {shapesWithModifiers.map(({ shape, modifiers, modifiersKey }) => (
-        <StackedModifier
-          key={`stacked-${shape.id}-${modifiersKey}`}
-          shape={shape}
-          modifiers={modifiers}
-        />
-      ))}
+      {shapesWithModifiers.flatMap(({ shape, modifiers, modifiersKey }) => {
+        if (shape.type === 'group' && editor) {
+          // Get all child shapes in the group
+          const childShapeIds = editor.getShapeAndDescendantIds([shape.id])
+          const childShapes = Array.from(childShapeIds)
+            .map((id: TLShapeId) => editor.getShape(id))
+            .filter(Boolean) as TLShape[]
+          // Render a StackedModifier for each child
+          return childShapes.map(childShape => (
+            <StackedModifier
+              key={`stacked-${childShape.id}-${modifiersKey}`}
+              shape={childShape}
+              modifiers={modifiers}
+            />
+          ))
+        } else {
+          return (
+            <StackedModifier
+              key={`stacked-${shape.id}-${modifiersKey}`}
+              shape={shape}
+              modifiers={modifiers}
+            />
+          )
+        }
+      })}
     </div>
   )
 }

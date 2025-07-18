@@ -1,4 +1,4 @@
-import type { TLShape } from 'tldraw'
+import type { TLShape, Editor } from 'tldraw'
 import type { 
   TLModifier, 
   ShapeState, 
@@ -8,9 +8,10 @@ import type {
   LinearArraySettings,
   CircularArraySettings,
   GridArraySettings,
-  MirrorSettings
+  MirrorSettings,
+  GroupContext
 } from '../types/modifiers'
-import { applyShapeScaling } from '../components/modifiers/utils/shapeUtils'
+import { applyShapeScaling, findTopLevelGroup } from '../components/modifiers/utils/shapeUtils'
 
 // Helper function to create initial ShapeState from a TLShape
 export function createInitialShapeState(shape: TLShape): ShapeState {
@@ -136,7 +137,8 @@ export class ModifierStack {
   // Process a list of modifiers in sequence
   static processModifiers(
     originalShape: TLShape, 
-    modifiers: TLModifier[]
+    modifiers: TLModifier[],
+    editor?: Editor
   ): ShapeState {
     console.log('ModifierStack.processModifiers called with:', {
       shapeId: originalShape.id,
@@ -144,6 +146,13 @@ export class ModifierStack {
       modifierCount: modifiers.length,
       modifiers: modifiers.map(m => ({ type: m.type, enabled: m.enabled, order: m.order }))
     })
+    
+    // Check if this shape is part of a group
+    const parentGroup = editor ? findTopLevelGroup(originalShape, editor) : null
+    
+    if (parentGroup && editor) {
+      return this.processGroupModifiers(originalShape, parentGroup, modifiers, editor)
+    }
     
     // Start with the original shape as initial state
     let currentState = createInitialShapeState(originalShape)
@@ -181,7 +190,101 @@ export class ModifierStack {
 
     return currentState
   }
-
+  
+  // Process modifiers for shapes that are part of a group
+  private static processGroupModifiers(
+    shape: TLShape,
+    group: TLShape,
+    modifiers: TLModifier[],
+    editor: Editor
+  ): ShapeState {
+    // Get all shapes in the group
+    const groupShapeIds = editor.getShapeAndDescendantIds([group.id])
+    const groupShapes = Array.from(groupShapeIds)
+      .map(id => editor.getShape(id))
+      .filter(Boolean) as TLShape[]
+    
+    // Calculate group bounds and center
+    const groupBounds = this.calculateGroupBoundsFromShapes(groupShapes)
+    const groupCenter = {
+      x: groupBounds.centerX,
+      y: groupBounds.centerY
+    }
+    
+    console.log('Processing group modifiers:', {
+      groupId: group.id,
+      groupShapes: groupShapes.length,
+      groupBounds,
+      groupCenter
+    })
+    
+    // Start with the original shape as initial state
+    let currentState = createInitialShapeState(shape)
+    
+    // Filter to only enabled modifiers, sorted by order
+    const enabledModifiers = modifiers
+      .filter(modifier => modifier.enabled)
+      .sort((a, b) => a.order - b.order)
+    
+    // Process each modifier in sequence with group context
+    for (const modifier of enabledModifiers) {
+      const processor = ModifierStack.getProcessor(modifier.type)
+      if (processor) {
+        const previousInstanceCount = currentState.instances.length
+        currentState = processor.process(currentState, modifier.props, { groupCenter, groupShapes, groupBounds })
+        const newInstanceCount = currentState.instances.length
+        
+        console.log(`Group modifier ${modifier.type}: ${previousInstanceCount} → ${newInstanceCount} instances`)
+      }
+    }
+    
+    return currentState
+  }
+  
+  // Calculate group bounds from TLShape array
+  private static calculateGroupBoundsFromShapes(shapes: TLShape[]) {
+    if (shapes.length === 0) return { minX: 0, maxX: 0, minY: 0, maxY: 0, width: 0, height: 0, centerX: 0, centerY: 0 }
+    
+    let minX = Infinity, maxX = -Infinity
+    let minY = Infinity, maxY = -Infinity
+    
+    shapes.forEach(shape => {
+      const bounds = this.getShapeBounds(shape)
+      minX = Math.min(minX, bounds.minX)
+      maxX = Math.max(maxX, bounds.maxX)
+      minY = Math.min(minY, bounds.minY)
+      maxY = Math.max(maxY, bounds.maxY)
+    })
+    
+    const width = maxX - minX
+    const height = maxY - minY
+    const centerX = minX + width / 2
+    const centerY = minY + height / 2
+    
+    return { minX, maxX, minY, maxY, width, height, centerX, centerY }
+  }
+  
+  private static getShapeBounds(shape: TLShape) {
+    if ('w' in shape.props && 'h' in shape.props) {
+      const w = shape.props.w as number
+      const h = shape.props.h as number
+      return {
+        minX: shape.x,
+        maxX: shape.x + w,
+        minY: shape.y,
+        maxY: shape.y + h
+      }
+    }
+    
+    // Fallback for shapes without w/h props
+    return {
+      minX: shape.x,
+      maxX: shape.x + 100, // Default width
+      minY: shape.y,
+      maxY: shape.y + 100  // Default height
+    }
+  }
+  
   // Get the appropriate processor for a modifier type
   private static getProcessor(modifierType: string): ModifierProcessor | null {
     switch (modifierType) {
@@ -198,13 +301,134 @@ export class ModifierStack {
         return null
     }
   }
+  
+
+}
+
+function processGroupArray(
+  input: ShapeState, 
+  settings: LinearArraySettings, 
+  groupContext: GroupContext
+): ShapeState {
+  const { count, offsetX, offsetY, rotation, scaleStep } = settings
+  const { groupCenter, groupBounds, groupShapes } = groupContext
+  
+  console.log('processGroupArray called with:', {
+    count,
+    offsetX,
+    offsetY,
+    rotation,
+    scaleStep,
+    groupCenter,
+    groupBounds,
+    groupShapesCount: groupShapes.length
+  })
+  
+  // Start with empty instances (we'll generate new ones)
+  const newInstances: ShapeInstance[] = []
+  
+  // Use group dimensions for percentage-based offsets
+  const pixelOffsetX = (offsetX / 100) * groupBounds.width
+  const pixelOffsetY = (offsetY / 100) * groupBounds.height
+  
+  console.log('Group-based offsets:', {
+    pixelOffsetX,
+    pixelOffsetY,
+    groupWidth: groupBounds.width,
+    groupHeight: groupBounds.height
+  })
+  
+  // For each existing instance (which represents a shape in the group), create the array
+  input.instances.forEach(inputInstance => {
+    // Add the original instance first
+    newInstances.push(inputInstance)
+    
+    // Create array copies
+    for (let i = 1; i < count; i++) {
+      // Calculate rotation in radians for this clone
+      const rotationRadians = (rotation * i * Math.PI / 180)
+      
+      // Calculate the offset from the group center
+      const offsetFromCenterX = pixelOffsetX * i
+      const offsetFromCenterY = pixelOffsetY * i
+      
+      // Apply rotation to the offset around the group center
+      const cos = Math.cos(rotationRadians)
+      const sin = Math.sin(rotationRadians)
+      
+      const rotatedOffsetX = offsetFromCenterX * cos - offsetFromCenterY * sin
+      const rotatedOffsetY = offsetFromCenterX * sin + offsetFromCenterY * cos
+      
+      // Calculate the group's new center position
+      const newGroupCenterX = groupCenter.x + rotatedOffsetX
+      const newGroupCenterY = groupCenter.y + rotatedOffsetY
+      
+      // Calculate the relative position of this shape within the group
+      const shapeRelativeX = inputInstance.transform.x - groupCenter.x
+      const shapeRelativeY = inputInstance.transform.y - groupCenter.y
+      
+      // Apply rotation to the relative position
+      const rotatedRelativeX = shapeRelativeX * cos - shapeRelativeY * sin
+      const rotatedRelativeY = shapeRelativeX * sin + shapeRelativeY * cos
+      
+      // Calculate the final position of this shape in the cloned group
+      const finalX = newGroupCenterX + rotatedRelativeX
+      const finalY = newGroupCenterY + rotatedRelativeY
+      
+      // Calculate scale using linear interpolation from original (1.0) to final scale
+      const progress = i / (count - 1) // 0 for first clone, 1 for last clone
+      const interpolatedScale = 1 + (scaleStep - 1) * progress
+      
+      console.log(`Group clone ${i} for shape ${inputInstance.shape.id}:`, {
+        originalPosition: { x: inputInstance.transform.x, y: inputInstance.transform.y },
+        groupCenter: { x: groupCenter.x, y: groupCenter.y },
+        newGroupCenter: { x: newGroupCenterX, y: newGroupCenterY },
+        shapeRelative: { x: shapeRelativeX, y: shapeRelativeY },
+        rotatedRelative: { x: rotatedRelativeX, y: rotatedRelativeY },
+        finalPosition: { x: finalX, y: finalY },
+        scale: interpolatedScale
+      })
+      
+      const newTransform: Transform = {
+        x: finalX,
+        y: finalY,
+        rotation: inputInstance.transform.rotation + rotationRadians,
+        scaleX: inputInstance.transform.scaleX * interpolatedScale,
+        scaleY: inputInstance.transform.scaleY * interpolatedScale
+      }
+      
+      const newInstance: ShapeInstance = {
+        shape: { ...inputInstance.shape },
+        transform: newTransform,
+        index: newInstances.length,
+        metadata: {
+          ...inputInstance.metadata,
+          arrayIndex: i,
+          sourceInstance: inputInstance.index,
+          isGroupClone: true
+        }
+      }
+      
+      newInstances.push(newInstance)
+    }
+  })
+  
+  return {
+    ...input,
+    instances: newInstances
+  }
 }
 
 // Linear Array Processor implementation
 const LinearArrayProcessor: ModifierProcessor = {
-  process(input: ShapeState, settings: LinearArraySettings): ShapeState {
+  process(input: ShapeState, settings: LinearArraySettings, groupContext?: GroupContext): ShapeState {
     console.log('LinearArrayProcessor.process called with settings:', settings)
     const { count, offsetX, offsetY, rotation, scaleStep } = settings
+    
+    // If processing in group context, use group dimensions
+    if (groupContext) {
+      return processGroupArray(input, settings, groupContext)
+    }
     
     // Start with empty instances (we'll generate new ones)
     const newInstances: ShapeInstance[] = []

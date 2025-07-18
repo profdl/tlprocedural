@@ -51,24 +51,6 @@ export function GridArrayControls({ settings, onChange }: GridArrayControlsProps
           step={INPUT_CONSTRAINTS.spacingY.step}
           onChange={(value) => updateSetting('spacingY', value)}
         />
-        
-        <ModifierPropertyInput
-          label="Offset X"
-          value={settings.offsetX}
-          min={INPUT_CONSTRAINTS.offsetX.min}
-          max={INPUT_CONSTRAINTS.offsetX.max}
-          step={INPUT_CONSTRAINTS.offsetX.step}
-          onChange={(value) => updateSetting('offsetX', value)}
-        />
-        
-        <ModifierPropertyInput
-          label="Offset Y"
-          value={settings.offsetY}
-          min={INPUT_CONSTRAINTS.offsetY.min}
-          max={INPUT_CONSTRAINTS.offsetY.max}
-          step={INPUT_CONSTRAINTS.offsetY.step}
-          onChange={(value) => updateSetting('offsetY', value)}
-        />
       </div>
     </div>
   )

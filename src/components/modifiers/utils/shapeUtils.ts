@@ -1,4 +1,4 @@
-import { type TLShape, createShapeId } from 'tldraw'
+import { type TLShape, type Editor, createShapeId } from 'tldraw'
 
 // Shape dimension utilities
 export function getShapeDimensions(shape: TLShape): { width: number; height: number } {
@@ -31,6 +31,66 @@ export function setShapeDimensions(
   }
   
   return shape
+}
+
+// Group utility functions
+export function calculateGroupBounds(shapes: TLShape[]) {
+  if (shapes.length === 0) return { minX: 0, maxX: 0, minY: 0, maxY: 0, width: 0, height: 0, centerX: 0, centerY: 0 }
+  
+  let minX = Infinity, maxX = -Infinity
+  let minY = Infinity, maxY = -Infinity
+  
+  shapes.forEach(shape => {
+    const bounds = getShapeBounds(shape)
+    minX = Math.min(minX, bounds.minX)
+    maxX = Math.max(maxX, bounds.maxX)
+    minY = Math.min(minY, bounds.minY)
+    maxY = Math.max(maxY, bounds.maxY)
+  })
+  
+  const width = maxX - minX
+  const height = maxY - minY
+  const centerX = minX + width / 2
+  const centerY = minY + height / 2
+  
+  return { minX, maxX, minY, maxY, width, height, centerX, centerY }
+}
+
+export function getShapeBounds(shape: TLShape) {
+  if ('w' in shape.props && 'h' in shape.props) {
+    const w = shape.props.w as number
+    const h = shape.props.h as number
+    return {
+      minX: shape.x,
+      maxX: shape.x + w,
+      minY: shape.y,
+      maxY: shape.y + h
+    }
+  }
+  
+  // Fallback for shapes without w/h props
+  return {
+    minX: shape.x,
+    maxX: shape.x + 100, // Default width
+    minY: shape.y,
+    maxY: shape.y + 100  // Default height
+  }
+}
+
+export function findTopLevelGroup(shape: TLShape, editor: Editor): TLShape | null {
+  let currentShape = shape
+  let topGroup: TLShape | null = null
+  
+  while (currentShape.parentId) {
+    const parent = editor.getShape(currentShape.parentId)
+    if (parent && parent.type === 'group') {
+      topGroup = parent
+    }
+    if (!parent) break
+    currentShape = parent
+  }
+  
+  return topGroup
 }
 
 // Comprehensive scaling utility for different shape types

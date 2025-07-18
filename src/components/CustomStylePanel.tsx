@@ -8,7 +8,8 @@ import {
   TldrawUiButton,
   stopEventPropagation,
   type TLUiStylePanelProps,
-  type TLShape
+  type TLShape,
+  type TLShapeId
 } from 'tldraw'
 import { ModifierControls } from './modifiers/ModifierControls'
 
@@ -19,10 +20,31 @@ export const CustomStylePanel = (props: TLUiStylePanelProps) => {
   const styles = useRelevantStyles()
   const [activeTab, setActiveTab] = useState<TabType>('styles')
   
-  // Get the currently selected shapes
+  // Get the currently selected shapes, expanding groups to include their child shapes
   const selectedShapes = useValue(
     'selected-shapes',
-    () => editor.getSelectedShapes(),
+    () => {
+      const shapes = editor.getSelectedShapes()
+      
+      // Expand groups to include their child shapes for modifier processing
+      const expandedShapes: TLShape[] = []
+      
+      shapes.forEach(shape => {
+        if (shape.type === 'group') {
+          // Get all child shapes in the group
+          const childShapeIds = editor.getShapeAndDescendantIds([shape.id])
+          const childShapes = Array.from(childShapeIds)
+            .map((id: TLShapeId) => editor.getShape(id))
+            .filter(Boolean) as TLShape[]
+          
+          expandedShapes.push(...childShapes)
+        } else {
+          expandedShapes.push(shape)
+        }
+      })
+      
+      return expandedShapes
+    },
     [editor]
   )
 
