@@ -92,7 +92,7 @@ export function extractShapesFromState(state: ShapeState): TLShape[] {
         ...baseShape.meta,
         isFlippedX: instance.transform.scaleX < 0,
         isFlippedY: instance.transform.scaleY < 0,
-        mirrorAxis: instance.metadata.mirrorAxis,
+        mirrorAxis: instance.metadata.mirrorAxis as string,
         scaleX: instance.transform.scaleX,
         scaleY: instance.transform.scaleY,
         isMirrored: true
@@ -647,7 +647,7 @@ const MirrorProcessor: ModifierProcessor = {
     // Group mirrored instances by their original group
     const mirroredGroups = new Map<string, ShapeInstance[]>()
     mirroredInstances.forEach(instance => {
-      const groupKey = instance.metadata?.originalGroup || 'unknown'
+      const groupKey = (instance.metadata?.originalGroup as string) || 'unknown'
       if (!mirroredGroups.has(groupKey)) {
         mirroredGroups.set(groupKey, [])
       }

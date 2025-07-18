@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from 'react'
+import { useMemo, useEffect, useCallback } from 'react'
 import { useEditor, type TLShape, type TLShapePartial, createShapeId } from 'tldraw'
 import { ModifierStack, extractShapesFromState } from '../../store/modifierStack'
 import type { TLModifier } from '../../types/modifiers'
@@ -18,14 +18,17 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
   
   // Create stable dependency keys to avoid infinite loops
   // We use stringified keys instead of object references to prevent infinite re-renders
-  // while still tracking all relevant changes
+  // while still tracking all relevant changes. This approach satisfies the linter's
+  // requirement for stable dependencies while avoiding the infinite loop issues that
+  // would occur if we passed the full objects as dependencies.
   const shapeKey = `${shape.id}-${shape.x}-${shape.y}-${shape.rotation}-${JSON.stringify(shape.props)}`
   const modifiersKey = modifiers.map(m => `${m.id}-${m.enabled}-${JSON.stringify(m.props)}`).join('|')
   
-  // Process all modifiers using ModifierStack
-  const processedShapes = useMemo(() => {
+  // Create a stable callback for processing modifiers
+  const getProcessedShapes = useCallback(() => {
     logShapeOperation('StackedModifier', shape.id, {
-      modifierCount: modifiers.length,
+      shapeType: shape.type,
+      modifierCount: modifiers.filter(m => m.enabled).length,
       modifiers: modifiers.map(m => ({ type: m.type, enabled: m.enabled }))
     })
     
@@ -135,6 +138,11 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
       }
     })
   }, [shapeKey, modifiersKey])
+  
+  // Process all modifiers using the stable callback
+  const processedShapes = useMemo(() => {
+    return getProcessedShapes()
+  }, [getProcessedShapes])
 
   // Create and manage shape clones
   useEffect(() => {

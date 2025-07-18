@@ -35,7 +35,7 @@ export interface ShapeState {
 }
 
 // NEW: Interface that all modifiers must implement for stacking
-export interface ModifierProcessor<T = Record<string, unknown>> {
+export interface ModifierProcessor<T = LinearArraySettings | CircularArraySettings | GridArraySettings | MirrorSettings> {
   process(input: ShapeState, settings: T): ShapeState
 }
 
