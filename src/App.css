@@ -78,8 +78,11 @@
 
 .modifier-controls__buttons {
   display: flex;
-  gap: 4px;
+  gap: 8px;
   align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  margin-bottom: 8px;
 }
 
 .modifier-controls__add-button {
@@ -94,7 +97,10 @@
   font-weight: 500;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
+  height: 28px;
+  min-height: 28px;
 }
 
 .modifier-controls__add-button:hover {
@@ -107,23 +113,32 @@
 }
 
 .modifier-controls__apply-button {
-  width: 100%;
-  padding: 8px 12px;
-  background: var(--color-muted-1);
+  padding: 6px 12px;
+  background: white;
   border-radius: 4px;
-  border: 1px solid var(--color-panel-contrast);
-  color: var(--color-text-1);
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
   cursor: pointer;
   transition: all 0.1s ease;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   display: flex;
   align-items: center;
   justify-content: center;
+  height: 28px;
+  min-height: 28px;
 }
 
 .modifier-controls__apply-button:hover {
-  background: var(--color-muted-2);
+  background: var(--color-primary);
+  color: white;
+}
+
+.modifier-controls__apply-button:disabled {
+  background: white;
+  border-color: var(--color-muted-1);
+  color: var(--color-text-3);
+  cursor: not-allowed;
 }
 
 .modifier-controls__add-button svg {

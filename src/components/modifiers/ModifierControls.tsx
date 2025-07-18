@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react'
 import { useModifierStore } from '../../store/modifierStore'
 import { DEFAULT_SETTINGS } from './constants'
-import { TldrawUiButton, TldrawUiButtonIcon } from 'tldraw'
+import { TldrawUiButton, TldrawUiButtonIcon, useEditor } from 'tldraw'
 import { MODIFIER_DISPLAY_NAMES } from './constants'
 import type { TLModifierId } from '../../types/modifiers'
 import type { TLShape } from 'tldraw'
@@ -10,6 +10,7 @@ import { CircularArrayControls } from './controls/CircularArrayControls'
 import { GridArrayControls } from './controls/GridArrayControls'
 import { MirrorControls } from './controls/MirrorControls'
 import { AddButton, type AddButtonOption } from './components/AddButton'
+import { ModifierStack, extractShapesFromState } from '../../store/modifierStack'
 
 // Local stopEventPropagation implementation
 function stopEventPropagation(e: React.SyntheticEvent | Event) {
@@ -27,6 +28,7 @@ type ModifierType = 'linear' | 'circular' | 'grid' | 'mirror'
 
 export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
   const store = useModifierStore()
+  const editor = useEditor()
   const [collapsedModifiers, setCollapsedModifiers] = useState<Set<string>>(new Set())
 
   // Get modifiers for the first selected shape (simplified for now)
@@ -34,6 +36,11 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
   const shapeModifiers = useMemo(() => {
     return selectedShape ? store.getModifiersForShape(selectedShape.id) : []
   }, [store, selectedShape])
+
+  // Check if there are any enabled modifiers that can be applied
+  const hasEnabledModifiers = useMemo(() => {
+    return shapeModifiers.some(modifier => modifier.enabled)
+  }, [shapeModifiers])
 
   const addModifier = useCallback((type: ModifierType) => {
     if (!selectedShape) return
@@ -48,6 +55,52 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
     const settings = DEFAULT_SETTINGS[storeType] || {}
     store.createModifier(selectedShape.id, storeType, settings)
   }, [selectedShape, store])
+
+  const applyModifiers = useCallback(() => {
+    if (!selectedShape || !editor) return
+    
+    // Get all enabled modifiers for this shape
+    const enabledModifiers = store.getEnabledModifiersForShape(selectedShape.id)
+    if (enabledModifiers.length === 0) return
+
+    try {
+      // Process the modifiers to get the transformed shapes
+      const result = ModifierStack.processModifiers(selectedShape, enabledModifiers)
+      const transformedShapes = extractShapesFromState(result)
+      
+      // Create actual shapes from the transformed results (skip the first one as it's the original)
+      const shapesToCreate = transformedShapes.slice(1).map(transformedShape => {
+        // Create shape object without id, letting tldraw generate new IDs
+        return {
+          type: transformedShape.type,
+          x: transformedShape.x,
+          y: transformedShape.y,
+          rotation: transformedShape.rotation,
+          props: transformedShape.props,
+          parentId: selectedShape.parentId,
+          meta: {
+            ...transformedShape.meta,
+            appliedFromModifier: true,
+            originalShapeId: selectedShape.id
+          }
+        }
+      })
+
+      if (shapesToCreate.length > 0) {
+        // Create the shapes in the editor
+        editor.createShapes(shapesToCreate)
+        
+        // Remove the modifiers from the original shape since they're now applied
+        enabledModifiers.forEach(modifier => {
+          store.deleteModifier(modifier.id)
+        })
+        
+        console.log(`Applied ${shapesToCreate.length} shapes from modifiers`)
+      }
+    } catch (error) {
+      console.error('Failed to apply modifiers:', error)
+    }
+  }, [selectedShape, editor, store])
 
   const removeModifier = useCallback((modifierId: string) => {
     store.deleteModifier(modifierId as TLModifierId)
@@ -121,14 +174,27 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
 
   return (
     <div className="modifier-controls">
-      <AddButton
-        label="Add Modifier"
-        icon="plus"
-        options={modifierOptions}
-        onSelect={handleAddModifier}
-        disabled={!selectedShape}
-        className="modifier-controls__add-button"
-      />
+      <div className="modifier-controls__buttons">
+        <AddButton
+          label="Add Modifier"
+          icon="plus"
+          options={modifierOptions}
+          onSelect={handleAddModifier}
+          disabled={!selectedShape}
+          className="modifier-controls__add-button"
+        />
+        <TldrawUiButton
+          type="normal"
+          onPointerDown={(e) => {
+            stopEventPropagation(e)
+            applyModifiers()
+          }}
+          disabled={!hasEnabledModifiers}
+          className="modifier-controls__apply-button"
+        >
+          APPLY
+        </TldrawUiButton>
+      </div>
       {shapeModifiers.length === 0 ? (
         <div className="modifier-controls__empty">
           <p>No modifiers added yet</p>

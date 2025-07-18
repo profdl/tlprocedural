@@ -11,11 +11,11 @@ export type ModifierType = typeof MODIFIER_TYPES[keyof typeof MODIFIER_TYPES]
 // Default settings for each modifier type
 export const DEFAULT_SETTINGS = {
   [MODIFIER_TYPES.LINEAR_ARRAY]: {
-    count: 25,
-    offsetX: 100, // 100% = shape width
-    offsetY: 0,   // 0% = no vertical offset
-    rotation: 0,
-    scaleStep: 1.0
+    count: 19,
+    offsetX: 10.0, // 10% = shape width
+    offsetY: 0.0,  // 0% = no vertical offset
+    rotation: -2.00,
+    scaleStep: 0.50
   },
   [MODIFIER_TYPES.CIRCULAR_ARRAY]: {
     count: 8,
