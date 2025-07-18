@@ -4,7 +4,11 @@ import type {
   ShapeState, 
   ShapeInstance, 
   Transform,
-  ModifierProcessor 
+  ModifierProcessor,
+  LinearArraySettings,
+  CircularArraySettings,
+  GridArraySettings,
+  MirrorSettings
 } from '../types/modifiers'
 import { applyShapeScaling } from '../components/modifiers/utils/shapeUtils'
 
@@ -198,7 +202,7 @@ export class ModifierStack {
 
 // Linear Array Processor implementation
 const LinearArrayProcessor: ModifierProcessor = {
-  process(input: ShapeState, settings: any): ShapeState {
+  process(input: ShapeState, settings: LinearArraySettings): ShapeState {
     console.log('LinearArrayProcessor.process called with settings:', settings)
     const { count, offsetX, offsetY, rotation, spacing, scaleStep } = settings
     
@@ -210,12 +214,70 @@ const LinearArrayProcessor: ModifierProcessor = {
       // Add the original instance first
       newInstances.push(inputInstance)
       
+      // Get shape dimensions for center calculations
+      const shapeWidth = 'w' in inputInstance.shape.props ? (inputInstance.shape.props.w as number) : 100
+      const shapeHeight = 'h' in inputInstance.shape.props ? (inputInstance.shape.props.h as number) : 100
+      
+      // Calculate the center of the original shape
+      const originalCenterX = inputInstance.transform.x + shapeWidth / 2
+      const originalCenterY = inputInstance.transform.y + shapeHeight / 2
+      
+      console.log('LinearArrayProcessor: Center-based rotation calculation:', {
+        originalCenter: { x: originalCenterX, y: originalCenterY },
+        shapeDimensions: { width: shapeWidth, height: shapeHeight },
+        originalPosition: { x: inputInstance.transform.x, y: inputInstance.transform.y }
+      })
+      
       // Create array copies
       for (let i = 1; i < count; i++) {
+        // Apply spacing as a multiplier to the offset
+        const spacedOffsetX = offsetX * spacing
+        const spacedOffsetY = offsetY * spacing
+        
+        // Calculate rotation in radians for this clone
+        const rotationRadians = (rotation * i * Math.PI / 180)
+        
+        // Calculate the offset from the original center
+        const offsetFromCenterX = spacedOffsetX * i
+        const offsetFromCenterY = spacedOffsetY * i
+        
+        // Apply rotation to the offset around the center
+        const cos = Math.cos(rotationRadians)
+        const sin = Math.sin(rotationRadians)
+        
+        const rotatedOffsetX = offsetFromCenterX * cos - offsetFromCenterY * sin
+        const rotatedOffsetY = offsetFromCenterX * sin + offsetFromCenterY * cos
+        
+        // Calculate the final center position after rotation
+        const finalCenterX = originalCenterX + rotatedOffsetX
+        const finalCenterY = originalCenterY + rotatedOffsetY
+        
+        // IMPORTANT: Compensate for tldraw's rotation behavior
+        // tldraw rotates around the top-left corner, so we need to adjust the position
+        // to make it appear as if it's rotating around the center
+        
+        // Calculate how much the center moves when rotating around top-left
+        const centerOffsetX = (shapeWidth / 2) * (cos - 1) - (shapeHeight / 2) * sin
+        const centerOffsetY = (shapeWidth / 2) * sin + (shapeHeight / 2) * (cos - 1)
+        
+        // Adjust the final position to compensate for tldraw's rotation behavior
+        const finalX = finalCenterX - shapeWidth / 2 - centerOffsetX
+        const finalY = finalCenterY - shapeHeight / 2 - centerOffsetY
+        
+        console.log(`LinearArrayProcessor: Clone ${i} calculation:`, {
+          rotationDegrees: rotation * i,
+          rotationRadians,
+          offsetFromCenter: { x: offsetFromCenterX, y: offsetFromCenterY },
+          rotatedOffset: { x: rotatedOffsetX, y: rotatedOffsetY },
+          finalCenter: { x: finalCenterX, y: finalCenterY },
+          centerOffset: { x: centerOffsetX, y: centerOffsetY },
+          finalPosition: { x: finalX, y: finalY }
+        })
+        
         const newTransform: Transform = {
-          x: inputInstance.transform.x + (offsetX * i * spacing),
-          y: inputInstance.transform.y + (offsetY * i * spacing),
-          rotation: inputInstance.transform.rotation + (rotation * i * Math.PI / 180),
+          x: finalX,
+          y: finalY,
+          rotation: inputInstance.transform.rotation + rotationRadians,
           scaleX: inputInstance.transform.scaleX * (1 + (scaleStep - 1) * i),
           scaleY: inputInstance.transform.scaleY * (1 + (scaleStep - 1) * i)
         }
@@ -244,7 +306,7 @@ const LinearArrayProcessor: ModifierProcessor = {
 
 // Circular Array Processor implementation
 const CircularArrayProcessor: ModifierProcessor = {
-  process(input: ShapeState, settings: any): ShapeState {
+  process(input: ShapeState, settings: CircularArraySettings): ShapeState {
     const { count, radius, startAngle, endAngle, centerX, centerY, rotateAll, rotateEach, pointToCenter } = settings
     
     const newInstances: ShapeInstance[] = []
@@ -377,7 +439,7 @@ const CircularArrayProcessor: ModifierProcessor = {
 
 // Grid Array Processor implementation
 const GridArrayProcessor: ModifierProcessor = {
-  process(input: ShapeState, settings: any): ShapeState {
+  process(input: ShapeState, settings: GridArraySettings): ShapeState {
     const { rows, columns, spacingX, spacingY, offsetX, offsetY } = settings
     
     const newInstances: ShapeInstance[] = []
@@ -427,7 +489,7 @@ const GridArrayProcessor: ModifierProcessor = {
 
 // Mirror Processor implementation
 const MirrorProcessor: ModifierProcessor = {
-  process(input: ShapeState, settings: any): ShapeState {
+  process(input: ShapeState, settings: MirrorSettings): ShapeState {
     const { axis, offset, mergeThreshold } = settings
     
     const newInstances: ShapeInstance[] = []
@@ -480,7 +542,7 @@ const MirrorProcessor: ModifierProcessor = {
         let mirroredTransform: Transform
         
         switch (axis) {
-          case 'x': // Horizontal mirror (flip across vertical axis)
+          case 'x': { // Horizontal mirror (flip across vertical axis)
             const groupCenterX = groupBounds.centerX
             const mirrorLineX = groupCenterX + offset
             const distanceFromCenter = inputInstance.transform.x - groupCenterX
@@ -494,8 +556,9 @@ const MirrorProcessor: ModifierProcessor = {
               scaleY: inputInstance.transform.scaleY
             }
             break
+          }
             
-          case 'y': // Vertical mirror (flip across horizontal axis)
+          case 'y': { // Vertical mirror (flip across horizontal axis)
             const groupCenterY = groupBounds.centerY
             const mirrorLineY = groupCenterY + offset
             const distanceFromCenterY = inputInstance.transform.y - groupCenterY
@@ -509,8 +572,9 @@ const MirrorProcessor: ModifierProcessor = {
               scaleY: -inputInstance.transform.scaleY // Flip vertically
             }
             break
+          }
             
-          case 'diagonal': // Diagonal mirror (swap X/Y and flip both)
+          case 'diagonal': { // Diagonal mirror (swap X/Y and flip both)
             const groupCenterDiag = { x: groupBounds.centerX, y: groupBounds.centerY }
             mirroredTransform = {
               x: groupCenterDiag.y + (inputInstance.transform.y - groupCenterDiag.y) + offset,
@@ -520,9 +584,9 @@ const MirrorProcessor: ModifierProcessor = {
               scaleY: -inputInstance.transform.scaleX
             }
             break
+          }
             
-          default:
-            // Default to horizontal mirror
+          default: { // Default to horizontal mirror
             const defGroupCenterX = groupBounds.centerX
             const defMirrorLineX = defGroupCenterX + offset
             const defDistanceFromCenter = inputInstance.transform.x - defGroupCenterX
@@ -535,6 +599,7 @@ const MirrorProcessor: ModifierProcessor = {
               scaleX: -inputInstance.transform.scaleX,
               scaleY: inputInstance.transform.scaleY
             }
+          }
         }
         
         // Check if mirrored position is too close to any existing instance (merge threshold)

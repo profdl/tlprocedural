@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { type TLShapeId } from 'tldraw'
-import { type TLModifier, type TLModifierId, createModifierId } from '../../../types/modifiers'
+import { type TLModifier, type TLModifierId } from '../../../types/modifiers'
 import { DEFAULT_SETTINGS } from '../constants'
 import { useModifierStore } from '../../../store/modifierStore'
 
@@ -41,28 +41,7 @@ export function useModifierManager() {
    * @returns The created modifier
    */
   const addModifier = useCallback((shapeId: TLShapeId, type: 'linear-array' | 'circular-array' | 'grid-array' | 'mirror'): TLModifier => {
-    // For now, we only support linear-array in the store
-    // TODO: Add support for other modifier types
-    if (type === 'linear-array') {
-      return store.createLinearArrayModifier(shapeId, DEFAULT_SETTINGS[type])
-    }
-    
-    // Fallback for other types - create a basic modifier structure
-    const newModifier = {
-      id: createModifierId(),
-      typeName: 'modifier',
-      targetShapeId: shapeId,
-      enabled: true,
-      order: store.getModifiersForShape(shapeId).length,
-      type,
-      props: DEFAULT_SETTINGS[type]
-    } as TLModifier
-
-    // For now, we'll need to add support for other types in the store
-    // This is a temporary workaround
-    console.warn(`Modifier type ${type} not yet supported in Zustand store`)
-    
-    return newModifier
+    return store.createModifier(shapeId, type, DEFAULT_SETTINGS[type])
   }, [store])
 
   /**
@@ -73,7 +52,7 @@ export function useModifierManager() {
    * @param updates - Partial updates to apply to the modifier
    */
   const updateModifier = useCallback((
-    shapeId: TLShapeId, 
+    _shapeId: TLShapeId, 
     modifierId: string, 
     updates: Partial<TLModifier>
   ) => {
@@ -86,7 +65,7 @@ export function useModifierManager() {
    * @param shapeId - The ID of the shape
    * @param modifierId - The ID of the modifier to remove
    */
-  const removeModifier = useCallback((shapeId: TLShapeId, modifierId: string) => {
+  const removeModifier = useCallback((_shapeId: TLShapeId, modifierId: string) => {
     store.deleteModifier(modifierId as TLModifierId)
   }, [store])
 
@@ -96,7 +75,7 @@ export function useModifierManager() {
    * @param shapeId - The ID of the shape
    * @param modifierId - The ID of the modifier to toggle
    */
-  const toggleModifier = useCallback((shapeId: TLShapeId, modifierId: string) => {
+  const toggleModifier = useCallback((_shapeId: TLShapeId, modifierId: string) => {
     store.toggleModifier(modifierId as TLModifierId)
   }, [store])
 

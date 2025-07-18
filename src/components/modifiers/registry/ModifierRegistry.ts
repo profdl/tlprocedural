@@ -1,13 +1,13 @@
 import { type ModifierType } from '../../../types/modifiers'
-import { MODIFIER_TYPES, MODIFIER_DISPLAY_NAMES, DEFAULT_SETTINGS } from '../constants'
+import { MODIFIER_DISPLAY_NAMES, DEFAULT_SETTINGS } from '../constants'
 
 // Registry entry interface
 export interface ModifierRegistryEntry {
   type: ModifierType
   displayName: string
-  defaultSettings: any
-  component: React.ComponentType<any>
-  controlsComponent: React.ComponentType<any>
+  defaultSettings: Record<string, unknown>
+  component: React.ComponentType<Record<string, unknown>>
+  controlsComponent: React.ComponentType<Record<string, unknown>>
 }
 
 // Registry type
@@ -37,6 +37,6 @@ export function getModifierDisplayName(type: ModifierType): string {
 }
 
 // Helper function to get default settings for a modifier type
-export function getModifierDefaultSettings(type: ModifierType): any {
+export function getModifierDefaultSettings(type: ModifierType): Record<string, unknown> {
   return DEFAULT_SETTINGS[type] || {}
 } 

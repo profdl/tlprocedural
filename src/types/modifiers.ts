@@ -24,18 +24,18 @@ export interface ShapeInstance {
   shape: TLShape
   transform: Transform
   index: number
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 // NEW: State object passed between modifiers in the stack
 export interface ShapeState {
   originalShape: TLShape
   instances: ShapeInstance[]
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 // NEW: Interface that all modifiers must implement for stacking
-export interface ModifierProcessor<T = any> {
+export interface ModifierProcessor<T = Record<string, unknown>> {
   process(input: ShapeState, settings: T): ShapeState
 }
 

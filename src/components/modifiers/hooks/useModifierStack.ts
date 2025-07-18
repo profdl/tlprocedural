@@ -54,12 +54,7 @@ export function useModifierStack(shape: TLShape) {
     
     // Store actions (for convenience)
     addModifier: (type: 'linear-array' | 'circular-array' | 'grid-array' | 'mirror') => {
-      // For now, we only support linear-array in the store
-      if (type === 'linear-array') {
-        return store.createLinearArrayModifier(shape.id)
-      }
-      console.warn(`Modifier type ${type} not yet supported in Zustand store`)
-      return null
+      return store.createModifier(shape.id, type)
     },
     
     updateModifier: (modifierId: string, updates: Partial<TLModifier>) => {

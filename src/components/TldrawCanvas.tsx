@@ -2,13 +2,15 @@ import {
   Tldraw, 
   type TLShape,
   type TldrawOptions,
+  type Editor,
+  type TLShapeId,
   DrawShapeUtil
 } from 'tldraw'
 import type { TLComponents } from 'tldraw'
 import 'tldraw/tldraw.css'
 import { CustomStylePanel } from './CustomStylePanel'
 import { ModifierOverlay } from './ModifierRenderer'
-import { isArrayClone } from './modifiers/LinearArrayModifier'
+import { isArrayClone } from './modifiers/utils/shapeUtils'
 
 // Try to configure DrawShapeUtil with smoothing (may not work in all versions)
 const ConfiguredDrawShapeUtil = DrawShapeUtil.configure({
@@ -16,7 +18,7 @@ const ConfiguredDrawShapeUtil = DrawShapeUtil.configure({
   smoothing: true,
   strokeSmoothing: true,
   lineSmoothing: true
-} as any) // Use 'as any' to bypass TypeScript errors for experimental features
+} as Record<string, unknown>) // Use type assertion for experimental features
 
 const components: TLComponents = {
   StylePanel: CustomStylePanel,
@@ -30,13 +32,13 @@ const editorOptions: Partial<TldrawOptions> = {
 }
 
 export function TldrawCanvas() {
-  const handleMount = (editor: any) => {
+  const handleMount = (editor: Editor) => {
     // Set up side effects to keep array clone shapes locked and non-interactive
     
     // Prevent array clones from being unlocked
     const cleanupKeepArrayClonesLocked = editor.sideEffects.registerBeforeChangeHandler(
       'shape',
-      (prev: TLShape, next: TLShape) => {
+      (_prev: TLShape, next: TLShape) => {
         if (!isArrayClone(next)) return next
         if (next.isLocked) return next
         // Keep array clones locked
@@ -50,7 +52,7 @@ export function TldrawCanvas() {
       () => {
         const selectedShapeIds = editor.getSelectedShapeIds()
         const filteredSelectedShapeIds = selectedShapeIds.filter((id: string) => {
-          const shape = editor.getShape(id)
+          const shape = editor.getShape(id as TLShapeId)
           return shape && !isArrayClone(shape)
         })
         

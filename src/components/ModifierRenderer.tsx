@@ -1,6 +1,5 @@
-import React, { useMemo } from 'react'
+import { useMemo } from 'react'
 import { useEditor, type TLShape, type TLShapeId, track, useValue, SVGContainer } from 'tldraw'
-import { LinearArrayModifier, CircularArrayModifier, GridArrayModifier } from './modifiers/LinearArrayModifier'
 import { StackedModifier } from './modifiers/StackedModifier'
 import { useModifierStore } from '../store/modifierStore'
 import type { TLModifier } from '../types/modifiers'
@@ -188,10 +187,6 @@ export function ModifierRenderer() {
   const editor = useEditor()
   const store = useModifierStore()
   
-  // Feature flag to toggle between old and new modifier processing
-  // TODO: This will become a user setting later
-  const useStackedModifiers = true // Set to false to use old individual modifier approach
-  
   // Get all shapes and their modifiers
   const shapesWithModifiers = useValue(
     'shapes-with-modifiers',
@@ -221,61 +216,16 @@ export function ModifierRenderer() {
     [editor, store] // Track both editor and store changes
   )
   
-  if (useStackedModifiers) {
-    // NEW: Use StackedModifier approach - one component per shape processes all modifiers
-    return (
-      <div className="modifier-renderer">
-        {shapesWithModifiers.map(({ shape, modifiers, modifiersKey }) => (
-          <StackedModifier
-            key={`stacked-${shape.id}-${modifiersKey}`}
-            shape={shape}
-            modifiers={modifiers}
-          />
-        ))}
-      </div>
-    )
-  }
-
-  // OLD: Individual modifier approach (for comparison/fallback)
+  // Use StackedModifier approach - one component per shape processes all modifiers
   return (
     <div className="modifier-renderer">
-      {shapesWithModifiers.map(({ shape, modifiers }) =>
-        modifiers.map(modifier => {
-          const typedModifier = modifier as TLModifier // Cast to handle different modifier types
-          
-          switch (typedModifier.type) {
-            case 'linear-array':
-              return (
-                <LinearArrayModifier
-                  key={`${shape.id}-${modifier.id}`}
-                  shape={shape}
-                  settings={typedModifier.props}
-                  enabled={typedModifier.enabled}
-                />
-              )
-            case 'circular-array':
-              return (
-                <CircularArrayModifier
-                  key={`${shape.id}-${modifier.id}`}
-                  shape={shape}
-                  settings={typedModifier.props}
-                  enabled={typedModifier.enabled}
-                />
-              )
-            case 'grid-array':
-              return (
-                <GridArrayModifier
-                  key={`${shape.id}-${modifier.id}`}
-                  shape={shape}
-                  settings={typedModifier.props}
-                  enabled={typedModifier.enabled}
-                />
-              )
-            default:
-              return null
-          }
-        })
-      )}
+      {shapesWithModifiers.map(({ shape, modifiers, modifiersKey }) => (
+        <StackedModifier
+          key={`stacked-${shape.id}-${modifiersKey}`}
+          shape={shape}
+          modifiers={modifiers}
+        />
+      ))}
     </div>
   )
 }

@@ -2,14 +2,6 @@
 export { ModifierControls } from './ModifierControls'
 export { StackedModifier } from './StackedModifier'
 
-// Individual modifier components
-export { LinearArrayModifier } from './modifiers/LinearArrayModifier'
-export { CircularArrayModifier } from './modifiers/CircularArrayModifier'
-export { GridArrayModifier } from './modifiers/GridArrayModifier'
-
-// Factory
-export { ModifierFactory } from './factory/ModifierFactory'
-
 // Control components
 export { ModifierPropertyInput } from './controls/ModifierPropertyInput'
 export { ModifierSlider } from './controls/ModifierSlider'

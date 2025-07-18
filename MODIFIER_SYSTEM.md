@@ -62,8 +62,9 @@ Use the controls to adjust the array:
 ## 🔧 Technical Architecture
 
 ### Core Components
-- `ModifierManager`: Handles modifier storage and operations
-- `LinearArrayModifier`: Calculates and renders array positions
+- `useModifierStore`: Zustand store for centralized state management
+- `useModifierManager`: Hook providing CRUD operations for modifiers
+- `StackedModifier`: Processes multiple modifiers in sequence
 - `ModifierControls`: UI for parameter adjustment
 - `ModifierRenderer`: Renders visualizations on canvas
 

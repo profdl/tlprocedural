@@ -2,16 +2,26 @@
 
 ## Overview
 
-The Modifiers System provides a flexible way to create and manage shape transformations in the tldraw application. It supports multiple modifier types including linear arrays, circular arrays, grid arrays, and mirror effects.
+The Modifiers System provides a flexible way to create and manage shape transformations in the tldraw application. It supports multiple modifier types including linear arrays, circular arrays, grid arrays, and mirror effects. The system uses **Zustand** for centralized state management and a unified processing architecture for better performance and maintainability.
 
 ## Architecture
+
+### State Management
+
+The system uses **Zustand** for centralized state management:
+
+- **`useModifierStore`**: Central Zustand store managing all modifier data
+- **`useModifierManager`**: Hook providing CRUD operations for modifiers
+- **`useModifierStack`**: Hook for shape-specific modifier processing
+- **`useAllModifierStacks`**: Hook for global modifier management
 
 ### Core Components
 
 - **ModifierControls**: Main UI component for managing modifiers
-- **ModifierFactory**: Factory component that renders the appropriate modifier based on type
-- **ModifierRegistry**: Registry system for managing available modifiers
+- **ModifierRenderer**: Renders modifier effects on selected shapes
 - **StackedModifier**: Component for processing multiple modifiers in sequence
+- **ModifierStack**: Core processing logic for shape transformations
+- **ModifierRegistry**: Registry system for managing available modifiers
 
 ### Modifier Types
 
@@ -23,31 +33,39 @@ The Modifiers System provides a flexible way to create and manage shape transfor
 ## File Structure
 
 ```
-src/components/modifiers/
-├── ModifierControls.tsx          # Main controls UI
-├── ModifierRenderer.tsx          # Renders modifiers for selected shapes
-├── StackedModifier.tsx           # Processes multiple modifiers
-├── ModifierFactory.tsx           # Factory for creating modifier components
-├── ModifierRegistry.tsx          # Registry for available modifiers
-├── ErrorBoundary.tsx             # Error handling component
-├── constants.ts                  # Shared constants and defaults
-├── utils/
-│   └── shapeUtils.ts            # Utility functions for shape operations
-├── controls/
-│   ├── ModifierPropertyInput.tsx # Reusable input component
-│   ├── ModifierSlider.tsx        # Reusable slider component
-│   ├── NumberInput.tsx           # Reusable number input
-│   ├── LinearArrayControls.tsx   # Linear array specific controls
-│   ├── CircularArrayControls.tsx # Circular array specific controls
-│   ├── GridArrayControls.tsx     # Grid array specific controls
-│   └── MirrorControls.tsx        # Mirror specific controls
-├── modifiers/
-│   ├── LinearArrayModifier.tsx   # Linear array implementation
-│   ├── CircularArrayModifier.tsx # Circular array implementation
-│   ├── GridArrayModifier.tsx     # Grid array implementation
-│   └── MirrorModifier.tsx        # Mirror implementation
-└── factory/
-    └── ModifierFactory.tsx       # Factory component
+src/
+├── store/
+│   ├── modifierStore.ts           # Zustand store for modifier state
+│   └── modifierStack.ts           # Modifier processing logic
+├── components/modifiers/
+│   ├── ModifierControls.tsx       # Main controls UI
+│   ├── ModifierRenderer.tsx       # Renders modifiers for selected shapes
+│   ├── StackedModifier.tsx        # Processes multiple modifiers
+
+│   ├── constants.ts               # Shared constants and defaults
+│   ├── hooks/
+│   │   ├── useModifierManager.ts  # Modifier management hooks
+│   │   └── useModifierStack.ts    # Shape-specific modifier processing
+│   ├── utils/
+│   │   ├── shapeUtils.ts          # Utility functions for shape operations
+│   │   └── errorBoundary.tsx      # Error handling component
+│   ├── controls/
+│   │   ├── ModifierPropertyInput.tsx # Reusable input component
+│   │   ├── ModifierSlider.tsx     # Reusable slider component
+│   │   ├── NumberInput.tsx        # Reusable number input
+│   │   ├── ModifierCheckboxInput.tsx # Reusable checkbox input
+│   │   ├── LinearArrayControls.tsx # Linear array specific controls
+│   │   ├── CircularArrayControls.tsx # Circular array specific controls
+│   │   ├── GridArrayControls.tsx  # Grid array specific controls
+│   │   └── MirrorControls.tsx     # Mirror specific controls
+│   ├── components/
+│   │   ├── AddButton.tsx          # Add modifier button component
+│   │   ├── AddButton.css          # Add button styles
+│   │   └── index.ts               # Component exports
+│   └── registry/
+│       └── ModifierRegistry.ts    # Registry for available modifiers
+└── types/
+    └── modifiers.ts               # TypeScript type definitions
 ```
 
 ## Usage
@@ -56,9 +74,11 @@ src/components/modifiers/
 
 ```tsx
 import { ModifierControls } from './components/modifiers/ModifierControls'
+import { useModifierManager } from './components/modifiers/hooks/useModifierManager'
 
 function App() {
   const [selectedShapes, setSelectedShapes] = useState([])
+  const modifierManager = useModifierManager()
   
   return (
     <div>
@@ -69,31 +89,111 @@ function App() {
 }
 ```
 
-### Adding Modifiers Programmatically
+### Using the Zustand Store Directly
 
 ```tsx
-import { addModifier, getShapeModifiers } from './components/modifiers/ModifierControls'
+import { useModifierStore } from './store/modifierStore'
 
-// Add a linear array modifier
-const modifier = {
-  id: createModifierId(),
-  type: 'linear-array',
-  targetShapeId: shapeId,
-  enabled: true,
-  props: {
+function MyComponent() {
+  const { 
+    createModifier, 
+    getModifiersForShape, 
+    updateModifier, 
+    deleteModifier 
+  } = useModifierStore()
+
+  // Add a linear array modifier
+  const modifier = createModifier(shapeId, 'linear-array', {
     count: 5,
     offsetX: 50,
     offsetY: 0,
     rotation: 0,
     spacing: 1.2,
     scaleStep: 1.1
-  }
+  })
+
+  // Get modifiers for a shape
+  const modifiers = getModifiersForShape(shapeId)
+
+  // Update a modifier
+  updateModifier(modifier.id, { props: { count: 10 } })
+
+  // Delete a modifier
+  deleteModifier(modifier.id)
 }
+```
 
-addModifier(shapeId, modifier)
+### Using the Hook API
 
-// Get modifiers for a shape
-const modifiers = getShapeModifiers(shapeId)
+```tsx
+import { useModifierManager } from './components/modifiers/hooks/useModifierManager'
+
+function MyComponent() {
+  const { 
+    addModifier, 
+    getModifiers, 
+    updateModifier, 
+    removeModifier 
+  } = useModifierManager()
+
+  // Add a modifier
+  const modifier = addModifier(shapeId, 'linear-array')
+
+  // Get modifiers for a shape
+  const modifiers = getModifiers(shapeId)
+
+  // Update a modifier
+  updateModifier(shapeId, modifier.id, { 
+    props: { count: 10 } 
+  })
+
+  // Remove a modifier
+  removeModifier(shapeId, modifier.id)
+}
+```
+
+### Shape-Specific Modifier Management
+
+```tsx
+import { useShapeModifiers } from './components/modifiers/hooks/useModifierManager'
+
+function ShapeModifierPanel({ shapeId }) {
+  const {
+    modifiers,
+    enabledModifiers,
+    hasModifiers,
+    addModifier,
+    updateModifier,
+    removeModifier,
+    toggleModifier
+  } = useShapeModifiers(shapeId)
+
+  return (
+    <div>
+      {hasModifiers && (
+        <div>
+          {modifiers.map(modifier => (
+            <div key={modifier.id}>
+              <input 
+                type="checkbox"
+                checked={modifier.enabled}
+                onChange={() => toggleModifier(modifier.id)}
+              />
+              <span>{modifier.type}</span>
+              <button onClick={() => removeModifier(modifier.id)}>
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      
+      <button onClick={() => addModifier('linear-array')}>
+        Add Linear Array
+      </button>
+    </div>
+  )
+}
 ```
 
 ## Modifier Types
@@ -144,7 +244,7 @@ const circularSettings = {
   endAngle: 360,
   rotateAll: 0,
   rotateEach: 45,
-  pointToCenter: true
+  pointToCenter: false
 }
 ```
 
@@ -155,8 +255,10 @@ Creates shapes in a rectangular grid pattern.
 **Properties:**
 - `rows`: Number of rows (1-20)
 - `columns`: Number of columns (1-20)
-- `spacingX`: Horizontal spacing between shapes (10-500)
-- `spacingY`: Vertical spacing between shapes (10-500)
+- `spacingX`: Horizontal spacing between shapes (10-200)
+- `spacingY`: Vertical spacing between shapes (10-200)
+- `offsetX`: Horizontal offset for the entire grid (-200 to 200)
+- `offsetY`: Vertical offset for the entire grid (-200 to 200)
 
 **Example:**
 ```tsx
@@ -164,7 +266,9 @@ const gridSettings = {
   rows: 3,
   columns: 4,
   spacingX: 80,
-  spacingY: 60
+  spacingY: 60,
+  offsetX: 0,
+  offsetY: 0
 }
 ```
 
@@ -173,140 +277,95 @@ const gridSettings = {
 Creates a mirrored copy of the original shape.
 
 **Properties:**
-- `axis`: Mirror axis ('x', 'y', or 'diagonal')
-- `offset`: Distance offset from original (0-200)
-- `mergeThreshold`: Threshold for merging overlapping shapes (0-50)
+- `axis`: Mirror axis ('x', 'y', or 'both')
+- `offset`: Distance between original and mirrored shape (0-200)
+- `mergeThreshold`: Distance threshold for merging overlapping shapes (0-50)
 
 **Example:**
 ```tsx
 const mirrorSettings = {
   axis: 'x',
   offset: 20,
-  mergeThreshold: 10
+  mergeThreshold: 5
 }
 ```
 
-## Utility Functions
+## Processing Architecture
 
-### Shape Utilities
+The modifier system uses a unified processing architecture:
 
-The `shapeUtils.ts` file provides utility functions for common shape operations:
+1. **ModifierStack**: Processes modifiers into shape instances
+2. **StackedModifier**: Manages the processing lifecycle
+3. **ModifierRenderer**: Renders processed shapes on the canvas
 
-```tsx
-import { 
-  getShapeDimensions,
-  calculateLinearPosition,
-  calculateCircularPosition,
-  applyShapeScaling,
-  logShapeOperation
-} from './utils/shapeUtils'
+### Processing Flow
 
-// Get shape dimensions
-const { width, height } = getShapeDimensions(shape)
+1. **Input**: Original shape + modifier settings
+2. **Processing**: ModifierStack applies transformations
+3. **Output**: Array of shape instances with transforms
+4. **Rendering**: ModifierRenderer creates tldraw shapes
 
-// Calculate position for linear array
-const position = calculateLinearPosition(
-  basePosition, 
-  offset, 
-  index, 
-  spacing
-)
+### Performance Optimizations
 
-// Calculate position for circular array
-const position = calculateCircularPosition(
-  center, 
-  radius, 
-  angle
-)
-
-// Apply scaling to shape
-const scaledShape = applyShapeScaling(shape, scaleX, scaleY)
-
-// Log shape operations
-logShapeOperation('Operation Name', shapeId, { data: 'value' })
-```
-
-### Constants
-
-The `constants.ts` file contains shared constants and default values:
-
-```tsx
-import { 
-  MODIFIER_TYPES,
-  DEFAULT_SETTINGS,
-  MODIFIER_DISPLAY_NAMES,
-  INPUT_CONSTRAINTS
-} from './constants'
-
-// Available modifier types
-console.log(MODIFIER_TYPES) // ['linear-array', 'circular-array', 'grid-array', 'mirror']
-
-// Default settings for each type
-console.log(DEFAULT_SETTINGS['linear-array'])
-
-// Display names for UI
-console.log(MODIFIER_DISPLAY_NAMES['linear-array']) // 'Linear Array'
-
-// Input constraints for validation
-console.log(INPUT_CONSTRAINTS.count) // { min: 2, max: 50, step: 1 }
-```
+- **Memoization**: Processing results are memoized based on shape and modifier state
+- **Batch Updates**: Multiple shape updates are batched for better performance
+- **Selective Re-rendering**: Only affected shapes are re-processed
 
 ## Error Handling
 
-The system includes an ErrorBoundary component to handle errors gracefully:
+The system includes comprehensive error handling:
 
-```tsx
-import { ModifierErrorBoundary } from './components/modifiers/ErrorBoundary'
+- **Error Boundaries**: Catches and displays errors gracefully
+- **Validation**: Input validation for modifier settings
+- **Fallbacks**: Graceful degradation when processing fails
+- **Logging**: Detailed logging for debugging
 
-function App() {
-  return (
-    <ModifierErrorBoundary>
-      <ModifierControls selectedShapes={selectedShapes} />
-    </ModifierErrorBoundary>
-  )
-}
-```
+## Development
 
-## Performance Considerations
+### Adding New Modifier Types
 
-1. **Shape Cloning**: Modifiers create clones of shapes rather than modifying originals
-2. **Efficient Updates**: Only affected shapes are updated when modifier settings change
-3. **Cleanup**: Unused clones are automatically cleaned up when modifiers are disabled
-4. **Batch Operations**: Multiple shape operations are batched for better performance
+1. **Define the type** in `types/modifiers.ts`
+2. **Add controls** in `controls/` directory
+3. **Implement processor** in `store/modifierStack.ts`
+4. **Update registry** in `registry/ModifierRegistry.ts`
+5. **Add to UI** in `ModifierControls.tsx`
 
-## Best Practices
+### Testing
 
-1. **Use Stacked Modifiers**: For complex transformations, use the stacked modifier system
-2. **Limit Clone Count**: Keep the number of clones reasonable (under 50) for performance
-3. **Clean Up**: Remove unused modifiers to free up resources
-4. **Test Thoroughly**: Test modifiers with different shape types and sizes
+- **Unit Tests**: Test individual modifier processors
+- **Integration Tests**: Test modifier system integration
+- **UI Tests**: Test modifier controls and interactions
+
+## Migration from Legacy System
+
+The legacy modifier system (individual modifier components) has been removed. The new system provides:
+
+- **Better Performance**: Unified processing architecture
+- **Easier Maintenance**: Single codebase for all modifiers
+- **Better State Management**: Zustand-based state management
+- **Improved UX**: Consistent UI and behavior
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Shapes not appearing**: Check if the modifier is enabled and the shape is selected
-2. **Performance issues**: Reduce the number of clones or disable unused modifiers
-3. **Incorrect positioning**: Verify offset and spacing values are appropriate for your use case
-4. **Scaling not working**: Ensure the shape type supports scaling operations
+1. **Modifiers not appearing**: Check if the shape is selected
+2. **Performance issues**: Reduce modifier count or complexity
+3. **Visual artifacts**: Check for overlapping shapes or extreme settings
 
 ### Debug Mode
 
 Enable debug logging by setting the environment variable:
-
 ```bash
-DEBUG_MODIFIERS=true
+DEBUG_MODIFIERS=true npm run dev
 ```
-
-This will log detailed information about modifier operations to the console.
 
 ## Contributing
 
-When adding new modifier types:
+When contributing to the modifier system:
 
-1. Create the modifier component in `modifiers/`
-2. Create the controls component in `controls/`
-3. Add the modifier to the registry in `ModifierRegistry.tsx`
-4. Update the factory in `ModifierFactory.tsx`
-5. Add tests and documentation
-6. Update constants and types as needed 
+1. **Follow the architecture**: Use the existing patterns
+2. **Add tests**: Include unit and integration tests
+3. **Update documentation**: Keep docs in sync with changes
+4. **Consider performance**: Test with large numbers of shapes
+5. **Maintain compatibility**: Don't break existing functionality 

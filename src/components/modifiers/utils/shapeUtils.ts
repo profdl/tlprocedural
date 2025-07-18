@@ -64,11 +64,11 @@ export function applyShapeScaling(
   
   // For draw shapes (TLDrawShape) - they have segments that need scaling
   if (shape.type === 'draw' && 'segments' in shape.props) {
-    const segments = shape.props.segments as any[]
+    const segments = shape.props.segments as Array<{ points?: Array<{ x: number; y: number }> }>
     if (segments && segments.length > 0) {
       const scaledSegments = segments.map(segment => ({
         ...segment,
-        points: segment.points?.map((point: any) => ({
+        points: segment.points?.map((point: { x: number; y: number }) => ({
           x: point.x * scaleX,
           y: point.y * scaleY
         }))
@@ -190,21 +190,67 @@ export function calculateLinearPosition(
   spacing: number,
   scaleStep: number
 ): Position {
-  // Apply spacing as a multiplier to the offset (like the original code)
+  // Get shape dimensions for center calculations
+  const { width: shapeWidth, height: shapeHeight } = getShapeDimensions(originalShape)
+  
+  // Calculate the center of the original shape
+  const originalCenterX = originalShape.x + shapeWidth / 2
+  const originalCenterY = originalShape.y + shapeHeight / 2
+  
+  // Apply spacing as a multiplier to the offset
   const spacedOffsetX = offsetX * spacing
   const spacedOffsetY = offsetY * spacing
   
-  // Calculate position relative to original shape
-  const finalX = originalShape.x + (spacedOffsetX * index)
-  const finalY = originalShape.y + (spacedOffsetY * index)
-  
+  // Calculate rotation in radians for this clone
   const rotationRadians = degreesToRadians(rotation * index)
+  
+  // Calculate the offset from the original center
+  const offsetFromCenterX = spacedOffsetX * index
+  const offsetFromCenterY = spacedOffsetY * index
+  
+  // Apply rotation to the offset around the center
+  const cos = Math.cos(rotationRadians)
+  const sin = Math.sin(rotationRadians)
+  
+  const rotatedOffsetX = offsetFromCenterX * cos - offsetFromCenterY * sin
+  const rotatedOffsetY = offsetFromCenterX * sin + offsetFromCenterY * cos
+  
+  // Calculate the final center position after rotation
+  const finalCenterX = originalCenterX + rotatedOffsetX
+  const finalCenterY = originalCenterY + rotatedOffsetY
+  
+  // IMPORTANT: Compensate for tldraw's rotation behavior
+  // tldraw rotates around the top-left corner, so we need to adjust the position
+  // to make it appear as if it's rotating around the center
+  
+  // Calculate how much the center moves when rotating around top-left
+  const centerOffsetX = (shapeWidth / 2) * (cos - 1) - (shapeHeight / 2) * sin
+  const centerOffsetY = (shapeWidth / 2) * sin + (shapeHeight / 2) * (cos - 1)
+  
+  // Adjust the final position to compensate for tldraw's rotation behavior
+  const compensatedX = finalCenterX - shapeWidth / 2 - centerOffsetX
+  const compensatedY = finalCenterY - shapeHeight / 2 - centerOffsetY
+  
   const scaleX = 1 + (scaleStep - 1) * index
   const scaleY = 1 + (scaleStep - 1) * index
   
+  // Debug logging for center-based rotation with compensation
+  logShapeOperation('calculateLinearPosition', originalShape.id, {
+    index,
+    originalCenter: { x: originalCenterX, y: originalCenterY },
+    offsetFromCenter: { x: offsetFromCenterX, y: offsetFromCenterY },
+    rotationDegrees: rotation * index,
+    rotationRadians,
+    rotatedOffset: { x: rotatedOffsetX, y: rotatedOffsetY },
+    finalCenter: { x: finalCenterX, y: finalCenterY },
+    centerOffset: { x: centerOffsetX, y: centerOffsetY },
+    finalPosition: { x: compensatedX, y: compensatedY },
+    shapeDimensions: { width: shapeWidth, height: shapeHeight }
+  })
+  
   return {
-    x: finalX,
-    y: finalY,
+    x: compensatedX,
+    y: compensatedY,
     rotation: rotationRadians,
     scaleX,
     scaleY
@@ -277,7 +323,7 @@ export function calculateGridPosition(
 export function logShapeOperation(
   operation: string,
   shapeId: string,
-  details: Record<string, any>
+  details: Record<string, unknown>
 ): void {
   // In a browser environment, we can check if we're in development mode
   // by looking for a global variable or using a different approach
