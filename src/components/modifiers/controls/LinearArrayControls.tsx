@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { type LinearArraySettings } from '../../../types/modifiers'
 import { ModifierPropertyInput } from './ModifierPropertyInput'
+import { INPUT_CONSTRAINTS } from '../constants'
 
 interface LinearArrayControlsProps {
   settings: LinearArraySettings
@@ -18,56 +19,60 @@ export function LinearArrayControls({ settings, onChange }: LinearArrayControlsP
         <ModifierPropertyInput
           label="Count"
           value={settings.count}
-          min={2}
-          max={50}
-          step={1}
+          min={INPUT_CONSTRAINTS.count.min}
+          max={INPUT_CONSTRAINTS.count.max}
+          step={INPUT_CONSTRAINTS.count.step}
+          precision={2}
           onChange={(value) => updateSetting('count', value)}
         />
         
         <ModifierPropertyInput
           label="Offset X"
           value={settings.offsetX}
-          min={-500}
-          max={500}
-          step={1}
+          min={INPUT_CONSTRAINTS.offsetX.min}
+          max={INPUT_CONSTRAINTS.offsetX.max}
+          step={INPUT_CONSTRAINTS.offsetX.step}
+          precision={2}
           onChange={(value) => updateSetting('offsetX', value)}
         />
         
         <ModifierPropertyInput
           label="Offset Y"
           value={settings.offsetY}
-          min={-500}
-          max={500}
-          step={1}
+          min={INPUT_CONSTRAINTS.offsetY.min}
+          max={INPUT_CONSTRAINTS.offsetY.max}
+          step={INPUT_CONSTRAINTS.offsetY.step}
+          precision={2}
           onChange={(value) => updateSetting('offsetY', value)}
         />
         
         <ModifierPropertyInput
           label="Rotation"
           value={settings.rotation}
-          min={-360}
-          max={360}
-          step={1}
+          min={INPUT_CONSTRAINTS.rotation.min}
+          max={INPUT_CONSTRAINTS.rotation.max}
+          step={INPUT_CONSTRAINTS.rotation.step}
+          precision={2}
           onChange={(value) => updateSetting('rotation', value)}
         />
         
         <ModifierPropertyInput
           label="Spacing"
           value={settings.spacing}
-          min={0.1}
-          max={5}
-          step={0.1}
-          precision={1}
+          min={INPUT_CONSTRAINTS.spacing.min}
+          max={INPUT_CONSTRAINTS.spacing.max}
+          step={INPUT_CONSTRAINTS.spacing.step}
+          precision={INPUT_CONSTRAINTS.spacing.precision}
           onChange={(value) => updateSetting('spacing', value)}
         />
         
         <ModifierPropertyInput
           label="Scale Step"
           value={settings.scaleStep}
-          min={0.1}
-          max={3}
-          step={0.1}
-          precision={1}
+          min={INPUT_CONSTRAINTS.scaleStep.min}
+          max={INPUT_CONSTRAINTS.scaleStep.max}
+          step={INPUT_CONSTRAINTS.scaleStep.step}
+          precision={INPUT_CONSTRAINTS.scaleStep.precision}
           onChange={(value) => updateSetting('scaleStep', value)}
         />
       </div>

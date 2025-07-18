@@ -701,6 +701,11 @@
   cursor: pointer;
   -webkit-appearance: none;
   appearance: none;
+  /* Ensure smooth stepping for small values */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
 .modifier-property-input__slider::-webkit-slider-thumb {

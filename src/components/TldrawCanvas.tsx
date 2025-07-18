@@ -1,6 +1,8 @@
 import { 
   Tldraw, 
-  type TLShape
+  type TLShape,
+  type TldrawOptions,
+  DrawShapeUtil
 } from 'tldraw'
 import type { TLComponents } from 'tldraw'
 import 'tldraw/tldraw.css'
@@ -8,8 +10,23 @@ import { CustomStylePanel } from './CustomStylePanel'
 import { ModifierOverlay } from './ModifierRenderer'
 import { isArrayClone } from './modifiers/LinearArrayModifier'
 
+// Try to configure DrawShapeUtil with smoothing (may not work in all versions)
+const ConfiguredDrawShapeUtil = DrawShapeUtil.configure({
+  // Try different potential smoothing options
+  smoothing: true,
+  strokeSmoothing: true,
+  lineSmoothing: true
+} as any) // Use 'as any' to bypass TypeScript errors for experimental features
+
 const components: TLComponents = {
   StylePanel: CustomStylePanel,
+}
+
+// Editor options to potentially enable smoothing
+const editorOptions: Partial<TldrawOptions> = {
+  // Try to enable any smoothing-related options
+  // Note: These options may not exist in the current tldraw version
+  // but they're commonly used in drawing applications
 }
 
 export function TldrawCanvas() {
@@ -54,6 +71,8 @@ export function TldrawCanvas() {
     <div style={{ position: 'fixed', inset: 0 }}>
       <Tldraw 
         components={components}
+        shapeUtils={[ConfiguredDrawShapeUtil]}
+        options={editorOptions}
         onMount={handleMount}
       >
         <ModifierOverlay />

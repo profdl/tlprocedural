@@ -11,12 +11,12 @@ export type ModifierType = typeof MODIFIER_TYPES[keyof typeof MODIFIER_TYPES]
 // Default settings for each modifier type
 export const DEFAULT_SETTINGS = {
   [MODIFIER_TYPES.LINEAR_ARRAY]: {
-    count: 3,
-    offsetX: 100,
+    count: 25,
+    offsetX: 10,
     offsetY: 0,
     rotation: 0,
     spacing: 1,
-    scaleStep: 1
+    scaleStep: 0.98
   },
   [MODIFIER_TYPES.CIRCULAR_ARRAY]: {
     count: 8,
@@ -46,25 +46,25 @@ export const DEFAULT_SETTINGS = {
 
 // Input constraints
 export const INPUT_CONSTRAINTS = {
-  count: { min: 2, max: 50, step: 1 },
-  offsetX: { min: -500, max: 500, step: 1 },
-  offsetY: { min: -500, max: 500, step: 1 },
-  rotation: { min: -360, max: 360, step: 1 },
-  spacing: { min: 0.1, max: 5, step: 0.1, precision: 1 },
-  scaleStep: { min: 0.1, max: 3, step: 0.1, precision: 1 },
-  radius: { min: 10, max: 1000, step: 1 },
-  startAngle: { min: 0, max: 360, step: 1 },
-  endAngle: { min: 0, max: 360, step: 1 },
-  centerX: { min: -500, max: 500, step: 1 },
-  centerY: { min: -500, max: 500, step: 1 },
-  rotateEach: { min: -360, max: 360, step: 1 },
-  rotateAll: { min: -360, max: 360, step: 1 },
-  rows: { min: 1, max: 20, step: 1 },
-  columns: { min: 1, max: 20, step: 1 },
-  spacingX: { min: 10, max: 500, step: 1 },
-  spacingY: { min: 10, max: 500, step: 1 },
-  offset: { min: -200, max: 200, step: 1 },
-  mergeThreshold: { min: 0, max: 50, step: 1 }
+  count: { min: 2, max: 50, step: 0.01 },
+  offsetX: { min: -50, max: 50, step: 0.01 },
+  offsetY: { min: -50, max: 50, step: 0.01 },
+  rotation: { min: -60, max: 60, step: 0.01 },
+  spacing: { min: 0.1, max: 5, step: 0.01, precision: 2 },
+  scaleStep: { min: 0.1, max: 3, step: 0.01, precision: 2 },
+  radius: { min: 10, max: 1000, step: 0.01 },
+  startAngle: { min: 0, max: 360, step: 0.01 },
+  endAngle: { min: 0, max: 360, step: 0.01 },
+  centerX: { min: -500, max: 500, step: 0.01 },
+  centerY: { min: -500, max: 500, step: 0.01 },
+  rotateEach: { min: -360, max: 360, step: 0.01 },
+  rotateAll: { min: -360, max: 360, step: 0.01 },
+  rows: { min: 1, max: 20, step: 0.01 },
+  columns: { min: 1, max: 20, step: 0.01 },
+  spacingX: { min: 10, max: 500, step: 0.01 },
+  spacingY: { min: 10, max: 500, step: 0.01 },
+  offset: { min: -200, max: 200, step: 0.01 },
+  mergeThreshold: { min: 0, max: 50, step: 0.01 }
 } as const
 
 // Modifier type display names

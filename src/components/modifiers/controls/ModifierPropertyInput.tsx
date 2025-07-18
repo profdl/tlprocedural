@@ -29,8 +29,10 @@ export const ModifierPropertyInput = memo(function ModifierPropertyInput({
   
   const handleSliderChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = Number(e.target.value)
-    onChange(newValue)
-  }, [onChange])
+    // Ensure the value respects the step by rounding to the nearest step
+    const roundedValue = Math.round(newValue / step) * step
+    onChange(roundedValue)
+  }, [onChange, step])
   
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newInputValue = e.target.value
@@ -38,9 +40,11 @@ export const ModifierPropertyInput = memo(function ModifierPropertyInput({
     
     const numValue = Number(newInputValue)
     if (!isNaN(numValue) && numValue >= min && numValue <= max) {
-      onChange(numValue)
+      // Ensure the value respects the step by rounding to the nearest step
+      const roundedValue = Math.round(numValue / step) * step
+      onChange(roundedValue)
     }
-  }, [onChange, min, max])
+  }, [onChange, min, max, step])
   
   const handleInputBlur = useCallback(() => {
     const numValue = Number(inputValue)
@@ -51,9 +55,12 @@ export const ModifierPropertyInput = memo(function ModifierPropertyInput({
       setInputValue(max.toFixed(precision))
       onChange(max)
     } else {
-      setInputValue(numValue.toFixed(precision))
+      // Ensure the value respects the step by rounding to the nearest step
+      const roundedValue = Math.round(numValue / step) * step
+      setInputValue(roundedValue.toFixed(precision))
+      onChange(roundedValue)
     }
-  }, [inputValue, min, max, precision, onChange])
+  }, [inputValue, min, max, precision, onChange, step])
   
   const handleInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
