@@ -138,7 +138,7 @@ const MirrorTransformOverlay = track(() => {
       seen.add(shape.id)
       return true
     })
-  }, [editor.getCurrentPageShapes()])
+  }, [editor])
   
   if (mirroredShapes.length === 0) return null
   

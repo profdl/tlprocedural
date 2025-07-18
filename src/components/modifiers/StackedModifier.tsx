@@ -16,6 +16,12 @@ interface StackedModifierProps {
 export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
   const editor = useEditor()
   
+  // Create stable dependency keys to avoid infinite loops
+  // We use stringified keys instead of object references to prevent infinite re-renders
+  // while still tracking all relevant changes
+  const shapeKey = `${shape.id}-${shape.x}-${shape.y}-${shape.rotation}-${JSON.stringify(shape.props)}`
+  const modifiersKey = modifiers.map(m => `${m.id}-${m.enabled}-${JSON.stringify(m.props)}`).join('|')
+  
   // Process all modifiers using ModifierStack
   const processedShapes = useMemo(() => {
     logShapeOperation('StackedModifier', shape.id, {
@@ -128,16 +134,7 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
         return cloneShape
       }
     })
-  }, [
-    shape.id, 
-    shape.x, 
-    shape.y, 
-    shape.rotation, 
-    // Track all props changes (including style properties)
-    JSON.stringify(shape.props),
-    // Use a stable key for modifiers instead of the array reference
-    modifiers.map(m => `${m.id}-${m.enabled}-${JSON.stringify(m.props)}`).join('|')
-  ])
+  }, [shapeKey, modifiersKey])
 
   // Create and manage shape clones
   useEffect(() => {
@@ -215,7 +212,7 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
         }, { ignoreShapeLock: true, history: 'ignore' })
       }
     }
-  }, [editor, shape.id, processedShapes.length])
+  }, [editor, shapeKey, processedShapes.length])
 
   // Update existing clones when original shape changes (second effect for live updates)
   useEffect(() => {
@@ -265,7 +262,7 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
         })
       }
     }
-  }, [editor, shape.id, shape.x, shape.y, shape.rotation, shape.props, processedShapes])
+  }, [editor, shapeKey, modifiersKey])
 
   // This component doesn't render anything visible - shapes are managed directly in the editor
   return null
