@@ -64,6 +64,7 @@ Use the controls to adjust the array:
 ### Core Components
 - `useModifierStore`: Zustand store for centralized state management
 - `useModifierManager`: Hook providing CRUD operations for modifiers
+- `useModifierStack`: Hook for shape-specific modifier processing
 - `StackedModifier`: Processes multiple modifiers in sequence
 - `ModifierControls`: UI for parameter adjustment
 - `ModifierRenderer`: Renders visualizations on canvas

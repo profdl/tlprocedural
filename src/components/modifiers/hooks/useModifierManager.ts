@@ -8,7 +8,7 @@ import { useModifierStore } from '../../../store/modifierStore'
  * Hook for managing modifiers on shapes
  * 
  * Provides a simple API for adding, updating, removing, and querying modifiers
- * associated with shapes. Now uses the centralized Zustand store.
+ * associated with shapes using the centralized Zustand store.
  */
 export function useModifierManager() {
   const store = useModifierStore()
@@ -158,7 +158,7 @@ export function useModifierManager() {
     getModifiersByType,
     getStats,
     
-    // Internal state (for debugging) - now from store
+    // Internal state (for debugging)
     modifiers: store.getAllModifiers()
   }
 }

@@ -88,7 +88,7 @@ const MirroredShapeClone = track(({ shape, originalShape, transform }: {
       </div>
     )
   } catch (error) {
-    // Fallback to a styled indicator if shape rendering fails
+            // Display a styled indicator if shape rendering fails
     console.warn('Failed to render mirrored shape:', error)
     return (
       <div

@@ -139,15 +139,6 @@ The app uses **Zustand** for centralized state management:
 - **`useModifierStack`**: Hook for shape-specific modifier processing
 - **`useAllModifierStacks`**: Hook for global modifier management
 
-### Modifier System
-
-The modifier system is built with a unified architecture:
-
-1. **Store Layer**: Zustand store manages modifier state
-2. **Processing Layer**: `ModifierStack` processes modifiers into shape instances
-3. **Rendering Layer**: `ModifierRenderer` renders processed shapes on canvas
-4. **UI Layer**: `ModifierControls` provides user interface
-
 ### Key Components
 
 - **`ModifierControls`**: Main UI for managing modifiers

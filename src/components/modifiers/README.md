@@ -336,14 +336,14 @@ The system includes comprehensive error handling:
 - **Integration Tests**: Test modifier system integration
 - **UI Tests**: Test modifier controls and interactions
 
-## Migration from Legacy System
+## Architecture Overview
 
-The legacy modifier system (individual modifier components) has been removed. The new system provides:
+The modifier system uses a unified architecture with:
 
-- **Better Performance**: Unified processing architecture
-- **Easier Maintenance**: Single codebase for all modifiers
-- **Better State Management**: Zustand-based state management
-- **Improved UX**: Consistent UI and behavior
+- **Centralized State Management**: Zustand store for all modifier data
+- **Unified Processing**: Single processing pipeline for all modifier types
+- **Component-Based UI**: Reusable controls and components
+- **Type Safety**: Full TypeScript support throughout
 
 ## Troubleshooting
 
