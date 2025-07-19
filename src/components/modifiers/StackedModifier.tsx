@@ -34,12 +34,13 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
     
     if (!modifiers.length) return []
     
-    const result = ModifierStack.processModifiers(shape, modifiers)
+    const result = ModifierStack.processModifiers(shape, modifiers, editor)
     const shapes = extractShapesFromState(result)
     
     logShapeOperation('StackedModifier Result', shape.id, {
       instances: result.instances.length,
-      extractedShapes: shapes.length
+      extractedShapes: shapes.length,
+      isGroupModifier: result.metadata?.isGroupModifier
     })
     
     // Convert to TLShapePartial for tldraw, including all shapes (original is now positioned in the array)
@@ -56,7 +57,7 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
         let adjustedY = processedShape.y
         
         // Get the shape dimensions using utility function
-        const { width: shapeWidth, height: shapeHeight } = getShapeDimensions(shape)
+        const { width: shapeWidth, height: shapeHeight } = getShapeDimensions(processedShape)
         
         // Adjust position based on the flip direction
         if (processedShape.meta.isFlippedX) {
@@ -75,7 +76,7 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
           flips: { x: processedShape.meta.isFlippedX, y: processedShape.meta.isFlippedY },
           shapeDims: { w: shapeWidth, h: shapeHeight },
           rotations: {
-            originalShapeRotation: shape.rotation,
+            originalShapeRotation: processedShape.rotation,
             processedShapeRotation: processedShape.rotation,
             instanceRotation: instance?.transform?.rotation
           }
@@ -83,17 +84,17 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
         
         const cloneShape: TLShapePartial = {
           id: cloneId,
-          type: shape.type,
+          type: processedShape.type,
           x: adjustedX,
           y: adjustedY,
           rotation: processedShape.rotation, // Use the processed rotation from modifier stack
           isLocked: true,
           opacity: 0, // Hide the original mirrored shape - visual will be handled by overlay
-          props: { ...shape.props },
+          props: { ...processedShape.props },
           meta: {
-            ...shape.meta,
+            ...processedShape.meta,
             isArrayClone: true,
-            originalShapeId: shape.id,
+            originalShapeId: processedShape.id,
             arrayIndex: index,
             stackProcessed: true,
             modifierCount: modifiers.filter(m => m.enabled).length,
@@ -110,17 +111,17 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
         // Handle non-mirrored shapes normally
         const cloneShape: TLShapePartial = {
           id: cloneId,
-          type: shape.type,
+          type: processedShape.type,
           x: processedShape.x,
           y: processedShape.y,
           rotation: processedShape.rotation,
           isLocked: true,
-          opacity: processedShape.meta?.isFirstClone ? 0 : (shape.opacity || 1) * 0.75,
+          opacity: processedShape.meta?.isFirstClone ? 0 : (processedShape.opacity || 1) * 0.75,
           props: { ...processedShape.props }, // Use processed shape props instead of original
           meta: {
-            ...shape.meta,
+            ...processedShape.meta,
             isArrayClone: true,
-            originalShapeId: shape.id,
+            originalShapeId: processedShape.id,
             arrayIndex: index,
             stackProcessed: true,
             modifierCount: modifiers.filter(m => m.enabled).length
@@ -129,7 +130,7 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
 
         logShapeOperation('Stacked Clone', cloneId, {
           index: index,
-          shapeType: shape.type,
+          shapeType: processedShape.type,
           opacity: cloneShape.opacity,
           position: { x: processedShape.x, y: processedShape.y }
         })
@@ -137,9 +138,9 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
         return cloneShape
       }
     })
-  }, [shapeKey, modifiersKey])
+  }, [shapeKey, modifiersKey, editor])
   
-  // Process all modifiers using the stable callback
+    // Process all modifiers using the stable callback
   const processedShapes = useMemo(() => {
     return getProcessedShapes()
   }, [getProcessedShapes])
@@ -169,8 +170,32 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
       }, { ignoreShapeLock: true, history: 'ignore' })
     }
 
+    // For group modifiers, also clean up clones of all shapes in the group
+    if (shape.type === 'group' && processedShapes.length > 0) {
+      const groupShapeIds = editor.getShapeAndDescendantIds([shape.id])
+      const groupShapes = Array.from(groupShapeIds)
+        .map(id => editor.getShape(id))
+        .filter(Boolean) as TLShape[]
+      
+      const groupClones = editor.getCurrentPageShapes().filter((s: TLShape) => {
+        const originalId = getOriginalShapeId(s)
+        return groupShapes.some(groupShape => groupShape.id === originalId) && s.meta?.stackProcessed
+      })
+
+      if (groupClones.length > 0) {
+        editor.run(() => {
+          editor.deleteShapes(groupClones.map((s: TLShape) => s.id))
+        }, { ignoreShapeLock: true, history: 'ignore' })
+        
+        logShapeOperation('StackedModifier Group Cleanup', shape.id, {
+          groupClones: groupClones.length
+        })
+      }
+    }
+
     // Move the original shape to the first array position and make the first clone transparent
-    if (processedShapes.length > 0) {
+    // Only do this for non-group shapes
+    if (processedShapes.length > 0 && shape.type !== 'group') {
       // Find the first clone to get its position
       const firstClone = processedShapes.find(s => s.meta?.isFirstClone)
       if (firstClone) {
@@ -238,7 +263,7 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
 
     if (existingClones.length > 0) {
       // Recalculate positions based on current shape state
-      const result = ModifierStack.processModifiers(shape, modifiers)
+      const result = ModifierStack.processModifiers(shape, modifiers, editor)
       const updatedShapes = extractShapesFromState(result)
       
       // Update existing clones with new positions
@@ -250,7 +275,7 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
 
         return {
           id: clone.id,
-          type: shape.type,
+          type: updatedShape.type,
           x: updatedShape.x,
           y: updatedShape.y,
           rotation: updatedShape.rotation,

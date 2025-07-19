@@ -65,7 +65,7 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
 
     try {
       // Process the modifiers to get the transformed shapes
-      const result = ModifierStack.processModifiers(selectedShape, enabledModifiers)
+      const result = ModifierStack.processModifiers(selectedShape, enabledModifiers, editor)
       const transformedShapes = extractShapesFromState(result)
       
       // Create actual shapes from the transformed results (skip the first one as it's the original)

@@ -40,6 +40,7 @@ export function createInitialShapeState(shape: TLShape): ShapeState {
 // Helper function to convert ShapeState back to TLShape array for rendering
 export function extractShapesFromState(state: ShapeState): TLShape[] {
   console.log('extractShapesFromState called with instances:', state.instances.length)
+  console.log('State metadata:', state.metadata)
   
   return state.instances.map((instance, index) => {
     console.log(`Processing instance ${index}:`, {
@@ -49,7 +50,10 @@ export function extractShapesFromState(state: ShapeState): TLShape[] {
       originalW: 'w' in instance.shape.props ? instance.shape.props.w : 'N/A',
       originalH: 'h' in instance.shape.props ? instance.shape.props.h : 'N/A',
       scaleX: instance.transform.scaleX,
-      scaleY: instance.transform.scaleY
+      scaleY: instance.transform.scaleY,
+      shapeType: instance.shape.type,
+      isGroupMember: instance.metadata?.isGroupMember,
+      isGroupClone: instance.metadata?.isGroupClone
     })
     
     const baseShape = {
@@ -150,9 +154,25 @@ export class ModifierStack {
     // Check if this shape is part of a group
     const parentGroup = editor ? findTopLevelGroup(originalShape, editor) : null
     
+    console.log('Group detection:', {
+      shapeId: originalShape.id,
+      shapeType: originalShape.type,
+      parentGroup: parentGroup ? { id: parentGroup.id, type: parentGroup.type } : null,
+      hasEditor: !!editor
+    })
+    
+    // Special case: if the shape itself is a group, use group processing
+    if (originalShape.type === 'group' && editor) {
+      console.log('Shape is a group, using group processing path')
+      return this.processGroupModifiers(originalShape, originalShape, modifiers, editor)
+    }
+    
     if (parentGroup && editor) {
+      console.log('Using group processing path')
       return this.processGroupModifiers(originalShape, parentGroup, modifiers, editor)
     }
+    
+    console.log('Using regular processing path')
     
     // Start with the original shape as initial state
     let currentState = createInitialShapeState(originalShape)
@@ -204,22 +224,77 @@ export class ModifierStack {
       .map(id => editor.getShape(id))
       .filter(Boolean) as TLShape[]
     
-    // Calculate group bounds and center
-    const groupBounds = this.calculateGroupBoundsFromShapes(groupShapes)
-    const groupCenter = {
-      x: groupBounds.centerX,
-      y: groupBounds.centerY
+    // Filter out the group shape itself - we only want child shapes for bounds calculation
+    const childShapes = groupShapes.filter(shape => shape.id !== group.id)
+    
+    console.log('Child shapes for bounds calculation:', childShapes.map(s => ({
+      id: s.id,
+      type: s.type,
+      x: s.x,
+      y: s.y,
+      hasW: 'w' in s.props,
+      hasH: 'h' in s.props
+    })))
+    
+    // Calculate group bounds using top-left corner as reference
+    const groupBounds = this.calculateGroupBoundsFromShapes(childShapes)
+    const groupTopLeft = {
+      x: groupBounds.minX,
+      y: groupBounds.minY
     }
     
     console.log('Processing group modifiers:', {
       groupId: group.id,
-      groupShapes: groupShapes.length,
+      allGroupShapes: groupShapes.length,
+      childShapes: childShapes.length,
       groupBounds,
-      groupCenter
+      groupTopLeft,
+      groupTransform: {
+        x: group.x,
+        y: group.y,
+        rotation: group.rotation
+      }
     })
     
-    // Start with the original shape as initial state
-    let currentState = createInitialShapeState(shape)
+    // Create initial state with child shapes in the group, not just the selected one
+    const allInstances: ShapeInstance[] = childShapes.map((groupShape, index) => {
+      console.log(`Group shape ${index}:`, {
+        id: groupShape.id,
+        type: groupShape.type,
+        props: groupShape.props,
+        x: groupShape.x,
+        y: groupShape.y,
+        hasW: 'w' in groupShape.props,
+        hasH: 'h' in groupShape.props,
+        w: 'w' in groupShape.props ? groupShape.props.w : 'N/A',
+        h: 'h' in groupShape.props ? groupShape.props.h : 'N/A'
+      })
+      
+      const transform: Transform = {
+        x: groupShape.x,
+        y: groupShape.y,
+        rotation: groupShape.rotation || 0,
+        scaleX: 1,
+        scaleY: 1
+      }
+      
+      return {
+        shape: groupShape,
+        transform,
+        index,
+        metadata: { 
+          isOriginal: true,
+          isGroupMember: true,
+          groupId: group.id
+        }
+      }
+    })
+    
+    let currentState: ShapeState = {
+      originalShape: shape, // Keep the selected shape as original for compatibility
+      instances: allInstances,
+      metadata: { isGroupModifier: true, groupId: group.id }
+    }
     
     // Filter to only enabled modifiers, sorted by order
     const enabledModifiers = modifiers
@@ -231,7 +306,19 @@ export class ModifierStack {
       const processor = ModifierStack.getProcessor(modifier.type)
       if (processor) {
         const previousInstanceCount = currentState.instances.length
-        currentState = processor.process(currentState, modifier.props, { groupCenter, groupShapes, groupBounds })
+        const groupContext = { 
+          groupCenter: { x: groupBounds.centerX, y: groupBounds.centerY }, // Keep for compatibility
+          groupTopLeft, // Add top-left reference
+          groupShapes: childShapes, // Use child shapes instead of all group shapes
+          groupBounds,
+          groupTransform: { // Add current group transform
+            x: group.x,
+            y: group.y,
+            rotation: group.rotation || 0
+          }
+        }
+        console.log('processGroupModifiers: Calling processor with groupContext:', groupContext)
+        currentState = processor.process(currentState, modifier.props, groupContext)
         const newInstanceCount = currentState.instances.length
         
         console.log(`Group modifier ${modifier.type}: ${previousInstanceCount} → ${newInstanceCount} instances`)
@@ -265,27 +352,84 @@ export class ModifierStack {
   }
   
   private static getShapeBounds(shape: TLShape) {
+    console.log('getShapeBounds called for shape:', {
+      id: shape.id,
+      type: shape.type,
+      x: shape.x,
+      y: shape.y,
+      props: shape.props
+    })
+    
     if ('w' in shape.props && 'h' in shape.props) {
       const w = shape.props.w as number
       const h = shape.props.h as number
-      return {
+      const bounds = {
         minX: shape.x,
         maxX: shape.x + w,
         minY: shape.y,
         maxY: shape.y + h
       }
+      console.log('Shape has w/h props, bounds:', bounds)
+      return bounds
     }
     
-    // Fallback for shapes without w/h props
-    return {
-      minX: shape.x,
-      maxX: shape.x + 100, // Default width
-      minY: shape.y,
-      maxY: shape.y + 100  // Default height
+    // Try to get bounds from other shape properties
+    if (shape.type === 'group') {
+      // For groups, we need to calculate bounds from child shapes
+      // This is a fallback - ideally we'd have the child shapes here
+      console.log('Shape is a group, using fallback bounds - this might be causing positioning issues!')
+      console.log('Group shape position:', { x: shape.x, y: shape.y })
+      return {
+        minX: shape.x,
+        maxX: shape.x + 200, // Larger fallback for groups
+        minY: shape.y,
+        maxY: shape.y + 200
+      }
     }
+    
+    // For other shape types, try to estimate bounds
+    let estimatedWidth = 100
+    let estimatedHeight = 100
+    
+    if (shape.type === 'text' && 'fontSize' in shape.props) {
+      // Estimate text bounds based on font size
+      const fontSize = shape.props.fontSize as number
+      estimatedWidth = fontSize * 10 // Rough estimate
+      estimatedHeight = fontSize * 1.2
+    } else if (shape.type === 'draw' && 'segments' in shape.props) {
+      // For draw shapes, estimate based on segments
+      const segments = shape.props.segments as Array<{ points?: Array<{ x: number; y: number }> }>
+      if (segments && segments.length > 0) {
+        // Calculate bounds from segment points
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+        segments.forEach(segment => {
+          if (segment.points) {
+            segment.points.forEach((point: { x: number; y: number }) => {
+              minX = Math.min(minX, point.x)
+              maxX = Math.max(maxX, point.x)
+              minY = Math.min(minY, point.y)
+              maxY = Math.max(maxY, point.y)
+            })
+          }
+        })
+        if (minX !== Infinity) {
+          estimatedWidth = maxX - minX
+          estimatedHeight = maxY - minY
+        }
+      }
+    }
+    
+    const bounds = {
+      minX: shape.x,
+      maxX: shape.x + estimatedWidth,
+      minY: shape.y,
+      maxY: shape.y + estimatedHeight
+    }
+    
+    console.log('Using estimated bounds for shape type:', shape.type, bounds)
+    return bounds
   }
-  
-  // Get the appropriate processor for a modifier type
+
   private static getProcessor(modifierType: string): ModifierProcessor | null {
     switch (modifierType) {
       case 'linear-array':
@@ -311,7 +455,7 @@ function processGroupArray(
   groupContext: GroupContext
 ): ShapeState {
   const { count, offsetX, offsetY, rotation, scaleStep } = settings
-  const { groupCenter, groupBounds, groupShapes } = groupContext
+  const { groupTopLeft, groupBounds, groupShapes, groupTransform } = groupContext
   
   console.log('processGroupArray called with:', {
     count,
@@ -319,9 +463,20 @@ function processGroupArray(
     offsetY,
     rotation,
     scaleStep,
-    groupCenter,
+    groupTopLeft,
     groupBounds,
     groupShapesCount: groupShapes.length
+  })
+  
+  console.log('Group bounds details:', {
+    minX: groupBounds.minX,
+    maxX: groupBounds.maxX,
+    minY: groupBounds.minY,
+    maxY: groupBounds.maxY,
+    width: groupBounds.width,
+    height: groupBounds.height,
+    centerX: groupBounds.centerX,
+    centerY: groupBounds.centerY
   })
   
   // Start with empty instances (we'll generate new ones)
@@ -340,61 +495,96 @@ function processGroupArray(
   
   // For each existing instance (which represents a shape in the group), create the array
   input.instances.forEach(inputInstance => {
-    // Add the original instance first
-    newInstances.push(inputInstance)
+    console.log('Processing instance for array:', {
+      shapeId: inputInstance.shape.id,
+      shapeType: inputInstance.shape.type,
+      originalPosition: { x: inputInstance.transform.x, y: inputInstance.transform.y },
+      groupTopLeft: { x: groupTopLeft.x, y: groupTopLeft.y }
+    })
     
-    // Create array copies
-    for (let i = 1; i < count; i++) {
+    for (let i = 1; i < count; i++) { // Start from i=1, skip the original (i=0)
+      
       // Calculate rotation in radians for this clone
-      const rotationRadians = (rotation * i * Math.PI / 180)
+      const rotationRadians = (rotation * (i - 1) * Math.PI / 180) // Use (i-1) so first clone has no rotation
       
-      // Calculate the offset from the group center
-      const offsetFromCenterX = pixelOffsetX * i
-      const offsetFromCenterY = pixelOffsetY * i
+      // Calculate the offset from the group's top-left corner
+      const offsetFromTopLeftX = pixelOffsetX * (i - 1) // Use (i-1) so first clone has no offset
+      const offsetFromTopLeftY = pixelOffsetY * (i - 1)
       
-      // Apply rotation to the offset around the group center
+      // Apply rotation to the offset around the group's top-left corner
       const cos = Math.cos(rotationRadians)
       const sin = Math.sin(rotationRadians)
+      const rotatedOffsetX = offsetFromTopLeftX * cos - offsetFromTopLeftY * sin
+      const rotatedOffsetY = offsetFromTopLeftX * sin + offsetFromTopLeftY * cos
       
-      const rotatedOffsetX = offsetFromCenterX * cos - offsetFromCenterY * sin
-      const rotatedOffsetY = offsetFromCenterX * sin + offsetFromCenterY * cos
+      // Calculate the group's new top-left position
+      const newGroupTopLeftX = groupTopLeft.x + rotatedOffsetX
+      const newGroupTopLeftY = groupTopLeft.y + rotatedOffsetY
       
-      // Calculate the group's new center position
-      const newGroupCenterX = groupCenter.x + rotatedOffsetX
-      const newGroupCenterY = groupCenter.y + rotatedOffsetY
+      // Calculate the relative position of this shape within the group (from top-left)
+      let shapeRelativeX = inputInstance.transform.x - groupTopLeft.x
+      let shapeRelativeY = inputInstance.transform.y - groupTopLeft.y
       
-      // Calculate the relative position of this shape within the group
-      const shapeRelativeX = inputInstance.transform.x - groupCenter.x
-      const shapeRelativeY = inputInstance.transform.y - groupCenter.y
+      // Calculate scale using linear interpolation from original (1.0) to final scale
+      const progress = (i - 1) / (count - 1) // Use (i-1) so first clone has scale 1
+      const interpolatedScale = 1 + (scaleStep - 1) * progress
       
-      // Apply rotation to the relative position
+      // SCALE the relative vector BEFORE rotation
+      shapeRelativeX *= interpolatedScale
+      shapeRelativeY *= interpolatedScale
+      
+      // Now rotate the scaled relative vector
       const rotatedRelativeX = shapeRelativeX * cos - shapeRelativeY * sin
       const rotatedRelativeY = shapeRelativeX * sin + shapeRelativeY * cos
       
       // Calculate the final position of this shape in the cloned group
-      const finalX = newGroupCenterX + rotatedRelativeX
-      const finalY = newGroupCenterY + rotatedRelativeY
+      let finalX = newGroupTopLeftX + rotatedRelativeX
+      let finalY = newGroupTopLeftY + rotatedRelativeY
+      let finalRotation = inputInstance.transform.rotation + rotationRadians
+      const finalScale = interpolatedScale
       
-      // Calculate scale using linear interpolation from original (1.0) to final scale
-      const progress = i / (count - 1) // 0 for first clone, 1 for last clone
-      const interpolatedScale = 1 + (scaleStep - 1) * progress
+      // Apply the group's current transform to make clones move with the group
+      if (groupTransform) {
+        // Apply group rotation to the final position
+        const cos = Math.cos(groupTransform.rotation)
+        const sin = Math.sin(groupTransform.rotation)
+        
+        // Rotate the clone position around the group center
+        const dx = finalX - groupBounds.centerX
+        const dy = finalY - groupBounds.centerY
+        const rotatedDx = dx * cos - dy * sin
+        const rotatedDy = dx * sin + dy * cos
+        
+        finalX = groupBounds.centerX + rotatedDx + groupTransform.x
+        finalY = groupBounds.centerY + rotatedDy + groupTransform.y
+        finalRotation += groupTransform.rotation
+        
+        console.log(`Applied group transform to clone ${i}:`, {
+          originalPosition: { x: newGroupTopLeftX + rotatedRelativeX, y: newGroupTopLeftY + rotatedRelativeY },
+          groupTransform,
+          finalPosition: { x: finalX, y: finalY },
+          rotationAdded: groupTransform.rotation
+        })
+      }
       
-      console.log(`Group clone ${i} for shape ${inputInstance.shape.id}:`, {
-        originalPosition: { x: inputInstance.transform.x, y: inputInstance.transform.y },
-        groupCenter: { x: groupCenter.x, y: groupCenter.y },
-        newGroupCenter: { x: newGroupCenterX, y: newGroupCenterY },
+      console.log(`Clone ${i} calculations:`, {
+        rotationRadians,
+        offsetFromTopLeft: { x: offsetFromTopLeftX, y: offsetFromTopLeftY },
+        rotatedOffset: { x: rotatedOffsetX, y: rotatedOffsetY },
+        newGroupTopLeft: { x: newGroupTopLeftX, y: newGroupTopLeftY },
         shapeRelative: { x: shapeRelativeX, y: shapeRelativeY },
         rotatedRelative: { x: rotatedRelativeX, y: rotatedRelativeY },
         finalPosition: { x: finalX, y: finalY },
-        scale: interpolatedScale
+        finalScale
       })
       
+      // Compose the transform
       const newTransform: Transform = {
         x: finalX,
         y: finalY,
-        rotation: inputInstance.transform.rotation + rotationRadians,
-        scaleX: inputInstance.transform.scaleX * interpolatedScale,
-        scaleY: inputInstance.transform.scaleY * interpolatedScale
+        rotation: finalRotation,
+        scaleX: inputInstance.transform.scaleX * finalScale,
+        scaleY: inputInstance.transform.scaleY * finalScale
       }
       
       const newInstance: ShapeInstance = {
@@ -412,7 +602,6 @@ function processGroupArray(
       newInstances.push(newInstance)
     }
   })
-  
   return {
     ...input,
     instances: newInstances
@@ -423,12 +612,16 @@ function processGroupArray(
 const LinearArrayProcessor: ModifierProcessor = {
   process(input: ShapeState, settings: LinearArraySettings, groupContext?: GroupContext): ShapeState {
     console.log('LinearArrayProcessor.process called with settings:', settings)
+    console.log('LinearArrayProcessor groupContext:', groupContext)
     const { count, offsetX, offsetY, rotation, scaleStep } = settings
     
     // If processing in group context, use group dimensions
     if (groupContext) {
+      console.log('LinearArrayProcessor: Using group processing path')
       return processGroupArray(input, settings, groupContext)
     }
+    
+    console.log('LinearArrayProcessor: Using regular processing path')
     
     // Start with empty instances (we'll generate new ones)
     const newInstances: ShapeInstance[] = []

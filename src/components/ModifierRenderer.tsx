@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useEditor, type TLShape, type TLShapeId, track, useValue, SVGContainer } from 'tldraw'
+import { useEditor, type TLShape, type TLShapeId, track, useValue, SVGContainer, type Editor } from 'tldraw'
 import { StackedModifier } from './modifiers/StackedModifier'
 import { useModifierStore } from '../store/modifierStore'
 import type { TLModifier } from '../types/modifiers'
@@ -182,6 +182,18 @@ const MirrorTransformOverlay = track(() => {
   )
 })
 
+// Helper function to find the top-level group of a shape
+const findTopLevelGroup = (shape: TLShape, editor: Editor): TLShape | null => {
+  if (shape.type === 'group') {
+    return shape
+  }
+  const parent = shape.parentId ? editor.getShape(shape.parentId) : null
+  if (parent && parent.type === 'group') {
+    return findTopLevelGroup(parent, editor)
+  }
+  return null
+}
+
 // Main modifier renderer component
 export function ModifierRenderer() {
   const editor = useEditor()
@@ -221,20 +233,28 @@ export function ModifierRenderer() {
     <div className="modifier-renderer">
       {shapesWithModifiers.flatMap(({ shape, modifiers, modifiersKey }) => {
         if (shape.type === 'group' && editor) {
-          // Get all child shapes in the group
-          const childShapeIds = editor.getShapeAndDescendantIds([shape.id])
-          const childShapes = Array.from(childShapeIds)
-            .map((id: TLShapeId) => editor.getShape(id))
-            .filter(Boolean) as TLShape[]
-          // Render a StackedModifier for each child
-          return childShapes.map(childShape => (
+          // For groups, we need to process the group as a whole
+          // The ModifierStack.processGroupModifiers will handle all child shapes
+          // We only need one StackedModifier for the group itself
+          return (
             <StackedModifier
-              key={`stacked-${childShape.id}-${modifiersKey}`}
-              shape={childShape}
+              key={`stacked-group-${shape.id}-${modifiersKey}`}
+              shape={shape}
               modifiers={modifiers}
             />
-          ))
+          )
         } else {
+          // Check if this shape is part of a group that has modifiers
+          const parentGroup = findTopLevelGroup(shape, editor)
+          if (parentGroup) {
+            const groupModifiers = store.getModifiersForShape(parentGroup.id)
+            if (groupModifiers.length > 0) {
+              // This shape is part of a group with modifiers, so it will be processed
+              // by the group's StackedModifier - don't create a separate one
+              return []
+            }
+          }
+          
           return (
             <StackedModifier
               key={`stacked-${shape.id}-${modifiersKey}`}

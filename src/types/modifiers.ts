@@ -37,8 +37,15 @@ export interface ShapeState {
 // Group context for modifier processing
 export interface GroupContext {
   groupCenter: { x: number; y: number }
+  groupTopLeft: { x: number; y: number }
   groupShapes: TLShape[]
-  groupBounds: { width: number; height: number; centerX: number; centerY: number }
+  groupBounds: { 
+    minX: number; maxX: number; minY: number; maxY: number;
+    width: number; height: number; centerX: number; centerY: number 
+  }
+  groupTransform?: {
+    x: number; y: number; rotation: number
+  }
 }
 
 // NEW: Interface that all modifiers must implement for stacking
