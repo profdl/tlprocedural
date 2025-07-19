@@ -244,6 +244,29 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
           editor.deleteShapes(clonesToCleanup.map((s: TLShape) => s.id))
         }, { ignoreShapeLock: true, history: 'ignore' })
       }
+
+      // For group modifiers, also clean up clones of all shapes in the group during cleanup
+      if (shape.type === 'group') {
+        const groupShapeIds = editor.getShapeAndDescendantIds([shape.id])
+        const groupShapes = Array.from(groupShapeIds)
+          .map(id => editor.getShape(id))
+          .filter(Boolean) as TLShape[]
+        
+        const groupClones = editor.getCurrentPageShapes().filter((s: TLShape) => {
+          const originalId = getOriginalShapeId(s)
+          return groupShapes.some(groupShape => groupShape.id === originalId) && s.meta?.stackProcessed
+        })
+
+        if (groupClones.length > 0) {
+          editor.run(() => {
+            editor.deleteShapes(groupClones.map((s: TLShape) => s.id))
+          }, { ignoreShapeLock: true, history: 'ignore' })
+          
+          logShapeOperation('StackedModifier Group Cleanup (cleanup)', shape.id, {
+            groupClones: groupClones.length
+          })
+        }
+      }
     }
   }, [editor, shapeKey, processedShapes.length])
 

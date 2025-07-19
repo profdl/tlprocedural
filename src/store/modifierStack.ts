@@ -555,33 +555,36 @@ function processGroupArray(
       
       // Apply the group's current transform to make clones move with the group
       if (groupTransform) {
-        // Calculate the source group's center
-        const sourceGroupCenterX = groupTransform.x + (groupBounds.width / 2)
-        const sourceGroupCenterY = groupTransform.y + (groupBounds.height / 2)
+        // Calculate the clone's offset from the source group's center
+        const sourceGroupCenterX = groupTopLeft.x + (groupBounds.width / 2)
+        const sourceGroupCenterY = groupTopLeft.y + (groupBounds.height / 2)
+        const cloneOffsetX = finalX - sourceGroupCenterX
+        const cloneOffsetY = finalY - sourceGroupCenterY
         
-        // Calculate the clone's offset from the source group center
-        const cloneOffsetX = finalX - groupTopLeft.x
-        const cloneOffsetY = finalY - groupTopLeft.y
-        
-        // Apply group rotation to the clone offset around the source group center
+        // Apply the source group's transform to the clone's offset
+        // This makes the clone scale around the same origin as the source group
         if (groupTransform.rotation !== 0) {
           const cos = Math.cos(groupTransform.rotation)
           const sin = Math.sin(groupTransform.rotation)
           const rotatedOffsetX = cloneOffsetX * cos - cloneOffsetY * sin
           const rotatedOffsetY = cloneOffsetX * sin + cloneOffsetY * cos
           
-          finalX = sourceGroupCenterX + rotatedOffsetX - (groupBounds.width / 2)
-          finalY = sourceGroupCenterY + rotatedOffsetY - (groupBounds.height / 2)
+          // Apply the rotated offset to the source group's center
+          const currentSourceGroupCenterX = groupTransform.x + (groupBounds.width / 2)
+          const currentSourceGroupCenterY = groupTransform.y + (groupBounds.height / 2)
+          finalX = currentSourceGroupCenterX + rotatedOffsetX
+          finalY = currentSourceGroupCenterY + rotatedOffsetY
         } else {
-          // No rotation, just apply position offset
-          finalX = groupTransform.x + cloneOffsetX
-          finalY = groupTransform.y + cloneOffsetY
+          // No rotation, just apply position offset to the source group's center
+          const currentSourceGroupCenterX = groupTransform.x + (groupBounds.width / 2)
+          const currentSourceGroupCenterY = groupTransform.y + (groupBounds.height / 2)
+          finalX = currentSourceGroupCenterX + cloneOffsetX
+          finalY = currentSourceGroupCenterY + cloneOffsetY
         }
         
         finalRotation += groupTransform.rotation
         
         console.log(`Applied group transform to clone ${i}:`, {
-          sourceGroupCenter: { x: sourceGroupCenterX, y: sourceGroupCenterY },
           cloneOffset: { x: cloneOffsetX, y: cloneOffsetY },
           groupRotation: groupTransform.rotation,
           finalPosition: { x: finalX, y: finalY }
@@ -623,6 +626,574 @@ function processGroupArray(
       newInstances.push(newInstance)
     }
   })
+  return {
+    ...input,
+    instances: newInstances
+  }
+}
+
+// Process circular array for groups
+function processGroupCircularArray(
+  input: ShapeState, 
+  settings: CircularArraySettings, 
+  groupContext: GroupContext
+): ShapeState {
+  const { count, radius, startAngle, endAngle, centerX, centerY, rotateAll, rotateEach, pointToCenter } = settings
+  const { groupTopLeft, groupBounds, groupTransform } = groupContext
+  
+  const newInstances: ShapeInstance[] = []
+  
+  console.log('processGroupCircularArray called with:', {
+    count,
+    radius,
+    startAngle,
+    endAngle,
+    centerX,
+    centerY,
+    groupTopLeft,
+    groupBounds
+  })
+  
+  // For each existing instance (which represents a shape in the group), create the array
+  input.instances.forEach(inputInstance => {
+    console.log('Processing instance for circular array:', {
+      shapeId: inputInstance.shape.id,
+      shapeType: inputInstance.shape.type,
+      originalPosition: { x: inputInstance.transform.x, y: inputInstance.transform.y },
+      groupTopLeft: { x: groupTopLeft.x, y: groupTopLeft.y }
+    })
+    
+    // Calculate the offset needed to move the array center so the original shape becomes the first position
+    const firstAngle = startAngle * Math.PI / 180
+    const offsetX = Math.cos(firstAngle) * radius
+    const offsetY = Math.sin(firstAngle) * radius
+    
+    // Calculate center point relative to the group's top-left corner
+    const centerPointX = groupTopLeft.x + (centerX || 0) - offsetX
+    const centerPointY = groupTopLeft.y + (centerY || 0) - offsetY
+    
+    const totalAngle = endAngle - startAngle
+    const angleStep = totalAngle / (count - 1)
+    
+    for (let i = 1; i < count; i++) { // Start from i=1, skip the original (i=0)
+      const angle = (startAngle + (angleStep * i)) * Math.PI / 180
+      
+      // Calculate the offset from the group's top-left corner
+      const offsetFromTopLeftX = Math.cos(angle) * radius
+      const offsetFromTopLeftY = Math.sin(angle) * radius
+      
+      // Calculate the group's new top-left position
+      const newGroupTopLeftX = groupTopLeft.x + offsetFromTopLeftX
+      const newGroupTopLeftY = groupTopLeft.y + offsetFromTopLeftY
+      
+      // Calculate the relative position of this shape within the group (from top-left)
+      const shapeRelativeX = inputInstance.transform.x - groupTopLeft.x
+      const shapeRelativeY = inputInstance.transform.y - groupTopLeft.y
+      
+      // Calculate the final position of this shape in the cloned group
+      let finalX = newGroupTopLeftX + shapeRelativeX
+      let finalY = newGroupTopLeftY + shapeRelativeY
+      let finalRotation = inputInstance.transform.rotation
+      
+      // Calculate base rotation for pointing away from center
+      if (pointToCenter) {
+        const angleFromCenter = Math.atan2(finalY - centerPointY, finalX - centerPointX)
+        finalRotation += angleFromCenter + Math.PI // Add 180° (π radians) to point away
+      }
+      
+      // Calculate additional rotations: rotateAll applies to all, rotateEach applies per clone
+      const rotateAllRadians = (rotateAll || 0) * Math.PI / 180
+      const rotateEachRadians = (rotateEach || 0) * i * Math.PI / 180
+      finalRotation += rotateAllRadians + rotateEachRadians
+      
+      // Apply the group's current transform to make clones move with the group
+      if (groupTransform) {
+        // Calculate this cloned group's center (each clone scales around its own center)
+        const clonedGroupCenterX = newGroupTopLeftX + (groupBounds.width / 2)
+        const clonedGroupCenterY = newGroupTopLeftY + (groupBounds.height / 2)
+        
+        // Calculate the clone's offset from the source group's center
+        const sourceGroupCenterX = groupTopLeft.x + (groupBounds.width / 2)
+        const sourceGroupCenterY = groupTopLeft.y + (groupBounds.height / 2)
+        const cloneOffsetX = finalX - sourceGroupCenterX
+        const cloneOffsetY = finalY - sourceGroupCenterY
+        
+        // Apply group rotation to the clone offset around the source group center
+        if (groupTransform.rotation !== 0) {
+          const cos = Math.cos(groupTransform.rotation)
+          const sin = Math.sin(groupTransform.rotation)
+          const rotatedOffsetX = cloneOffsetX * cos - cloneOffsetY * sin
+          const rotatedOffsetY = cloneOffsetX * sin + cloneOffsetY * cos
+          
+          // Apply the rotated offset to the source group's center
+          const currentSourceGroupCenterX = groupTransform.x + (groupBounds.width / 2)
+          const currentSourceGroupCenterY = groupTransform.y + (groupBounds.height / 2)
+          finalX = currentSourceGroupCenterX + rotatedOffsetX
+          finalY = currentSourceGroupCenterY + rotatedOffsetY
+        } else {
+          // No rotation, just apply position offset to the source group's center
+          const currentSourceGroupCenterX = groupTransform.x + (groupBounds.width / 2)
+          const currentSourceGroupCenterY = groupTransform.y + (groupBounds.height / 2)
+          finalX = currentSourceGroupCenterX + cloneOffsetX
+          finalY = currentSourceGroupCenterY + cloneOffsetY
+        }
+        
+        finalRotation += groupTransform.rotation
+        
+        console.log(`Applied group transform to circular clone ${i}:`, {
+          clonedGroupCenter: { x: clonedGroupCenterX, y: clonedGroupCenterY },
+          cloneOffset: { x: cloneOffsetX, y: cloneOffsetY },
+          groupRotation: groupTransform.rotation,
+          finalPosition: { x: finalX, y: finalY }
+        })
+      }
+      
+      console.log(`Circular clone ${i} calculations:`, {
+        angle: (angle * 180 / Math.PI).toFixed(1) + '°',
+        offsetFromTopLeft: { x: offsetFromTopLeftX, y: offsetFromTopLeftY },
+        newGroupTopLeft: { x: newGroupTopLeftX, y: newGroupTopLeftY },
+        shapeRelative: { x: shapeRelativeX, y: shapeRelativeY },
+        finalPosition: { x: finalX, y: finalY },
+        finalRotation: (finalRotation * 180 / Math.PI).toFixed(1) + '°'
+      })
+      
+      // Compose the transform
+      const newTransform: Transform = {
+        x: finalX,
+        y: finalY,
+        rotation: finalRotation,
+        scaleX: inputInstance.transform.scaleX,
+        scaleY: inputInstance.transform.scaleY
+      }
+      
+      const newInstance: ShapeInstance = {
+        shape: { ...inputInstance.shape },
+        transform: newTransform,
+        index: newInstances.length,
+        metadata: {
+          ...inputInstance.metadata,
+          arrayIndex: i,
+          sourceInstance: inputInstance.index,
+          isGroupClone: true
+        }
+      }
+      
+      newInstances.push(newInstance)
+    }
+  })
+  
+  return {
+    ...input,
+    instances: newInstances
+  }
+}
+
+// Process grid array for groups
+function processGroupGridArray(
+  input: ShapeState, 
+  settings: GridArraySettings, 
+  groupContext: GroupContext
+): ShapeState {
+  const { rows, columns, spacingX, spacingY, offsetX, offsetY } = settings
+  const { groupTopLeft, groupBounds, groupTransform } = groupContext
+  
+  const newInstances: ShapeInstance[] = []
+  
+  console.log('processGroupGridArray called with:', {
+    rows,
+    columns,
+    spacingX,
+    spacingY,
+    offsetX,
+    offsetY,
+    groupTopLeft,
+    groupBounds
+  })
+  
+  // For each existing instance (which represents a shape in the group), create the array
+  input.instances.forEach(inputInstance => {
+    console.log('Processing instance for grid array:', {
+      shapeId: inputInstance.shape.id,
+      shapeType: inputInstance.shape.type,
+      originalPosition: { x: inputInstance.transform.x, y: inputInstance.transform.y },
+      groupTopLeft: { x: groupTopLeft.x, y: groupTopLeft.y }
+    })
+    
+    // Create grid positions
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < columns; col++) {
+        // Skip the original position (0,0) - we'll add it first
+        if (row === 0 && col === 0) {
+          continue
+        }
+        
+        // Calculate the offset from the group's top-left corner
+        const offsetFromTopLeftX = (offsetX || 0) + (col * spacingX)
+        const offsetFromTopLeftY = (offsetY || 0) + (row * spacingY)
+        
+        // Calculate the group's new top-left position
+        const newGroupTopLeftX = groupTopLeft.x + offsetFromTopLeftX
+        const newGroupTopLeftY = groupTopLeft.y + offsetFromTopLeftY
+        
+        // Calculate the relative position of this shape within the group (from top-left)
+        const shapeRelativeX = inputInstance.transform.x - groupTopLeft.x
+        const shapeRelativeY = inputInstance.transform.y - groupTopLeft.y
+        
+        // Calculate the final position of this shape in the cloned group
+        let finalX = newGroupTopLeftX + shapeRelativeX
+        let finalY = newGroupTopLeftY + shapeRelativeY
+        let finalRotation = inputInstance.transform.rotation
+        
+        // Apply the group's current transform to make clones move with the group
+        if (groupTransform) {
+          // Calculate this cloned group's center (each clone scales around its own center)
+          const clonedGroupCenterX = newGroupTopLeftX + (groupBounds.width / 2)
+          const clonedGroupCenterY = newGroupTopLeftY + (groupBounds.height / 2)
+          
+          // Calculate the clone's offset from the source group's center
+          const sourceGroupCenterX = groupTopLeft.x + (groupBounds.width / 2)
+          const sourceGroupCenterY = groupTopLeft.y + (groupBounds.height / 2)
+          const cloneOffsetX = finalX - sourceGroupCenterX
+          const cloneOffsetY = finalY - sourceGroupCenterY
+          
+          // Apply group rotation to the clone offset around the source group center
+          if (groupTransform.rotation !== 0) {
+            const cos = Math.cos(groupTransform.rotation)
+            const sin = Math.sin(groupTransform.rotation)
+            const rotatedOffsetX = cloneOffsetX * cos - cloneOffsetY * sin
+            const rotatedOffsetY = cloneOffsetX * sin + cloneOffsetY * cos
+            
+            // Apply the rotated offset to the source group's center
+            const currentSourceGroupCenterX = groupTransform.x + (groupBounds.width / 2)
+            const currentSourceGroupCenterY = groupTransform.y + (groupBounds.height / 2)
+            finalX = currentSourceGroupCenterX + rotatedOffsetX
+            finalY = currentSourceGroupCenterY + rotatedOffsetY
+          } else {
+            // No rotation, just apply position offset to the source group's center
+            const currentSourceGroupCenterX = groupTransform.x + (groupBounds.width / 2)
+            const currentSourceGroupCenterY = groupTransform.y + (groupBounds.height / 2)
+            finalX = currentSourceGroupCenterX + cloneOffsetX
+            finalY = currentSourceGroupCenterY + cloneOffsetY
+          }
+          
+          finalRotation += groupTransform.rotation
+          
+          console.log(`Applied group transform to grid clone (${row},${col}):`, {
+            clonedGroupCenter: { x: clonedGroupCenterX, y: clonedGroupCenterY },
+            cloneOffset: { x: cloneOffsetX, y: cloneOffsetY },
+            groupRotation: groupTransform.rotation,
+            finalPosition: { x: finalX, y: finalY }
+          })
+        }
+        
+        console.log(`Grid clone (${row},${col}) calculations:`, {
+          offsetFromTopLeft: { x: offsetFromTopLeftX, y: offsetFromTopLeftY },
+          newGroupTopLeft: { x: newGroupTopLeftX, y: newGroupTopLeftY },
+          shapeRelative: { x: shapeRelativeX, y: shapeRelativeY },
+          finalPosition: { x: finalX, y: finalY }
+        })
+        
+        const newTransform: Transform = {
+          x: finalX,
+          y: finalY,
+          rotation: finalRotation,
+          scaleX: inputInstance.transform.scaleX,
+          scaleY: inputInstance.transform.scaleY
+        }
+        
+        const newInstance: ShapeInstance = {
+          shape: { ...inputInstance.shape },
+          transform: newTransform,
+          index: newInstances.length,
+          metadata: {
+            ...inputInstance.metadata,
+            arrayIndex: row * columns + col,
+            sourceInstance: inputInstance.index,
+            gridPosition: { row, col },
+            isGroupClone: true
+          }
+        }
+        
+        newInstances.push(newInstance)
+      }
+    }
+  })
+  
+  return {
+    ...input,
+    instances: newInstances
+  }
+}
+
+// Process mirror for groups
+function processGroupMirror(
+  input: ShapeState, 
+  settings: MirrorSettings, 
+  groupContext: GroupContext
+): ShapeState {
+  const { axis, offset, mergeThreshold } = settings
+  const { groupTopLeft, groupBounds, groupTransform } = groupContext
+  
+  const newInstances: ShapeInstance[] = []
+  
+  console.log('processGroupMirror called with:', {
+    axis,
+    offset,
+    mergeThreshold,
+    groupTopLeft,
+    groupBounds
+  })
+  
+  // Add all original instances first
+  newInstances.push(...input.instances)
+  
+  // For each existing instance (which represents a shape in the group), create the mirror
+  input.instances.forEach(inputInstance => {
+    console.log('Processing instance for mirror:', {
+      shapeId: inputInstance.shape.id,
+      shapeType: inputInstance.shape.type,
+      originalPosition: { x: inputInstance.transform.x, y: inputInstance.transform.y },
+      groupTopLeft: { x: groupTopLeft.x, y: groupTopLeft.y }
+    })
+    
+    // Calculate the relative position of this shape within the group (from top-left)
+    const shapeRelativeX = inputInstance.transform.x - groupTopLeft.x
+    const shapeRelativeY = inputInstance.transform.y - groupTopLeft.y
+    
+    let mirroredTransform: Transform
+    
+    switch (axis) {
+      case 'x': { // Horizontal mirror (flip across vertical axis)
+        const distanceFromCenter = shapeRelativeX - (groupBounds.width / 2)
+        const mirroredRelativeX = -distanceFromCenter + (groupBounds.width / 2)
+        
+        // Calculate the final position of this shape in the mirrored group
+        let finalX = groupTopLeft.x + mirroredRelativeX
+        let finalY = inputInstance.transform.y
+        let finalRotation = Math.PI - inputInstance.transform.rotation // Flip rotation for horizontal mirror
+        const finalScaleX = -inputInstance.transform.scaleX // Flip horizontally
+        const finalScaleY = inputInstance.transform.scaleY
+        
+        // Apply the group's current transform to make clones move with the group
+        if (groupTransform) {
+          // Calculate this cloned group's center (each clone scales around its own center)
+          const clonedGroupCenterX = finalX + (groupBounds.width / 2)
+          const clonedGroupCenterY = finalY + (groupBounds.height / 2)
+          
+          // Calculate the clone's offset from the source group's center
+          const sourceGroupCenterX = groupTopLeft.x + (groupBounds.width / 2)
+          const sourceGroupCenterY = groupTopLeft.y + (groupBounds.height / 2)
+          const cloneOffsetX = finalX - sourceGroupCenterX
+          const cloneOffsetY = finalY - sourceGroupCenterY
+          
+          // Apply group rotation to the clone offset around the source group center
+          if (groupTransform.rotation !== 0) {
+            const cos = Math.cos(groupTransform.rotation)
+            const sin = Math.sin(groupTransform.rotation)
+            const rotatedOffsetX = cloneOffsetX * cos - cloneOffsetY * sin
+            const rotatedOffsetY = cloneOffsetX * sin + cloneOffsetY * cos
+            
+            // Apply the rotated offset to the source group's center
+            const currentSourceGroupCenterX = groupTransform.x + (groupBounds.width / 2)
+            const currentSourceGroupCenterY = groupTransform.y + (groupBounds.height / 2)
+            finalX = currentSourceGroupCenterX + rotatedOffsetX
+            finalY = currentSourceGroupCenterY + rotatedOffsetY
+          } else {
+            // No rotation, just apply position offset to the source group's center
+            const currentSourceGroupCenterX = groupTransform.x + (groupBounds.width / 2)
+            const currentSourceGroupCenterY = groupTransform.y + (groupBounds.height / 2)
+            finalX = currentSourceGroupCenterX + cloneOffsetX
+            finalY = currentSourceGroupCenterY + cloneOffsetY
+          }
+          
+          finalRotation += groupTransform.rotation
+          
+          console.log(`Applied group transform to mirror clone:`, {
+            clonedGroupCenter: { x: clonedGroupCenterX, y: clonedGroupCenterY },
+            cloneOffset: { x: cloneOffsetX, y: cloneOffsetY },
+            groupRotation: groupTransform.rotation,
+            finalPosition: { x: finalX, y: finalY }
+          })
+        }
+        
+        mirroredTransform = {
+          x: finalX,
+          y: finalY,
+          rotation: finalRotation,
+          scaleX: finalScaleX,
+          scaleY: finalScaleY
+        }
+        break
+      }
+        
+      case 'y': { // Vertical mirror (flip across horizontal axis)
+        const distanceFromCenterY = shapeRelativeY - (groupBounds.height / 2)
+        const mirroredRelativeY = -distanceFromCenterY + (groupBounds.height / 2)
+        
+        // Calculate the final position of this shape in the mirrored group
+        let finalX = inputInstance.transform.x
+        let finalY = groupTopLeft.y + mirroredRelativeY
+        let finalRotation = -inputInstance.transform.rotation // Flip rotation for vertical mirror
+        const finalScaleX = inputInstance.transform.scaleX
+        const finalScaleY = -inputInstance.transform.scaleY // Flip vertically
+        
+        // Apply the group's current transform to make clones move with the group
+        if (groupTransform) {
+          // Calculate the clone's offset from the source group's original position
+          const cloneOffsetX = finalX - groupTopLeft.x
+          const cloneOffsetY = finalY - groupTopLeft.y
+          
+          // Apply group rotation to the clone offset around the source group center
+          if (groupTransform.rotation !== 0) {
+            const cos = Math.cos(groupTransform.rotation)
+            const sin = Math.sin(groupTransform.rotation)
+            const rotatedOffsetX = cloneOffsetX * cos - cloneOffsetY * sin
+            const rotatedOffsetY = cloneOffsetX * sin + cloneOffsetY * cos
+            
+            // Apply the rotated offset to the source group's position
+            finalX = groupTransform.x + rotatedOffsetX
+            finalY = groupTransform.y + rotatedOffsetY
+          } else {
+            // No rotation, just apply position offset
+            finalX = groupTransform.x + cloneOffsetX
+            finalY = groupTransform.y + cloneOffsetY
+          }
+          
+          finalRotation += groupTransform.rotation
+        }
+        
+        mirroredTransform = {
+          x: finalX,
+          y: finalY,
+          rotation: finalRotation,
+          scaleX: finalScaleX,
+          scaleY: finalScaleY
+        }
+        break
+      }
+        
+      case 'diagonal': { // Diagonal mirror (swap X/Y and flip both)
+        // Calculate the final position of this shape in the mirrored group
+        let finalX = groupTopLeft.y + shapeRelativeY + offset
+        let finalY = groupTopLeft.x + shapeRelativeX + offset
+        let finalRotation = Math.PI/2 - inputInstance.transform.rotation // Adjust rotation for diagonal flip
+        const finalScaleX = -inputInstance.transform.scaleY
+        const finalScaleY = -inputInstance.transform.scaleX
+        
+        // Apply the group's current transform to make clones move with the group
+        if (groupTransform) {
+          // Calculate the clone's offset from the source group's original position
+          const cloneOffsetX = finalX - groupTopLeft.x
+          const cloneOffsetY = finalY - groupTopLeft.y
+          
+          // Apply group rotation to the clone offset around the source group center
+          if (groupTransform.rotation !== 0) {
+            const cos = Math.cos(groupTransform.rotation)
+            const sin = Math.sin(groupTransform.rotation)
+            const rotatedOffsetX = cloneOffsetX * cos - cloneOffsetY * sin
+            const rotatedOffsetY = cloneOffsetX * sin + cloneOffsetY * cos
+            
+            // Apply the rotated offset to the source group's position
+            finalX = groupTransform.x + rotatedOffsetX
+            finalY = groupTransform.y + rotatedOffsetY
+          } else {
+            // No rotation, just apply position offset
+            finalX = groupTransform.x + cloneOffsetX
+            finalY = groupTransform.y + cloneOffsetY
+          }
+          
+          finalRotation += groupTransform.rotation
+        }
+        
+        mirroredTransform = {
+          x: finalX,
+          y: finalY,
+          rotation: finalRotation,
+          scaleX: finalScaleX,
+          scaleY: finalScaleY
+        }
+        break
+      }
+        
+      default: { // Default to horizontal mirror
+        const distanceFromCenter = shapeRelativeX - (groupBounds.width / 2)
+        const mirroredRelativeX = -distanceFromCenter + (groupBounds.width / 2)
+        
+        // Calculate the final position of this shape in the mirrored group
+        let finalX = groupTopLeft.x + mirroredRelativeX
+        let finalY = inputInstance.transform.y
+        let finalRotation = Math.PI - inputInstance.transform.rotation // Flip rotation for horizontal mirror
+        const finalScaleX = -inputInstance.transform.scaleX
+        const finalScaleY = inputInstance.transform.scaleY
+        
+        // Apply the group's current transform to make clones move with the group
+        if (groupTransform) {
+          // Calculate the clone's offset from the source group's original position
+          const cloneOffsetX = finalX - groupTopLeft.x
+          const cloneOffsetY = finalY - groupTopLeft.y
+          
+          // Apply group rotation to the clone offset around the source group center
+          if (groupTransform.rotation !== 0) {
+            const cos = Math.cos(groupTransform.rotation)
+            const sin = Math.sin(groupTransform.rotation)
+            const rotatedOffsetX = cloneOffsetX * cos - cloneOffsetY * sin
+            const rotatedOffsetY = cloneOffsetX * sin + cloneOffsetY * cos
+            
+            // Apply the rotated offset to the source group's position
+            finalX = groupTransform.x + rotatedOffsetX
+            finalY = groupTransform.y + rotatedOffsetY
+          } else {
+            // No rotation, just apply position offset
+            finalX = groupTransform.x + cloneOffsetX
+            finalY = groupTransform.y + cloneOffsetY
+          }
+          
+          finalRotation += groupTransform.rotation
+        }
+        
+        mirroredTransform = {
+          x: finalX,
+          y: finalY,
+          rotation: finalRotation,
+          scaleX: finalScaleX,
+          scaleY: finalScaleY
+        }
+      }
+    }
+    
+    // Check if mirrored position is too close to any existing instance (merge threshold)
+    const shouldMerge = mergeThreshold > 0 && newInstances.some(existing => {
+      const dx = existing.transform.x - mirroredTransform.x
+      const dy = existing.transform.y - mirroredTransform.y
+      const distance = Math.sqrt(dx * dx + dy * dy)
+      return distance < mergeThreshold
+    })
+    
+    console.log(`Mirror clone calculations:`, {
+      axis,
+      originalPosition: { x: inputInstance.transform.x, y: inputInstance.transform.y },
+      mirroredPosition: { x: mirroredTransform.x, y: mirroredTransform.y },
+      shouldMerge
+    })
+    
+    if (!shouldMerge) {
+      const mirroredInstance: ShapeInstance = {
+        shape: { ...inputInstance.shape },
+        transform: mirroredTransform,
+        index: newInstances.length,
+        metadata: {
+          ...inputInstance.metadata,
+          mirrorAxis: axis,
+          sourceInstance: inputInstance.index,
+          isMirrored: true,
+          isGroupClone: true
+        }
+      }
+      
+      newInstances.push(mirroredInstance)
+    }
+  })
+  
   return {
     ...input,
     instances: newInstances
@@ -748,38 +1319,43 @@ const LinearArrayProcessor: ModifierProcessor = {
 
 // Circular Array Processor implementation
 const CircularArrayProcessor: ModifierProcessor = {
-  process(input: ShapeState, settings: CircularArraySettings): ShapeState {
+  process(input: ShapeState, settings: CircularArraySettings, groupContext?: GroupContext): ShapeState {
     const { count, radius, startAngle, endAngle, centerX, centerY, rotateAll, rotateEach, pointToCenter } = settings
     
     const newInstances: ShapeInstance[] = []
     
-          // For each existing instance, create the circular array
-      input.instances.forEach(inputInstance => {
-        // Get shape dimensions to calculate offset
-        const shapeWidth = 'w' in inputInstance.shape.props ? (inputInstance.shape.props.w as number) : 100
-        const shapeHeight = 'h' in inputInstance.shape.props ? (inputInstance.shape.props.h as number) : 100
-        
-        // Calculate the offset needed to move the array center so the original shape becomes the first position
-        const firstAngle = startAngle * Math.PI / 180
-        let offsetX = Math.cos(firstAngle) * radius
-        let offsetY = Math.sin(firstAngle) * radius
-        
-        // If pointToCenter is enabled, we need to adjust the offset to account for the rotation
-        if (pointToCenter) {
-          // When pointing to center, the shape rotates to face the center
-          // We need to adjust the offset so the original shape aligns exactly with the first clone position
-          const angleFromCenter = Math.atan2(offsetY, offsetX)
-          // Calculate the offset needed to compensate for the rotation effect
-          // The shape will rotate to point toward center, so we need to offset in the opposite direction
-          const additionalOffsetX = Math.cos(angleFromCenter + Math.PI)   - shapeWidth 
-          const additionalOffsetY = Math.sin(angleFromCenter + Math.PI) - shapeHeight
-          offsetX += additionalOffsetX
-          offsetY += additionalOffsetY
-        }
-        
-        // Calculate center point relative to the instance, offset so original becomes first position
-        const centerPointX = inputInstance.transform.x + (centerX || 0) - offsetX
-        const centerPointY = inputInstance.transform.y + (centerY || 0) - offsetY
+    // Check if this is a group modifier
+    if (groupContext) {
+      return processGroupCircularArray(input, settings, groupContext)
+    }
+    
+    // For each existing instance, create the circular array
+    input.instances.forEach(inputInstance => {
+      // Get shape dimensions to calculate offset
+      const shapeWidth = 'w' in inputInstance.shape.props ? (inputInstance.shape.props.w as number) : 100
+      const shapeHeight = 'h' in inputInstance.shape.props ? (inputInstance.shape.props.h as number) : 100
+      
+      // Calculate the offset needed to move the array center so the original shape becomes the first position
+      const firstAngle = startAngle * Math.PI / 180
+      let offsetX = Math.cos(firstAngle) * radius
+      let offsetY = Math.sin(firstAngle) * radius
+      
+      // If pointToCenter is enabled, we need to adjust the offset to account for the rotation
+      if (pointToCenter) {
+        // When pointing to center, the shape rotates to face the center
+        // We need to adjust the offset so the original shape aligns exactly with the first clone position
+        const angleFromCenter = Math.atan2(offsetY, offsetX)
+        // Calculate the offset needed to compensate for the rotation effect
+        // The shape will rotate to point toward center, so we need to offset in the opposite direction
+        const additionalOffsetX = Math.cos(angleFromCenter + Math.PI)   - shapeWidth 
+        const additionalOffsetY = Math.sin(angleFromCenter + Math.PI) - shapeHeight
+        offsetX += additionalOffsetX
+        offsetY += additionalOffsetY
+      }
+      
+      // Calculate center point relative to the instance, offset so original becomes first position
+      const centerPointX = inputInstance.transform.x + (centerX || 0) - offsetX
+      const centerPointY = inputInstance.transform.y + (centerY || 0) - offsetY
       
       const totalAngle = endAngle - startAngle
       const angleStep = totalAngle / (count - 1)
@@ -881,8 +1457,13 @@ const CircularArrayProcessor: ModifierProcessor = {
 
 // Grid Array Processor implementation
 const GridArrayProcessor: ModifierProcessor = {
-  process(input: ShapeState, settings: GridArraySettings): ShapeState {
+  process(input: ShapeState, settings: GridArraySettings, groupContext?: GroupContext): ShapeState {
     const { rows, columns, spacingX, spacingY, offsetX, offsetY } = settings
+    
+    // Check if this is a group modifier
+    if (groupContext) {
+      return processGroupGridArray(input, settings, groupContext)
+    }
     
     const newInstances: ShapeInstance[] = []
     
@@ -931,186 +1512,146 @@ const GridArrayProcessor: ModifierProcessor = {
 
 // Mirror Processor implementation
 const MirrorProcessor: ModifierProcessor = {
-  process(input: ShapeState, settings: MirrorSettings): ShapeState {
+  process(input: ShapeState, settings: MirrorSettings, groupContext?: GroupContext): ShapeState {
     const { axis, offset, mergeThreshold } = settings
     
-    const newInstances: ShapeInstance[] = []
+    // Check if this is a group modifier
+    if (groupContext) {
+      return processGroupMirror(input, settings, groupContext)
+    }
     
-    // Add all original instances first
-    newInstances.push(...input.instances)
+    console.log('🪞 Mirror processor: Processing mirror modifier')
     
-    // Group instances by their source modifier to handle arrays as units
-    const instanceGroups = new Map<string, ShapeInstance[]>()
+    // For mirror, we want to mirror the entire current state as a group
+    // This means all previous modifiers are treated as a single unit to be mirrored
     
-    input.instances.forEach(instance => {
-      // Group instances that were created by the same modifier operation
-      const groupKey = instance.metadata?.sourceInstance !== undefined 
-        ? `modifier-${instance.metadata.sourceInstance}` 
-        : 'original'
-      
-      if (!instanceGroups.has(groupKey)) {
-        instanceGroups.set(groupKey, [])
-      }
-      instanceGroups.get(groupKey)!.push(instance)
+    // Calculate the bounding box of all current instances (the "group" to mirror)
+    const allInstances = input.instances
+    const groupBounds = calculateGroupBounds(allInstances)
+    
+    console.log('🪞 Mirror processor: Group bounds for mirroring:', {
+      instances: allInstances.length,
+      bounds: groupBounds,
+      axis,
+      offset
     })
     
-    console.log(`🪞 Mirror processor: Found ${instanceGroups.size} groups to mirror:`, 
-      Array.from(instanceGroups.keys()).map(key => 
-        `${key} (${instanceGroups.get(key)?.length} instances)`
-      )
-    )
+    // Start with all original instances
+    const newInstances: ShapeInstance[] = [...allInstances]
     
-    // Process each group as a unit
-    instanceGroups.forEach((groupInstances, groupKey) => {
-      // Calculate the bounding box of the entire group
-      const groupBounds = calculateGroupBounds(groupInstances)
-      
-      console.log(`🪞 Mirroring group "${groupKey}":`, {
-        instances: groupInstances.length,
-        bounds: groupBounds,
-        axis,
-        offset
+    // Mirror each instance relative to the group's center
+    allInstances.forEach(inputInstance => {
+      console.log(`🪞 Processing instance for mirroring:`, {
+        shapeId: inputInstance.shape.id,
+        shapeType: inputInstance.shape.type,
+        originalPosition: { x: inputInstance.transform.x, y: inputInstance.transform.y },
+        originalRotation: (inputInstance.transform.rotation * 180 / Math.PI).toFixed(1) + '°',
+        axis
       })
       
-      // Mirror each instance in the group relative to the group's center
-      groupInstances.forEach(inputInstance => {
-        console.log(`🪞 Processing instance for mirroring:`, {
-          inputRotation: inputInstance.transform.rotation,
-          inputRotationDegrees: (inputInstance.transform.rotation * 180 / Math.PI).toFixed(1) + '°',
-          axis,
-          position: { x: inputInstance.transform.x, y: inputInstance.transform.y }
-        })
-        
-        let mirroredTransform: Transform
-        
-        switch (axis) {
-          case 'x': { // Horizontal mirror (flip across vertical axis)
-            const groupCenterX = groupBounds.centerX
-            const mirrorLineX = groupCenterX + offset
-            const distanceFromCenter = inputInstance.transform.x - groupCenterX
-            const mirroredX = mirrorLineX - distanceFromCenter
-            
-            mirroredTransform = {
-              x: mirroredX,
-              y: inputInstance.transform.y,
-              rotation: Math.PI - inputInstance.transform.rotation, // Flip rotation for horizontal mirror
-              scaleX: -inputInstance.transform.scaleX, // Flip horizontally
-              scaleY: inputInstance.transform.scaleY
-            }
-            break
-          }
-            
-          case 'y': { // Vertical mirror (flip across horizontal axis)
-            const groupCenterY = groupBounds.centerY
-            const mirrorLineY = groupCenterY + offset
-            const distanceFromCenterY = inputInstance.transform.y - groupCenterY
-            const mirroredY = mirrorLineY - distanceFromCenterY
-            
-            mirroredTransform = {
-              x: inputInstance.transform.x,
-              y: mirroredY,
-              rotation: -inputInstance.transform.rotation, // Flip rotation for vertical mirror
-              scaleX: inputInstance.transform.scaleX,
-              scaleY: -inputInstance.transform.scaleY // Flip vertically
-            }
-            break
-          }
-            
-          case 'diagonal': { // Diagonal mirror (swap X/Y and flip both)
-            const groupCenterDiag = { x: groupBounds.centerX, y: groupBounds.centerY }
-            mirroredTransform = {
-              x: groupCenterDiag.y + (inputInstance.transform.y - groupCenterDiag.y) + offset,
-              y: groupCenterDiag.x + (inputInstance.transform.x - groupCenterDiag.x) + offset,
-              rotation: Math.PI/2 - inputInstance.transform.rotation, // Adjust rotation for diagonal flip
-              scaleX: -inputInstance.transform.scaleY,
-              scaleY: -inputInstance.transform.scaleX
-            }
-            break
-          }
-            
-          default: { // Default to horizontal mirror
-            const defGroupCenterX = groupBounds.centerX
-            const defMirrorLineX = defGroupCenterX + offset
-            const defDistanceFromCenter = inputInstance.transform.x - defGroupCenterX
-            const defMirroredX = defMirrorLineX - defDistanceFromCenter
-            
-            mirroredTransform = {
-              x: defMirroredX,
-              y: inputInstance.transform.y,
-              rotation: Math.PI - inputInstance.transform.rotation, // Flip rotation for horizontal mirror
-              scaleX: -inputInstance.transform.scaleX,
-              scaleY: inputInstance.transform.scaleY
-            }
-          }
-        }
-        
-        // Check if mirrored position is too close to any existing instance (merge threshold)
-        const shouldMerge = mergeThreshold > 0 && newInstances.some(existing => {
-          const dx = existing.transform.x - mirroredTransform.x
-          const dy = existing.transform.y - mirroredTransform.y
-          const distance = Math.sqrt(dx * dx + dy * dy)
-          return distance < mergeThreshold
-        })
-        
-        console.log(`🪞 Calculated mirrored transform:`, {
-          inputRotation: inputInstance.transform.rotation,
-          outputRotation: mirroredTransform.rotation,
-          inputRotationDegrees: (inputInstance.transform.rotation * 180 / Math.PI).toFixed(1) + '°',
-          outputRotationDegrees: (mirroredTransform.rotation * 180 / Math.PI).toFixed(1) + '°',
-          axis,
-          shouldMerge
-        })
-        
-        if (!shouldMerge) {
-          const mirroredInstance: ShapeInstance = {
-            shape: { ...inputInstance.shape },
-            transform: mirroredTransform,
-            index: newInstances.length,
-            metadata: {
-              ...inputInstance.metadata,
-              mirrorAxis: axis,
-              sourceInstance: inputInstance.index,
-              isMirrored: true,
-              originalGroup: groupKey, // Track which group this came from
-              mirrorOfGroup: true // Mark as a group mirror operation
-            }
-          }
+      let mirroredTransform: Transform
+      
+      switch (axis) {
+        case 'x': { // Horizontal mirror (flip across vertical axis)
+          const groupCenterX = groupBounds.centerX
+          const mirrorLineX = groupCenterX + offset
+          const distanceFromCenter = inputInstance.transform.x - groupCenterX
+          const mirroredX = mirrorLineX - distanceFromCenter
           
-          newInstances.push(mirroredInstance)
+          mirroredTransform = {
+            x: mirroredX,
+            y: inputInstance.transform.y,
+            rotation: Math.PI - inputInstance.transform.rotation, // Flip rotation for horizontal mirror
+            scaleX: -inputInstance.transform.scaleX, // Flip horizontally
+            scaleY: inputInstance.transform.scaleY
+          }
+          break
         }
-      })
-    })
-    
-    // After processing all groups, reverse the order of mirrored instances within each group
-    // to match the expected mirror behavior (first becomes last, etc.)
-    const originalInstanceCount = input.instances.length
-    const mirroredInstances = newInstances.slice(originalInstanceCount)
-    
-    // Group mirrored instances by their original group
-    const mirroredGroups = new Map<string, ShapeInstance[]>()
-    mirroredInstances.forEach(instance => {
-      const groupKey = (instance.metadata?.originalGroup as string) || 'unknown'
-      if (!mirroredGroups.has(groupKey)) {
-        mirroredGroups.set(groupKey, [])
+          
+        case 'y': { // Vertical mirror (flip across horizontal axis)
+          const groupCenterY = groupBounds.centerY
+          const mirrorLineY = groupCenterY + offset
+          const distanceFromCenterY = inputInstance.transform.y - groupCenterY
+          const mirroredY = mirrorLineY - distanceFromCenterY
+          
+          mirroredTransform = {
+            x: inputInstance.transform.x,
+            y: mirroredY,
+            rotation: -inputInstance.transform.rotation, // Flip rotation for vertical mirror
+            scaleX: inputInstance.transform.scaleX,
+            scaleY: -inputInstance.transform.scaleY // Flip vertically
+          }
+          break
+        }
+          
+        case 'diagonal': { // Diagonal mirror (swap X/Y and flip both)
+          const groupCenterDiag = { x: groupBounds.centerX, y: groupBounds.centerY }
+          mirroredTransform = {
+            x: groupCenterDiag.y + (inputInstance.transform.y - groupCenterDiag.y) + offset,
+            y: groupCenterDiag.x + (inputInstance.transform.x - groupCenterDiag.x) + offset,
+            rotation: Math.PI/2 - inputInstance.transform.rotation, // Adjust rotation for diagonal flip
+            scaleX: -inputInstance.transform.scaleY,
+            scaleY: -inputInstance.transform.scaleX
+          }
+          break
+        }
+          
+        default: { // Default to horizontal mirror
+          const defGroupCenterX = groupBounds.centerX
+          const defMirrorLineX = defGroupCenterX + offset
+          const defDistanceFromCenter = inputInstance.transform.x - defGroupCenterX
+          const defMirroredX = defMirrorLineX - defDistanceFromCenter
+          
+          mirroredTransform = {
+            x: defMirroredX,
+            y: inputInstance.transform.y,
+            rotation: Math.PI - inputInstance.transform.rotation, // Flip rotation for horizontal mirror
+            scaleX: -inputInstance.transform.scaleX,
+            scaleY: inputInstance.transform.scaleY
+          }
+        }
       }
-      mirroredGroups.get(groupKey)!.push(instance)
+      
+      // Check if mirrored position is too close to any existing instance (merge threshold)
+      const shouldMerge = mergeThreshold > 0 && newInstances.some(existing => {
+        const dx = existing.transform.x - mirroredTransform.x
+        const dy = existing.transform.y - mirroredTransform.y
+        const distance = Math.sqrt(dx * dx + dy * dy)
+        return distance < mergeThreshold
+      })
+      
+      console.log(`🪞 Calculated mirrored transform:`, {
+        originalPosition: { x: inputInstance.transform.x, y: inputInstance.transform.y },
+        mirroredPosition: { x: mirroredTransform.x, y: mirroredTransform.y },
+        originalRotation: (inputInstance.transform.rotation * 180 / Math.PI).toFixed(1) + '°',
+        mirroredRotation: (mirroredTransform.rotation * 180 / Math.PI).toFixed(1) + '°',
+        axis,
+        shouldMerge
+      })
+      
+      if (!shouldMerge) {
+        const mirroredInstance: ShapeInstance = {
+          shape: { ...inputInstance.shape },
+          transform: mirroredTransform,
+          index: newInstances.length,
+          metadata: {
+            ...inputInstance.metadata,
+            mirrorAxis: axis,
+            sourceInstance: inputInstance.index,
+            isMirrored: true,
+            isGroupClone: true // Mark as a group clone operation
+          }
+        }
+        
+        newInstances.push(mirroredInstance)
+      }
     })
     
-    // Reverse the order within each mirrored group
-    mirroredGroups.forEach((instances, groupKey) => {
-      instances.reverse()
-      console.log(`🪞 Reversed order for mirrored group "${groupKey}": ${instances.length} instances`)
-    })
-    
-    // Rebuild the final instances array with original + reversed mirrored groups
-    const finalInstances = [
-      ...input.instances, // Original instances first
-      ...Array.from(mirroredGroups.values()).flat() // Then reversed mirrored instances
-    ]
+    console.log(`🪞 Mirror processor: Created ${newInstances.length - allInstances.length} mirrored instances`)
     
     return {
       ...input,
-      instances: finalInstances
+      instances: newInstances
     }
   }
 }
