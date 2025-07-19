@@ -14,4 +14,4 @@ export { MirrorControls } from './controls/MirrorControls'
 // Utilities
 export * from './utils/shapeUtils'
 export * from './constants'
-export { ModifierErrorBoundary } from './utils/errorBoundary' 
+// export { ModifierErrorBoundary } from './utils/errorBoundary' // Removed - file was deleted 

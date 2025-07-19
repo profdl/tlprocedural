@@ -10,7 +10,7 @@ import { CircularArrayControls } from './controls/CircularArrayControls'
 import { GridArrayControls } from './controls/GridArrayControls'
 import { MirrorControls } from './controls/MirrorControls'
 import { AddButton, type AddButtonOption } from './components/AddButton'
-import { ModifierStack, extractShapesFromState } from '../../store/modifierStack'
+import { ModifierStack, extractShapesFromState } from '../../store/modifiers'
 
 // Local stopEventPropagation implementation
 function stopEventPropagation(e: React.SyntheticEvent | Event) {

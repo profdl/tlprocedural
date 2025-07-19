@@ -1,6 +1,6 @@
 import { useMemo, useEffect, useCallback } from 'react'
 import { useEditor, type TLShape, type TLShapePartial, createShapeId } from 'tldraw'
-import { ModifierStack, extractShapesFromState } from '../../store/modifierStack'
+import { ModifierStack, extractShapesFromState } from '../../store/modifiers'
 import type { TLModifier } from '../../types/modifiers'
 import { 
   getOriginalShapeId, 
