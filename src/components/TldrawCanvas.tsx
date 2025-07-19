@@ -10,7 +10,7 @@ import type { TLComponents } from 'tldraw'
 import 'tldraw/tldraw.css'
 import { CustomStylePanel } from './CustomStylePanel'
 import { ModifierOverlay } from './ModifierRenderer'
-import { isArrayClone } from './modifiers/utils/shapeUtils'
+import { isArrayClone } from './modifiers/utils'
 
 // Try to configure DrawShapeUtil with smoothing (may not work in all versions)
 const ConfiguredDrawShapeUtil = DrawShapeUtil.configure({

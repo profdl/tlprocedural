@@ -12,6 +12,5 @@ export { GridArrayControls } from './controls/GridArrayControls'
 export { MirrorControls } from './controls/MirrorControls'
 
 // Utilities
-export * from './utils/shapeUtils'
-export * from './constants'
-// export { ModifierErrorBoundary } from './utils/errorBoundary' // Removed - file was deleted 
+export * from './utils'
+export * from './constants' 
