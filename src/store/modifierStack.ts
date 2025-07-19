@@ -243,6 +243,16 @@ export class ModifierStack {
       y: groupBounds.minY
     }
     
+    console.log('Group bounds vs group position:', {
+      groupPosition: { x: group.x, y: group.y, rotation: group.rotation },
+      calculatedBounds: groupBounds,
+      calculatedTopLeft: groupTopLeft,
+      boundsMatchesPosition: {
+        x: Math.abs(group.x - groupBounds.minX) < 1,
+        y: Math.abs(group.y - groupBounds.minY) < 1
+      }
+    })
+    
     console.log('Processing group modifiers:', {
       groupId: group.id,
       allGroupShapes: groupShapes.length,
@@ -545,25 +555,36 @@ function processGroupArray(
       
       // Apply the group's current transform to make clones move with the group
       if (groupTransform) {
-        // Apply group rotation to the final position
-        const cos = Math.cos(groupTransform.rotation)
-        const sin = Math.sin(groupTransform.rotation)
+        // Calculate the source group's center
+        const sourceGroupCenterX = groupTransform.x + (groupBounds.width / 2)
+        const sourceGroupCenterY = groupTransform.y + (groupBounds.height / 2)
         
-        // Rotate the clone position around the group center
-        const dx = finalX - groupBounds.centerX
-        const dy = finalY - groupBounds.centerY
-        const rotatedDx = dx * cos - dy * sin
-        const rotatedDy = dx * sin + dy * cos
+        // Calculate the clone's offset from the source group center
+        const cloneOffsetX = finalX - groupTopLeft.x
+        const cloneOffsetY = finalY - groupTopLeft.y
         
-        finalX = groupBounds.centerX + rotatedDx + groupTransform.x
-        finalY = groupBounds.centerY + rotatedDy + groupTransform.y
+        // Apply group rotation to the clone offset around the source group center
+        if (groupTransform.rotation !== 0) {
+          const cos = Math.cos(groupTransform.rotation)
+          const sin = Math.sin(groupTransform.rotation)
+          const rotatedOffsetX = cloneOffsetX * cos - cloneOffsetY * sin
+          const rotatedOffsetY = cloneOffsetX * sin + cloneOffsetY * cos
+          
+          finalX = sourceGroupCenterX + rotatedOffsetX - (groupBounds.width / 2)
+          finalY = sourceGroupCenterY + rotatedOffsetY - (groupBounds.height / 2)
+        } else {
+          // No rotation, just apply position offset
+          finalX = groupTransform.x + cloneOffsetX
+          finalY = groupTransform.y + cloneOffsetY
+        }
+        
         finalRotation += groupTransform.rotation
         
         console.log(`Applied group transform to clone ${i}:`, {
-          originalPosition: { x: newGroupTopLeftX + rotatedRelativeX, y: newGroupTopLeftY + rotatedRelativeY },
-          groupTransform,
-          finalPosition: { x: finalX, y: finalY },
-          rotationAdded: groupTransform.rotation
+          sourceGroupCenter: { x: sourceGroupCenterX, y: sourceGroupCenterY },
+          cloneOffset: { x: cloneOffsetX, y: cloneOffsetY },
+          groupRotation: groupTransform.rotation,
+          finalPosition: { x: finalX, y: finalY }
         })
       }
       
