@@ -7,7 +7,7 @@ import {
   logShapeOperation 
 } from '../utils'
 
-interface UseShapeProcessorProps {
+interface UseStackedModifierProps {
   shape: TLShape
   modifiers: TLModifier[]
 }
@@ -19,10 +19,10 @@ interface ProcessedShapeResult {
 }
 
 /**
- * Custom hook for processing shapes with modifiers
+ * Custom hook for processing shapes with modifiers in StackedModifier
  * Extracts the shape processing logic from StackedModifier
  */
-export function useShapeProcessor({ shape, modifiers }: UseShapeProcessorProps): ProcessedShapeResult {
+export function useStackedModifier({ shape, modifiers }: UseStackedModifierProps): ProcessedShapeResult {
   const editor = useEditor()
   
   // Create stable dependency keys to avoid infinite loops
@@ -31,7 +31,7 @@ export function useShapeProcessor({ shape, modifiers }: UseShapeProcessorProps):
   
   // Create a stable callback for processing modifiers
   const getProcessedShapes = useCallback(() => {
-    logShapeOperation('useShapeProcessor', shape.id, {
+    logShapeOperation('useStackedModifier', shape.id, {
       shapeType: shape.type,
       modifierCount: modifiers.filter(m => m.enabled).length,
       modifiers: modifiers.map(m => ({ type: m.type, enabled: m.enabled }))
@@ -42,7 +42,7 @@ export function useShapeProcessor({ shape, modifiers }: UseShapeProcessorProps):
     const result = ModifierStack.processModifiers(shape, modifiers, editor)
     const shapes = extractShapesFromState(result)
     
-    logShapeOperation('useShapeProcessor Result', shape.id, {
+    logShapeOperation('useStackedModifier Result', shape.id, {
       instances: result.instances.length,
       extractedShapes: shapes.length,
       isGroupModifier: result.metadata?.isGroupModifier

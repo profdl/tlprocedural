@@ -1,6 +1,6 @@
 import type { TLShape } from 'tldraw'
 import type { TLModifier } from '../../types/modifiers'
-import { useShapeProcessor } from './hooks/useShapeProcessor'
+import { useStackedModifier } from './hooks/useStackedModifier'
 import { useCloneManager } from './hooks/useCloneManager'
 
 interface StackedModifierProps {
@@ -14,7 +14,7 @@ interface StackedModifierProps {
  */
 export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
   // Process shapes with modifiers
-  const { processedShapes, shapeKey, modifiersKey } = useShapeProcessor({ shape, modifiers })
+  const { processedShapes, shapeKey, modifiersKey } = useStackedModifier({ shape, modifiers })
   
   // Manage clones in the editor
   useCloneManager({ 
