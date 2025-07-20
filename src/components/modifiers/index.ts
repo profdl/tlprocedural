@@ -13,4 +13,4 @@ export { MirrorControls } from './controls/MirrorControls'
 
 // Utilities
 export * from './utils'
-export * from './constants' 
+export * from './constants'

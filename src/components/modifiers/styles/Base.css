@@ -1,0 +1,29 @@
+/* Base App Styles */
+
+/* App container */
+.app {
+  height: 100vh;
+  width: 100%;
+}
+
+/* Linear Array Modifier */
+.linear-array-modifier {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: var(--color-panel-2);
+  border-radius: 4px;
+  margin-top: 4px;
+}
+
+/* Dark mode overrides for sliders */
+@media (prefers-color-scheme: dark) {
+  .modifier-slider__input::-webkit-slider-thumb {
+    border-color: var(--color-panel);
+  }
+  
+  .modifier-slider__input::-moz-range-thumb {
+    border-color: var(--color-panel);
+  }
+} 
