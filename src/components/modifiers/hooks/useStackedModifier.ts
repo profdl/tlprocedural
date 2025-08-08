@@ -1,9 +1,8 @@
 import { useMemo, useCallback } from 'react'
 import { useEditor, type TLShape, type TLShapePartial, createShapeId, type TLShapeId } from 'tldraw'
 import { ModifierStack, extractShapesFromState } from '../../../store/modifiers'
-import type { TLModifier, ShapeInstance } from '../../../types/modifiers'
+import type { TLModifier } from '../../../types/modifiers'
 import { 
-  getShapeDimensions,
   logShapeOperation 
 } from '../utils'
 
@@ -52,15 +51,8 @@ export function useStackedModifier({ shape, modifiers }: UseStackedModifierProps
     return shapes.map((processedShape, index) => {
       const cloneId = createShapeId()
       
-      // Get the corresponding instance with metadata from the result
-      const instance = result.instances[index]
-      
-      // Handle mirrored shapes specially
-      if (instance?.metadata?.isMirrored && processedShape.meta?.isMirrored) {
-        return createMirroredShape(processedShape, instance, cloneId, index, modifiers)
-      } else {
-        return createRegularShape(processedShape, cloneId, index, modifiers)
-      }
+      // All shapes are now created the same way since flipping is done in shape data
+      return createRegularShape(processedShape, cloneId, index, modifiers)
     })
   }, [shapeKey, modifiersKey, editor])
   
@@ -76,70 +68,7 @@ export function useStackedModifier({ shape, modifiers }: UseStackedModifierProps
   }
 }
 
-/**
- * Create a mirrored shape with proper position adjustments
- */
-function createMirroredShape(
-  processedShape: TLShape,
-  instance: ShapeInstance,
-  cloneId: TLShapeId,
-  index: number,
-  modifiers: TLModifier[]
-): TLShapePartial {
-  // For mirrored shapes, we need to adjust the position to account for the flipping
-  let adjustedX = processedShape.x
-  let adjustedY = processedShape.y
-  
-  // Get the shape dimensions using utility function
-  const { width: shapeWidth, height: shapeHeight } = getShapeDimensions(processedShape)
-  
-  // Adjust position based on the flip direction
-  if (processedShape.meta.isFlippedX) {
-    // For horizontal flip, adjust X position to account for the shape's width
-    adjustedX = processedShape.x - shapeWidth
-  }
-  
-  if (processedShape.meta.isFlippedY) {
-    // For vertical flip, adjust Y position to account for the shape's height  
-    adjustedY = processedShape.y - shapeHeight
-  }
-  
-  logShapeOperation('Mirrored Shape Position', cloneId, {
-    original: { x: processedShape.x, y: processedShape.y },
-    adjusted: { x: adjustedX, y: adjustedY },
-    flips: { x: processedShape.meta.isFlippedX, y: processedShape.meta.isFlippedY },
-    shapeDims: { w: shapeWidth, h: shapeHeight },
-    rotations: {
-      originalShapeRotation: processedShape.rotation,
-      processedShapeRotation: processedShape.rotation,
-      instanceRotation: instance?.transform?.rotation
-    }
-  })
-  
-  return {
-    id: cloneId,
-    type: processedShape.type,
-    x: adjustedX,
-    y: adjustedY,
-    rotation: processedShape.rotation, // Use the processed rotation from modifier stack
-    isLocked: true,
-    opacity: 0, // Hide the original mirrored shape - visual will be handled by overlay
-    props: { ...processedShape.props },
-    meta: {
-      ...processedShape.meta,
-      isArrayClone: true,
-      originalShapeId: processedShape.id,
-      arrayIndex: index,
-      stackProcessed: true,
-      modifierCount: modifiers.filter(m => m.enabled).length,
-      isMirrored: true,
-      mirrorAxis: processedShape.meta.mirrorAxis,
-      // Store the flipping information for potential future use
-      isFlippedX: processedShape.meta.isFlippedX,
-      isFlippedY: processedShape.meta.isFlippedY
-    }
-  }
-}
+
 
 /**
  * Create a regular (non-mirrored) shape

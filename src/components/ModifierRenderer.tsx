@@ -1,5 +1,4 @@
 import { ModifierRendererCore } from './modifiers/components/ModifierRendererCore'
-import { MirrorTransformOverlay } from './modifiers/components/MirrorTransformOverlay'
 
 /**
  * Refactored ModifierRenderer component
@@ -27,7 +26,6 @@ export function ModifierOverlay() {
       }}
     >
       <ModifierRenderer />
-      <MirrorTransformOverlay />
     </div>
   )
 } 

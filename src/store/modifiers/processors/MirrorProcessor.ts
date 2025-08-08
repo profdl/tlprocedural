@@ -6,6 +6,7 @@ import type {
   MirrorSettings,
   GroupContext
 } from '../../../types/modifiers'
+import { flipShape } from '../../../components/modifiers/utils/shapeFlipping'
 
 // Mirror Processor implementation
 export const MirrorProcessor: ModifierProcessor = {
@@ -55,13 +56,23 @@ export const MirrorProcessor: ModifierProcessor = {
           const distanceFromCenter = inputInstance.transform.x - groupCenterX
           const mirroredX = mirrorLineX - distanceFromCenter
           
+          // For horizontal mirroring, move the shape down by its height to avoid overlap
+          const shapeHeight = ('h' in inputInstance.shape.props) ? (inputInstance.shape.props.h as number) : 0
+          const mirroredY = inputInstance.transform.y + shapeHeight
+          
+          // Flip the shape data (no position changes in flipShape anymore)
+          const flippedShape = flipShape(inputInstance.shape, true, false)
+          
           mirroredTransform = {
             x: mirroredX,
-            y: inputInstance.transform.y,
+            y: mirroredY,
             rotation: Math.PI - inputInstance.transform.rotation, // Flip rotation for horizontal mirror
-            scaleX: -inputInstance.transform.scaleX, // Flip horizontally
-            scaleY: inputInstance.transform.scaleY
+            scaleX: 1, // No negative scale needed
+            scaleY: 1
           }
+          
+          // Update the shape with flipped data
+          inputInstance.shape = flippedShape
           break
         }
           
@@ -71,25 +82,38 @@ export const MirrorProcessor: ModifierProcessor = {
           const distanceFromCenterY = inputInstance.transform.y - groupCenterY
           const mirroredY = mirrorLineY - distanceFromCenterY
           
+          // Flip the shape data (no position changes in flipShape anymore)
+          const flippedShape = flipShape(inputInstance.shape, false, true)
+          
           mirroredTransform = {
             x: inputInstance.transform.x,
             y: mirroredY,
             rotation: -inputInstance.transform.rotation, // Flip rotation for vertical mirror
-            scaleX: inputInstance.transform.scaleX,
-            scaleY: -inputInstance.transform.scaleY // Flip vertically
+            scaleX: 1, // No negative scale needed
+            scaleY: 1
           }
+          
+          // Update the shape with flipped data
+          inputInstance.shape = flippedShape
           break
         }
           
         case 'diagonal': { // Diagonal mirror (swap X/Y and flip both)
           const groupCenterDiag = { x: groupBounds.centerX, y: groupBounds.centerY }
+          
+          // Flip the shape data in both directions
+          const flippedShape = flipShape(inputInstance.shape, true, true)
+          
           mirroredTransform = {
             x: groupCenterDiag.y + (inputInstance.transform.y - groupCenterDiag.y) + offset,
             y: groupCenterDiag.x + (inputInstance.transform.x - groupCenterDiag.x) + offset,
             rotation: Math.PI/2 - inputInstance.transform.rotation, // Adjust rotation for diagonal flip
-            scaleX: -inputInstance.transform.scaleY,
-            scaleY: -inputInstance.transform.scaleX
+            scaleX: 1, // No negative scale needed
+            scaleY: 1
           }
+          
+          // Update the shape with flipped data
+          inputInstance.shape = flippedShape
           break
         }
           
@@ -99,13 +123,23 @@ export const MirrorProcessor: ModifierProcessor = {
           const defDistanceFromCenter = inputInstance.transform.x - defGroupCenterX
           const defMirroredX = defMirrorLineX - defDistanceFromCenter
           
+          // For horizontal mirroring, move the shape down by its height to avoid overlap
+          const shapeHeight = ('h' in inputInstance.shape.props) ? (inputInstance.shape.props.h as number) : 0
+          const defMirroredY = inputInstance.transform.y + shapeHeight
+          
+          // Flip the shape data (no position changes in flipShape anymore)
+          const flippedShape = flipShape(inputInstance.shape, true, false)
+          
           mirroredTransform = {
             x: defMirroredX,
-            y: inputInstance.transform.y,
+            y: defMirroredY,
             rotation: Math.PI - inputInstance.transform.rotation, // Flip rotation for horizontal mirror
-            scaleX: -inputInstance.transform.scaleX,
-            scaleY: inputInstance.transform.scaleY
+            scaleX: 1, // No negative scale needed
+            scaleY: 1
           }
+          
+          // Update the shape with flipped data
+          inputInstance.shape = flippedShape
         }
       }
       
@@ -197,10 +231,20 @@ function processGroupMirror(
         
         // Calculate the final position of this shape in the mirrored group
         let finalX = groupTopLeft.x + mirroredRelativeX
-        let finalY = inputInstance.transform.y
+        
+        // For horizontal mirroring, move the group down by its height to avoid overlap
+        const groupHeight = groupBounds.height
+        let finalY = inputInstance.transform.y + groupHeight
+        
         let finalRotation = Math.PI - inputInstance.transform.rotation // Flip rotation for horizontal mirror
-        const finalScaleX = -inputInstance.transform.scaleX // Flip horizontally
-        const finalScaleY = inputInstance.transform.scaleY
+        const finalScaleX = 1 // No negative scale needed
+        const finalScaleY = 1
+        
+        // Flip the shape data instead of using negative scale
+        const flippedShape = flipShape(inputInstance.shape, true, false)
+        inputInstance.shape = flippedShape
+        
+        // No position adjustment needed - flipShape no longer changes position
         
         // Apply the group's current transform to make clones move with the group
         if (groupTransform) {
@@ -262,8 +306,14 @@ function processGroupMirror(
         let finalX = inputInstance.transform.x
         let finalY = groupTopLeft.y + mirroredRelativeY
         let finalRotation = -inputInstance.transform.rotation // Flip rotation for vertical mirror
-        const finalScaleX = inputInstance.transform.scaleX
-        const finalScaleY = -inputInstance.transform.scaleY // Flip vertically
+        const finalScaleX = 1
+        const finalScaleY = 1 // No negative scale needed
+        
+        // Flip the shape data instead of using negative scale
+        const flippedShape = flipShape(inputInstance.shape, false, true)
+        inputInstance.shape = flippedShape
+        
+        // No position adjustment needed - flipShape no longer changes position
         
         // Apply the group's current transform to make clones move with the group
         if (groupTransform) {
@@ -305,8 +355,14 @@ function processGroupMirror(
         let finalX = groupTopLeft.y + shapeRelativeY + offset
         let finalY = groupTopLeft.x + shapeRelativeX + offset
         let finalRotation = Math.PI/2 - inputInstance.transform.rotation // Adjust rotation for diagonal flip
-        const finalScaleX = -inputInstance.transform.scaleY
-        const finalScaleY = -inputInstance.transform.scaleX
+        const finalScaleX = 1
+        const finalScaleY = 1 // No negative scale needed
+        
+        // Flip the shape data in both directions
+        const flippedShape = flipShape(inputInstance.shape, true, true)
+        inputInstance.shape = flippedShape
+        
+        // No position adjustment needed - flipShape no longer changes position
         
         // Apply the group's current transform to make clones move with the group
         if (groupTransform) {
@@ -349,10 +405,20 @@ function processGroupMirror(
         
         // Calculate the final position of this shape in the mirrored group
         let finalX = groupTopLeft.x + mirroredRelativeX
-        let finalY = inputInstance.transform.y
+        
+        // For horizontal mirroring, move the group down by its height to avoid overlap
+        const groupHeight = groupBounds.height
+        let finalY = inputInstance.transform.y + groupHeight
+        
         let finalRotation = Math.PI - inputInstance.transform.rotation // Flip rotation for horizontal mirror
-        const finalScaleX = -inputInstance.transform.scaleX
-        const finalScaleY = inputInstance.transform.scaleY
+        const finalScaleX = 1
+        const finalScaleY = 1 // No negative scale needed
+        
+        // Flip the shape data instead of using negative scale
+        const flippedShape = flipShape(inputInstance.shape, true, false)
+        inputInstance.shape = flippedShape
+        
+        // No position adjustment needed - flipShape no longer changes position
         
         // Apply the group's current transform to make clones move with the group
         if (groupTransform) {

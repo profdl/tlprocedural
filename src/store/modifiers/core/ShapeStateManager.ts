@@ -79,33 +79,21 @@ export function extractShapesFromState(state: ShapeState): TLShape[] {
       })
     }
     
-    // Handle scaling - for mirrored shapes, we don't apply negative scaling to dimensions
+    // Handle mirrored shapes - the shape data has already been flipped
     if (instance.metadata?.isMirrored) {
-      // For mirrored shapes, keep original dimensions and store flip info in metadata
-      if ('w' in instance.shape.props && 'h' in instance.shape.props) {
-        baseShape.props = {
-          ...baseShape.props,
-          w: instance.shape.props.w,  // Keep original width
-          h: instance.shape.props.h   // Keep original height
-        }
-      }
+      // For mirrored shapes, use the flipped shape data directly
+      baseShape.props = instance.shape.props
       
-      // Store all the transform information in metadata for CSS rendering
+      // Store mirror metadata for reference
       baseShape.meta = {
         ...baseShape.meta,
-        isFlippedX: instance.transform.scaleX < 0,
-        isFlippedY: instance.transform.scaleY < 0,
         mirrorAxis: instance.metadata.mirrorAxis as string,
-        scaleX: instance.transform.scaleX,
-        scaleY: instance.transform.scaleY,
         isMirrored: true
       }
       
-      console.log('Stored flip metadata:', {
-        isFlippedX: instance.transform.scaleX < 0,
-        isFlippedY: instance.transform.scaleY < 0,
-        scaleX: instance.transform.scaleX,
-        scaleY: instance.transform.scaleY
+      console.log('Using flipped shape data for mirrored instance:', {
+        shapeType: instance.shape.type,
+        mirrorAxis: instance.metadata.mirrorAxis
       })
     } else {
       // Apply comprehensive scaling to all shape types (only for positive scales)
