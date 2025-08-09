@@ -29,8 +29,7 @@ export function CustomToolbar() {
 
   return (
     <DefaultToolbar>
-      <DefaultToolbarContent />
-      {/* Add sine wave tool button */}
+      {/* Make sine wave the primary/default button by placing it first */}
       <TldrawUiButton
         type="normal"
         data-testid="tools.sine-wave"
@@ -41,6 +40,7 @@ export function CustomToolbar() {
           <path d="M1 8 Q4 4, 8 8 T15 8" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
         </svg>
       </TldrawUiButton>
+      <DefaultToolbarContent />
     </DefaultToolbar>
   )
 }

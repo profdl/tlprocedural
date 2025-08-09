@@ -1,4 +1,4 @@
-import { BaseBoxShapeUtil, HTMLContainer, T, type TLBaseShape, type RecordProps } from 'tldraw'
+import { BaseBoxShapeUtil, HTMLContainer, T, type TLBaseShape, type RecordProps, type TLResizeInfo } from 'tldraw'
 
 export type SineWaveShape = TLBaseShape<
   'sine-wave',
@@ -129,8 +129,33 @@ export class SineWaveShapeUtil extends BaseBoxShapeUtil<SineWaveShape> {
     ]
   }
 
-  // Update w and h when wave parameters change
+  // Handle resize by updating wave parameters to match new bounds
+  override onResize = (shape: SineWaveShape, info: TLResizeInfo<SineWaveShape>) => {
+    const { scaleX, scaleY } = info
+    
+    // Calculate new length and amplitude based on scale
+    const newLength = Math.max(50, Math.round(shape.props.length * scaleX))
+    const newAmplitude = Math.max(2, Math.round(shape.props.amplitude * scaleY))
+    
+    return {
+      ...shape,
+      props: {
+        ...shape.props,
+        length: newLength,
+        amplitude: newAmplitude,
+        w: newLength,
+        h: newAmplitude * 2,
+      }
+    }
+  }
+
+  // Update w and h when wave parameters change (but not during resize)
   override onBeforeUpdate = (prev: SineWaveShape, next: SineWaveShape) => {
+    // Skip auto-updating bounds if this is a resize operation
+    if (prev.props.w !== next.props.w || prev.props.h !== next.props.h) {
+      return next
+    }
+    
     const waveWidth = next.props.length
     const waveHeight = next.props.amplitude * 2
     

@@ -190,7 +190,7 @@ export function GeneratorControls() {
             <input
               type="range"
               min="0.1"
-              max="5"
+              max="100"
               step="0.1"
               value={swGen.settings.frequency}
               onChange={(e) => updateGeneratorSettings(g.id, { frequency: parseFloat(e.target.value) })}
