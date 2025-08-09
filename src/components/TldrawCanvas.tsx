@@ -4,7 +4,9 @@ import {
   type TldrawOptions,
   type Editor,
   type TLShapeId,
-  DrawShapeUtil
+  DrawShapeUtil,
+  type TLUiToolsContextType,
+  type TLUiToolItem
 } from 'tldraw'
 import type { TLComponents } from 'tldraw'
 import 'tldraw/tldraw.css'
@@ -28,6 +30,28 @@ const ConfiguredDrawShapeUtil = DrawShapeUtil.configure({
 const components: TLComponents = {
   StylePanel: CustomStylePanel,
   Toolbar: CustomToolbar,
+}
+
+// Custom assets: provide a custom icon for the sine-wave tool
+const assetUrls = {
+  icons: {
+    'tool-sine-wave': '/sine-wave.svg',
+  },
+}
+
+// Provide a UI tool item for the sine wave so it appears in the toolbar
+const uiOverrides = {
+  tools(editor: Editor, tools: TLUiToolsContextType): TLUiToolsContextType {
+    const newTools = { ...tools }
+    newTools['sine-wave'] = {
+      id: 'sine-wave',
+      label: 'Sine Wave',
+      icon: 'tool-sine-wave',
+      kbd: 'y',
+      onSelect: () => editor.setCurrentTool('sine-wave'),
+    } as TLUiToolItem
+    return newTools
+  },
 }
 
 // Editor options to potentially enable smoothing
@@ -83,6 +107,8 @@ export function TldrawCanvas() {
         components={components}
         shapeUtils={[ConfiguredDrawShapeUtil, SineWaveShapeUtil]}
         tools={[SineWaveShapeTool]}
+        assetUrls={assetUrls}
+        overrides={uiOverrides}
         options={editorOptions}
         onMount={handleMount}
       >

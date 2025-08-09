@@ -1,6 +1,5 @@
 import { 
   DefaultToolbar,
-  TldrawUiButton,
   TldrawUiMenuItem,
   useEditor,
   useValue,
@@ -17,9 +16,7 @@ export function CustomToolbar() {
     return selected.some((s) => s.type === 'sine-wave')
   }, [editor])
 
-  const handleSineWaveClick = () => {
-    editor.setCurrentTool('sine-wave')
-  }
+  // No custom click handler needed; using default tool item wiring for highlight behavior
 
   return (
     <DefaultToolbar>
@@ -31,17 +28,13 @@ export function CustomToolbar() {
         return <TldrawUiMenuItem key={id} {...item} isSelected={selected} />
       })}
 
-      {/* Sine wave button placed directly after sticky */}
-      <TldrawUiButton
-        type="normal"
-        data-testid="tools.sine-wave"
-        title="Sine Wave"
-        onClick={handleSineWaveClick}
-      >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-          <path d="M1 8 Q4 4, 8 8 T15 8" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-        </svg>
-      </TldrawUiButton>
+      {/* Sine wave tool (uses the same menu item to inherit selected highlighting) */}
+      {(() => {
+        const item = tools['sine-wave']
+        if (!item) return null
+        const selected = useIsToolSelected(item)
+        return <TldrawUiMenuItem key="sine-wave" {...item} isSelected={selected} />
+      })()}
 
       {/* Continue with common tools */}
       {['geo', 'arrow', 'line', 'frame', 'image'].map((id) => {
