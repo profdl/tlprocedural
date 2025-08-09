@@ -101,7 +101,7 @@ export interface LSystemSettings {
   stepPercent: number // percent of shape size used as base step
   lengthDecay?: number // per-branch depth, 0..1
   scalePerIteration?: number // multiplicative scale applied to the shape each level (0..1)
-  branches?: number[] // explicit branch angles in degrees, relative to heading
+  branches?: readonly number[] // explicit branch angles in degrees, relative to heading
   angleJitter?: number // degrees, applied per branch
   lengthJitter?: number // 0..1 fraction, applied per branch
   branchProbability?: number // 0..1 probability per branch
