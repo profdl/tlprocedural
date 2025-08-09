@@ -12,6 +12,7 @@ interface ModifierSliderProps {
 
 export function ModifierSlider({ label, value, min, max, step, onChange }: ModifierSliderProps) {
   const handleSliderChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation()
     const newValue = Number(e.target.value)
     // Ensure the value respects the step by rounding to the nearest step
     const roundedValue = Math.round(newValue / step) * step
@@ -36,4 +37,4 @@ export function ModifierSlider({ label, value, min, max, step, onChange }: Modif
       />
     </div>
   )
-} 
+}

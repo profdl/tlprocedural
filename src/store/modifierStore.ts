@@ -173,7 +173,8 @@ export const useModifierStore = create<ModifierStoreState>()(
         set(state => ({
           modifiers: { ...state.modifiers, [id]: updated as TLModifier }
         }))
-        get().notifyChange()
+        // Don't call notifyChange() for updates to avoid interfering with selection
+        // The UI will re-render automatically due to Zustand subscriptions
       }
     },
     
@@ -246,7 +247,9 @@ export const useModifierStore = create<ModifierStoreState>()(
     notifyChange: () => {
       const { editor } = get()
       if (editor) {
-        editor.mark('modifier-change')
+        // Use a more gentle approach that doesn't interfere with selection
+        // Instead of marking a change, we'll just trigger a re-render
+        editor.updateInstanceState({ isDebugMode: editor.getInstanceState().isDebugMode })
       }
     },
     
@@ -274,5 +277,3 @@ export const useModifierStore = create<ModifierStoreState>()(
     }
   }))
 )
-
- 

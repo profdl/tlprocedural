@@ -28,6 +28,7 @@ export const ModifierPropertyInput = memo(function ModifierPropertyInput({
   }, [value, precision])
   
   const handleSliderChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation()
     const newValue = Number(e.target.value)
     // Ensure the value respects the step by rounding to the nearest step
     const roundedValue = Math.round(newValue / step) * step
@@ -97,4 +98,4 @@ export const ModifierPropertyInput = memo(function ModifierPropertyInput({
       />
     </div>
   )
-}) 
+})

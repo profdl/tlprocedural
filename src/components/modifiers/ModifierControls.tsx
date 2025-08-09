@@ -35,7 +35,7 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
   }
 
   return (
-    <div className="modifier-controls">
+    <div className="modifier-controls" onPointerDown={(e) => e.stopPropagation()}>
       <ModifierActionButtons
         selectedShape={!!selectedShape}
         hasEnabledModifiers={hasEnabledModifiers}
@@ -49,4 +49,4 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
       />
     </div>
   )
-} 
+}
