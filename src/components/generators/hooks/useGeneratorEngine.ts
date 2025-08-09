@@ -123,24 +123,30 @@ export function useGeneratorEngine() {
           const currentPoint = runtime.points[runtime.points.length - 1]
           
           ed.run(() => {
-            // Create dot for the point
-            const dotShape = ed.createShape({
-              type: 'geo',
-              x: currentPoint.x - 1,
-              y: currentPoint.y - 1,
-              props: {
-                w: 2,
-                h: 2,
-                geo: 'ellipse',
-                color: 'red',
-                fill: 'solid',
-                size: 's'
-              },
-              meta: { isGeneratorPreview: true, generatorId: gen.id, isPoint: true },
-            })
+            let mainShape: any = null
             
-            // Create/update the connecting curve through all points
-            if (runtime.points.length >= 2) {
+            // Create dot for the point (if enabled)
+            if (gen.settings.showPoints) {
+              const dotShape = ed.createShape({
+                type: 'geo',
+                x: currentPoint.x - 1,
+                y: currentPoint.y - 1,
+                props: {
+                  w: 2,
+                  h: 2,
+                  geo: 'ellipse',
+                  color: 'red',
+                  fill: 'solid',
+                  size: 's'
+                },
+                meta: { isGeneratorPreview: true, generatorId: gen.id, isPoint: true },
+              })
+              
+              if (!mainShape) mainShape = dotShape
+            }
+            
+            // Create/update the connecting curve through all points (if enabled)
+            if (gen.settings.showCurve && runtime.points.length >= 2) {
               // Remove any existing curve
               const allShapes = ed.getCurrentPageShapes()
               const existingCurve = allShapes.find(shape => 
@@ -167,11 +173,15 @@ export function useGeneratorEngine() {
                 meta: { isGeneratorPreview: true, generatorId: gen.id, isCurve: true },
               })
               
-              // Set the curve as the main preview shape for tracking
-              store.setPreviewShape(gen.id, curveShape.id as TLShapeId)
-            } else if (runtime.stepCount === 1) {
-              // For the first point, track the dot
-              store.setPreviewShape(gen.id, dotShape.id as TLShapeId)
+              // Prefer curve as main shape for tracking
+              mainShape = curveShape
+            }
+            
+            // Set the main shape for tracking (curve preferred, then dot)
+            if (mainShape && runtime.stepCount === 1) {
+              store.setPreviewShape(gen.id, mainShape.id as TLShapeId)
+            } else if (mainShape && gen.settings.showCurve && runtime.points.length >= 2) {
+              store.setPreviewShape(gen.id, mainShape.id as TLShapeId)
             }
           }, { history: 'ignore' })
         }

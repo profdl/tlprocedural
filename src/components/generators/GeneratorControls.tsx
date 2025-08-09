@@ -138,6 +138,31 @@ export function GeneratorControls() {
                   />
                 </div>
               </div>
+
+              {/* Display Options */}
+              <div style={{ marginTop: 12, paddingTop: 8, borderTop: '1px solid #ddd' }}>
+                <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: 8 }}>Display Options</div>
+                <div style={{ display: 'flex', gap: 16 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '12px' }}>
+                    <input
+                      type="checkbox"
+                      checked={g.settings.showPoints}
+                      onChange={(e) => updateGeneratorSettings(g.id, { showPoints: e.target.checked })}
+                      disabled={g.running}
+                    />
+                    Show Points
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '12px' }}>
+                    <input
+                      type="checkbox"
+                      checked={g.settings.showCurve}
+                      onChange={(e) => updateGeneratorSettings(g.id, { showCurve: e.target.checked })}
+                      disabled={g.running}
+                    />
+                    Show Curve
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
         ))}

@@ -17,6 +17,8 @@ export interface RandomWalkSettings {
   start: Vec2
   seed: number
   throttleFps: number
+  showPoints: boolean
+  showCurve: boolean
 }
 
 export type GeneratorTarget =
@@ -52,5 +54,7 @@ export function getDefaultRandomWalkSettings(): RandomWalkSettings {
     start: { x: 400, y: 300 },
     seed: 1,
     throttleFps: 30,
+    showPoints: true,
+    showCurve: true,
   }
 }
