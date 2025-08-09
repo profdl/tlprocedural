@@ -11,6 +11,8 @@ import 'tldraw/tldraw.css'
 import { CustomStylePanel } from './CustomStylePanel'
 import { ModifierOverlay } from './ModifierRenderer'
 import { isArrayClone } from './modifiers/utils'
+import { GeneratedPathShapeUtil } from './generators/shapes/GeneratedPathShape'
+import { GeneratorEngine } from './generators/GeneratorEngine'
 
 // Try to configure DrawShapeUtil with smoothing (may not work in all versions)
 const ConfiguredDrawShapeUtil = DrawShapeUtil.configure({
@@ -46,14 +48,16 @@ export function TldrawCanvas() {
       }
     )
 
-    // Prevent array clones from being selected by select-all
+    // Prevent array clones and generator previews from being selected by select-all
     const cleanupSelection = editor.sideEffects.registerAfterCreateHandler(
       'shape',
       () => {
         const selectedShapeIds = editor.getSelectedShapeIds()
         const filteredSelectedShapeIds = selectedShapeIds.filter((id: string) => {
           const shape = editor.getShape(id as TLShapeId)
-          return shape && !isArrayClone(shape)
+          if (!shape) return false
+          const isGenPreview = shape.meta?.isGeneratorPreview
+          return !isArrayClone(shape) && !isGenPreview
         })
         
         if (selectedShapeIds.length !== filteredSelectedShapeIds.length) {
@@ -73,12 +77,13 @@ export function TldrawCanvas() {
     <div style={{ position: 'fixed', inset: 0 }}>
       <Tldraw 
         components={components}
-        shapeUtils={[ConfiguredDrawShapeUtil]}
+        shapeUtils={[ConfiguredDrawShapeUtil, GeneratedPathShapeUtil]}
         options={editorOptions}
         onMount={handleMount}
       >
         <ModifierOverlay />
+        <GeneratorEngine />
       </Tldraw>
     </div>
   )
-} 
+}

@@ -12,8 +12,10 @@ import {
   type TLShapeId
 } from 'tldraw'
 import { ModifierControls } from './modifiers/ModifierControls'
+import { GeneratorControls } from './generators/GeneratorControls'
+import { DebugPathTest } from './generators/DebugPathTest'
 
-type TabType = 'styles' | 'modifiers'
+type TabType = 'styles' | 'modifiers' | 'generators'
 
 export const CustomStylePanel = (props: TLUiStylePanelProps) => {
   const editor = useEditor()
@@ -66,6 +68,13 @@ export const CustomStylePanel = (props: TLUiStylePanelProps) => {
         >
           Modifiers
         </TldrawUiButton>
+        <TldrawUiButton
+          type="normal"
+          className={`custom-style-panel__tab ${activeTab === 'generators' ? 'custom-style-panel__tab--active' : ''}`}
+          onClick={() => setActiveTab('generators')}
+        >
+          Generators
+        </TldrawUiButton>
       </div>
       
       {/* Tab Content */}
@@ -77,6 +86,12 @@ export const CustomStylePanel = (props: TLUiStylePanelProps) => {
         {activeTab === 'modifiers' && (
           <div className="tlui-style-panel__section">
             <ModifierControls selectedShapes={selectedShapes as TLShape[]} />
+          </div>
+        )}
+        {activeTab === 'generators' && (
+          <div className="tlui-style-panel__section">
+            <GeneratorControls />
+            <DebugPathTest />
           </div>
         )}
       </div>
