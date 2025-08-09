@@ -9,10 +9,12 @@ import {
 import type { TLComponents } from 'tldraw'
 import 'tldraw/tldraw.css'
 import { CustomStylePanel } from './CustomStylePanel'
+import { CustomToolbar } from './CustomToolbar'
 import { ModifierOverlay } from './ModifierRenderer'
 import { isArrayClone } from './modifiers/utils'
 
 import { GeneratorEngine } from './generators/GeneratorEngine'
+import { SineWaveShapeUtil } from './shapes/SineWaveShape'
 
 // Try to configure DrawShapeUtil with smoothing (may not work in all versions)
 const ConfiguredDrawShapeUtil = DrawShapeUtil.configure({
@@ -24,6 +26,7 @@ const ConfiguredDrawShapeUtil = DrawShapeUtil.configure({
 
 const components: TLComponents = {
   StylePanel: CustomStylePanel,
+  Toolbar: CustomToolbar,
 }
 
 // Editor options to potentially enable smoothing
@@ -77,7 +80,7 @@ export function TldrawCanvas() {
     <div style={{ position: 'fixed', inset: 0 }}>
       <Tldraw 
         components={components}
-        shapeUtils={[ConfiguredDrawShapeUtil]}
+        shapeUtils={[ConfiguredDrawShapeUtil, SineWaveShapeUtil]}
         options={editorOptions}
         onMount={handleMount}
       >

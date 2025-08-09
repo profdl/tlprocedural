@@ -1,13 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { useGeneratorStore } from '../../../store/generators/useGeneratorStore'
 import { useEditor } from 'tldraw'
-import { 
-  type RandomWalkRuntime,
-  initializeRuntime,
-  needsRuntimeReset,
-  stepRandomWalk
-} from '../core/RandomWalkProcessor'
 import { ShapeRenderer } from '../core/ShapeRenderer'
+import { type GeneratorRuntime, processGeneratorStep } from '../core/GeneratorRegistry'
 
 function now() {
   return typeof performance !== 'undefined' ? performance.now() : Date.now()
@@ -21,7 +16,7 @@ export function useGeneratorEngine() {
   const store = useGeneratorStore()
   const rafRef = useRef<number | null>(null)
   const lastTick = useRef<number | null>(null)
-  const runtimeStates = useRef<Map<string, RandomWalkRuntime>>(new Map())
+  const runtimeStates = useRef<Map<string, GeneratorRuntime>>(new Map())
 
   useEffect(() => {
     if (editor) {
@@ -46,51 +41,29 @@ export function useGeneratorEngine() {
       const shapeRenderer = new ShapeRenderer(ed)
 
       Object.values(generators).forEach((gen) => {
-        if (!gen.running || gen.type !== 'random-walk') return
+        if (!gen.running) return
 
-        // Get or create runtime state
-        let runtime = runtimeStates.current.get(gen.id)
+        // Get current runtime state
+        const runtime = runtimeStates.current.get(gen.id)
         
-        if (needsRuntimeReset(runtime, gen.settings, gen.resetTimestamp)) {
-          runtime = initializeRuntime(gen.settings)
-          if (gen.resetTimestamp) {
-            runtime.lastResetTimestamp = gen.resetTimestamp
-          }
-          runtimeStates.current.set(gen.id, runtime)
-        }
+        // Process the generator step using the registry
+        const result = processGeneratorStep(
+          gen,
+          runtime,
+          runtimeStates.current,
+          ed,
+          shapeRenderer
+        )
 
-        // TypeScript guard - runtime should never be undefined at this point
-        if (!runtime) return
-
-        // Check if we've reached the step limit
-        if (runtime.stepCount >= gen.settings.steps) {
+        // Handle the result
+        if (!result.shouldContinue) {
           store.pause(gen.id)
           return
         }
 
-        // Time-based stepping using throttleFps
-        const targetFps = Math.max(1, gen.settings.throttleFps || 30)
-        const stepIntervalMs = 1000 / targetFps
-        const elapsedSinceLastStep = (lastTick.current ?? now()) - runtime.lastStepAtMs
-        
-        if (runtime.stepCount < gen.settings.steps && elapsedSinceLastStep >= stepIntervalMs) {
-          // Perform the random walk step
-          const newPoint = stepRandomWalk(runtime, gen.settings)
-          
-          if (newPoint) {
-            // Render the new point and update shapes
-            const mainShapeId = shapeRenderer.renderRandomWalk(
-              gen.id,
-              runtime.points,
-              gen.settings,
-              true // isNewPoint
-            )
-            
-            // Set the main shape for tracking on first step or when curve is updated
-            if (mainShapeId && (runtime.stepCount === 1 || gen.settings.showCurve)) {
-              store.setPreviewShape(gen.id, mainShapeId)
-            }
-          }
+        // Set the main shape for tracking if provided
+        if (result.mainShapeId) {
+          store.setPreviewShape(gen.id, result.mainShapeId)
         }
       })
     }

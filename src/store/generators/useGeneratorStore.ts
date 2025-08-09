@@ -3,13 +3,15 @@ import { subscribeWithSelector } from 'zustand/middleware'
 import type { Editor, TLShapeId } from 'tldraw'
 import {
   type GeneratorTarget,
+  type AnyGenerator,
   type RandomWalkGenerator,
+  type SineWaveGenerator,
   type RandomWalkSettings,
+  type SineWaveSettings,
   getDefaultRandomWalkSettings,
+  getDefaultSineWaveSettings,
 } from '../../types/generators'
 import { ShapeRenderer } from '../../components/generators/core/ShapeRenderer'
-
-type AnyGenerator = RandomWalkGenerator
 
 interface GeneratorStoreState {
   editor: Editor | null
@@ -18,6 +20,7 @@ interface GeneratorStoreState {
   // core
   setEditor: (editor: Editor) => void
   createRandomWalk: (target: GeneratorTarget, settings?: Partial<RandomWalkSettings>) => RandomWalkGenerator
+  createSineWave: (target: GeneratorTarget, settings?: Partial<SineWaveSettings>) => SineWaveGenerator
   updateGenerator: (id: string, changes: Partial<AnyGenerator>) => void
   deleteGenerator: (id: string) => void
   start: (id: string) => void
@@ -52,11 +55,26 @@ export const useGeneratorStore = create<GeneratorStoreState>()(
       return gen
     },
 
+    createSineWave: (target, overrides = {}) => {
+      const id = createId()
+      const settings = { ...getDefaultSineWaveSettings(), ...overrides }
+      const gen: SineWaveGenerator = {
+        id,
+        type: 'sine-wave',
+        target,
+        enabled: true,
+        running: false,
+        settings,
+      }
+      set((state) => ({ generators: { ...state.generators, [id]: gen } }))
+      return gen
+    },
+
     updateGenerator: (id, changes) => {
       set((state) => {
         const prev = state.generators[id]
         if (!prev) return state
-        return { generators: { ...state.generators, [id]: { ...prev, ...changes } } }
+        return { generators: { ...state.generators, [id]: { ...prev, ...changes } as AnyGenerator } }
       })
     },
 

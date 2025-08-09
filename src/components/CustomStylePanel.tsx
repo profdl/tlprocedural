@@ -13,6 +13,8 @@ import {
 } from 'tldraw'
 import { ModifierControls } from './modifiers/ModifierControls'
 import { GeneratorControls } from './generators/GeneratorControls'
+import { SineWaveControls } from './shapes/SineWaveControls'
+import type { SineWaveShape } from './shapes/SineWaveShape'
 
 type TabType = 'styles' | 'modifiers' | 'generators'
 
@@ -79,7 +81,18 @@ export const CustomStylePanel = (props: TLUiStylePanelProps) => {
       {/* Tab Content */}
       <div className="custom-style-panel__content">
         {activeTab === 'styles' && (
-          <DefaultStylePanelContent styles={styles} />
+          <>
+            <DefaultStylePanelContent styles={styles} />
+            {/* Show sine wave controls if any selected shapes are sine waves */}
+            {(() => {
+              const sineWaveShapes = selectedShapes.filter(shape => shape.type === 'sine-wave') as SineWaveShape[]
+              return sineWaveShapes.length > 0 ? (
+                <div className="tlui-style-panel__section">
+                  <SineWaveControls shapes={sineWaveShapes} />
+                </div>
+              ) : null
+            })()}
+          </>
         )}
         
         {activeTab === 'modifiers' && (
@@ -95,4 +108,4 @@ export const CustomStylePanel = (props: TLUiStylePanelProps) => {
       </div>
     </DefaultStylePanel>
   )
-} 
+}
