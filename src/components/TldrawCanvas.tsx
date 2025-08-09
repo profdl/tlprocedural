@@ -11,7 +11,7 @@ import 'tldraw/tldraw.css'
 import { CustomStylePanel } from './CustomStylePanel'
 import { ModifierOverlay } from './ModifierRenderer'
 import { isArrayClone } from './modifiers/utils'
-import { GeneratedPathShapeUtil } from './generators/shapes/GeneratedPathShape'
+
 import { GeneratorEngine } from './generators/GeneratorEngine'
 
 // Try to configure DrawShapeUtil with smoothing (may not work in all versions)
@@ -77,7 +77,7 @@ export function TldrawCanvas() {
     <div style={{ position: 'fixed', inset: 0 }}>
       <Tldraw 
         components={components}
-        shapeUtils={[ConfiguredDrawShapeUtil, GeneratedPathShapeUtil]}
+        shapeUtils={[ConfiguredDrawShapeUtil]}
         options={editorOptions}
         onMount={handleMount}
       >

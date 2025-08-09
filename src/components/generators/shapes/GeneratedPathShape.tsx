@@ -11,6 +11,7 @@ export type GeneratedPathShape = TLBaseShape<
     isPreview: boolean
     w: number
     h: number
+    version: number
   }
 >
 
@@ -24,6 +25,7 @@ export class GeneratedPathShapeUtil extends BaseBoxShapeUtil<GeneratedPathShape>
     isPreview: T.boolean,
     w: T.number,
     h: T.number,
+    version: T.number,
   }
 
   override getDefaultProps(): GeneratedPathShape['props'] {
@@ -34,6 +36,7 @@ export class GeneratedPathShapeUtil extends BaseBoxShapeUtil<GeneratedPathShape>
       isPreview: true,
       w: 1,
       h: 1,
+      version: 0,
     }
   }
 

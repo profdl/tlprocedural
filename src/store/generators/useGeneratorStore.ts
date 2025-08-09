@@ -85,10 +85,19 @@ export const useGeneratorStore = create<GeneratorStoreState>()(
       const gen = get().generators[id]
       const editor = get().editor
       if (!gen || !editor) return
-      // delete preview shape if exists
-      if (gen.previewShapeId) {
-        editor.run(() => editor.deleteShapes([gen.previewShapeId!]), { history: 'ignore', ignoreShapeLock: true })
+      
+      // Delete all generator preview shapes
+      const allShapes = editor.getCurrentPageShapes()
+      const generatorShapes = allShapes.filter(shape => 
+        shape.meta?.isGeneratorPreview && shape.meta?.generatorId === id
+      )
+      
+      if (generatorShapes.length > 0) {
+        editor.run(() => {
+          editor.deleteShapes(generatorShapes.map(s => s.id))
+        }, { history: 'ignore', ignoreShapeLock: true })
       }
+      
       // Force runtime state recreation by updating a timestamp
       get().updateGenerator(id, { 
         running: false, 

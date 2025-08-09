@@ -119,59 +119,61 @@ export function useGeneratorEngine() {
           runtime.points.push(newPoint)
           runtime.stepCount++
 
-          // Create or update preview shape after each step
-          const shapeId = gen.previewShapeId
+          // Create a simple circle for the new point
+          const currentPoint = runtime.points[runtime.points.length - 1]
           
-          // Position shape at origin and translate path to local coordinates
-          const bounds = getBounds(runtime.points)
-          const x = bounds.minX - 20 // add padding
-          const y = bounds.minY - 20
-          const w = bounds.width + 40
-          const h = bounds.height + 40
-          const d = generateLocalPath(runtime.points, bounds.minX - 20, bounds.minY - 20)
-
-          if (!shapeId) {
-            // Create new preview shape
-            ed.run(() => {
-              const created = ed.createShape({
-                type: 'generated-path',
-                x,
-                y,
-                isLocked: false,
-                props: { 
-                  d, 
-                  isPreview: true, 
-                  w, 
-                  h,
-                  stroke: '#222',
-                  strokeWidth: 2
+          ed.run(() => {
+            // Create dot for the point
+            const dotShape = ed.createShape({
+              type: 'geo',
+              x: currentPoint.x - 1,
+              y: currentPoint.y - 1,
+              props: {
+                w: 2,
+                h: 2,
+                geo: 'ellipse',
+                color: 'red',
+                fill: 'solid',
+                size: 's'
+              },
+              meta: { isGeneratorPreview: true, generatorId: gen.id, isPoint: true },
+            })
+            
+            // Create/update the connecting curve through all points
+            if (runtime.points.length >= 2) {
+              // Remove any existing curve
+              const allShapes = ed.getCurrentPageShapes()
+              const existingCurve = allShapes.find(shape => 
+                shape.meta?.isGeneratorPreview && 
+                shape.meta?.generatorId === gen.id && 
+                shape.meta?.isCurve
+              )
+              
+              if (existingCurve) {
+                ed.deleteShapes([existingCurve.id])
+              }
+              
+              // Create new curve through all points
+              const curveShape = ed.createShape({
+                type: 'draw',
+                x: 0,
+                y: 0,
+                props: {
+                  segments: convertPointsToDrawSegments(runtime.points),
+                  color: 'black',
+                  size: 'm',
+                  isComplete: true,
                 },
-                meta: { isGeneratorPreview: true, generatorId: gen.id },
+                meta: { isGeneratorPreview: true, generatorId: gen.id, isCurve: true },
               })
-              store.setPreviewShape(gen.id, created.id as TLShapeId)
-            }, { history: 'ignore' })
-          } else {
-            // Delete and recreate instead of update (tldraw update issue workaround)
-            ed.run(() => {
-              ed.deleteShapes([shapeId])
-              const created = ed.createShape({
-                type: 'generated-path',
-                x,
-                y,
-                isLocked: false,
-                props: { 
-                  d, 
-                  isPreview: true, 
-                  w, 
-                  h,
-                  stroke: '#222',
-                  strokeWidth: 2
-                },
-                meta: { isGeneratorPreview: true, generatorId: gen.id },
-              })
-              store.setPreviewShape(gen.id, created.id as TLShapeId)
-            }, { history: 'ignore' })
-          }
+              
+              // Set the curve as the main preview shape for tracking
+              store.setPreviewShape(gen.id, curveShape.id as TLShapeId)
+            } else if (runtime.stepCount === 1) {
+              // For the first point, track the dot
+              store.setPreviewShape(gen.id, dotShape.id as TLShapeId)
+            }
+          }, { history: 'ignore' })
         }
       })
     }
@@ -205,40 +207,34 @@ export function useGeneratorEngine() {
   }, [])
 }
 
-function getBounds(points: { x: number; y: number }[]) {
-  if (points.length === 0) return { minX: 0, minY: 0, maxX: 1, maxY: 1, width: 1, height: 1 }
+function convertPointsToDrawSegments(points: { x: number; y: number }[]) {
+  if (points.length === 0) return []
   
-  let minX = points[0].x
-  let minY = points[0].y
-  let maxX = points[0].x
-  let maxY = points[0].y
-
-  for (let i = 1; i < points.length; i++) {
-    const p = points[i]
-    if (p.x < minX) minX = p.x
-    if (p.y < minY) minY = p.y
-    if (p.x > maxX) maxX = p.x
-    if (p.y > maxY) maxY = p.y
+  const segments = []
+  
+  for (let i = 0; i < points.length; i++) {
+    const point = points[i]
+    
+    if (i === 0) {
+      // First point - start the path
+      segments.push({
+        type: 'free',
+        points: [{ x: point.x, y: point.y, z: 0.5 }]
+      })
+    } else {
+      // Subsequent points - continue the path
+      segments.push({
+        type: 'free',
+        points: [{ x: point.x, y: point.y, z: 0.5 }]
+      })
+    }
   }
-
-  return {
-    minX,
-    minY,
-    maxX,
-    maxY,
-    width: Math.max(1, maxX - minX),
-    height: Math.max(1, maxY - minY)
-  }
+  
+  return segments
 }
 
-function generateLocalPath(points: { x: number; y: number }[], originX: number, originY: number): string {
-  if (points.length === 0) return ''
-  
-  let d = `M ${points[0].x - originX} ${points[0].y - originY}`
-  for (let i = 1; i < points.length; i++) {
-    d += ` L ${points[i].x - originX} ${points[i].y - originY}`
-  }
-  return d
-}
+
+
+
 
 
