@@ -171,7 +171,7 @@ export function SineWaveControls({ shapes }: SineWaveControlsProps) {
           <input
             type="range"
             min="0.1"
-            max="100"
+            max="20"
             step="0.1"
             value={commonValues.frequency ?? 1}
             onChange={(e) => updateShapes({ frequency: parseFloat(e.target.value) })}
