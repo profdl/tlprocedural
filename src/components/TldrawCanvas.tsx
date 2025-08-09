@@ -15,6 +15,7 @@ import { isArrayClone } from './modifiers/utils'
 
 import { GeneratorEngine } from './generators/GeneratorEngine'
 import { SineWaveShapeUtil } from './shapes/SineWaveShape'
+import { SineWaveShapeTool } from './shapes/SineWaveTool'
 
 // Try to configure DrawShapeUtil with smoothing (may not work in all versions)
 const ConfiguredDrawShapeUtil = DrawShapeUtil.configure({
@@ -81,6 +82,7 @@ export function TldrawCanvas() {
       <Tldraw 
         components={components}
         shapeUtils={[ConfiguredDrawShapeUtil, SineWaveShapeUtil]}
+        tools={[SineWaveShapeTool]}
         options={editorOptions}
         onMount={handleMount}
       >

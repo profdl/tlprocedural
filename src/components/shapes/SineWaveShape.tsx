@@ -1,4 +1,4 @@
-import { BaseBoxShapeUtil, HTMLContainer, T, type TLBaseShape, type RecordProps, type TLResizeInfo } from 'tldraw'
+import { BaseBoxShapeUtil, HTMLContainer, T, type TLBaseShape, type RecordProps } from 'tldraw'
 
 export type SineWaveShape = TLBaseShape<
   'sine-wave',
@@ -42,19 +42,20 @@ export class SineWaveShapeUtil extends BaseBoxShapeUtil<SineWaveShape> {
   }
 
   override component(shape: SineWaveShape) {
-    const { length, amplitude, frequency, phase, strokeWidth, color } = shape.props
+    const { frequency, phase, strokeWidth, color } = shape.props
     
-    // Calculate proper bounds
+    // Use the drawn box as the container for the wave
+    const waveWidth = shape.props.w
+    const amplitude = Math.max(1, shape.props.h / 2)
     const waveHeight = amplitude * 2
-    const waveWidth = length
     
     // Generate sine wave path
     const points: string[] = []
-    const steps = Math.max(50, length) // Ensure smooth curve
+    const steps = Math.max(50, waveWidth) // Ensure smooth curve
     
     for (let i = 0; i <= steps; i++) {
-      const x = (i / steps) * length
-      const radians = (phase * Math.PI / 180) + (x * frequency * 2 * Math.PI / length)
+      const x = (i / steps) * waveWidth
+      const radians = (phase * Math.PI / 180) + (x * frequency * 2 * Math.PI / waveWidth)
       const y = amplitude + amplitude * Math.sin(radians)
       
       if (i === 0) {
@@ -99,8 +100,8 @@ export class SineWaveShapeUtil extends BaseBoxShapeUtil<SineWaveShape> {
   }
 
   getBounds(shape: SineWaveShape) {
-    const waveWidth = shape.props.length
-    const waveHeight = shape.props.amplitude * 2
+    const waveWidth = shape.props.w
+    const waveHeight = shape.props.h
     return {
       x: 0,
       y: 0,
@@ -110,8 +111,8 @@ export class SineWaveShapeUtil extends BaseBoxShapeUtil<SineWaveShape> {
   }
 
   getCenter(shape: SineWaveShape) {
-    const waveWidth = shape.props.length
-    const waveHeight = shape.props.amplitude * 2
+    const waveWidth = shape.props.w
+    const waveHeight = shape.props.h
     return {
       x: waveWidth / 2,
       y: waveHeight / 2,
@@ -119,8 +120,8 @@ export class SineWaveShapeUtil extends BaseBoxShapeUtil<SineWaveShape> {
   }
 
   getOutline(shape: SineWaveShape) {
-    const waveWidth = shape.props.length
-    const waveHeight = shape.props.amplitude * 2
+    const waveWidth = shape.props.w
+    const waveHeight = shape.props.h
     return [
       { x: 0, y: 0 },
       { x: waveWidth, y: 0 },
@@ -129,36 +130,30 @@ export class SineWaveShapeUtil extends BaseBoxShapeUtil<SineWaveShape> {
     ]
   }
 
-  // Handle resize by updating wave parameters to match new bounds
-  override onResize = (shape: SineWaveShape, info: TLResizeInfo<SineWaveShape>) => {
-    const { scaleX, scaleY } = info
-    
-    // Calculate new length and amplitude based on scale
-    const newLength = Math.max(50, Math.round(shape.props.length * scaleX))
-    const newAmplitude = Math.max(2, Math.round(shape.props.amplitude * scaleY))
-    
-    return {
-      ...shape,
-      props: {
-        ...shape.props,
-        length: newLength,
-        amplitude: newAmplitude,
-        w: newLength,
-        h: newAmplitude * 2,
-      }
-    }
-  }
+  // Keep internal parameters in sync with the drawn bounds
+  // - If the user changes w/h (drag draw or resize), update length/amplitude from w/h
+  // - If the controls change length/amplitude, update w/h to match
 
   // Update w and h when wave parameters change (but not during resize)
   override onBeforeUpdate = (prev: SineWaveShape, next: SineWaveShape) => {
-    // Skip auto-updating bounds if this is a resize operation
+    // If user edited the drawn box (w/h changed), derive logical params
     if (prev.props.w !== next.props.w || prev.props.h !== next.props.h) {
-      return next
+      const derivedLength = Math.max(50, Math.round(next.props.w))
+      const derivedAmplitude = Math.max(2, Math.round(next.props.h / 2))
+      return {
+        ...next,
+        props: {
+          ...next.props,
+          length: derivedLength,
+          amplitude: derivedAmplitude,
+        },
+      }
     }
-    
+
+    // If logical params changed via controls, sync the box
     const waveWidth = next.props.length
     const waveHeight = next.props.amplitude * 2
-    
+
     if (next.props.w !== waveWidth || next.props.h !== waveHeight) {
       return {
         ...next,
@@ -166,10 +161,10 @@ export class SineWaveShapeUtil extends BaseBoxShapeUtil<SineWaveShape> {
           ...next.props,
           w: waveWidth,
           h: waveHeight,
-        }
+        },
       }
     }
-    
+
     return next
   }
 

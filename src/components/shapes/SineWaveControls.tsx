@@ -75,7 +75,9 @@ export function SineWaveControls({ shapes }: SineWaveControlsProps) {
               points: points
             }],
             color: 'black',
-            size: 'm',
+            // Default styles for applied draw shape
+            dash: 'solid',
+            size: 's',
             isComplete: true,
           }
         })
