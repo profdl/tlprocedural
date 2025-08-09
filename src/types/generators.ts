@@ -12,8 +12,6 @@ export interface Vec2 {
 export interface RandomWalkSettings {
   steps: number
   stepLength: number
-  turnJitterDeg: number
-  boundsMode: BoundsMode
   start: Vec2
   seed: number
   throttleFps: number
@@ -37,7 +35,7 @@ export interface TLGeneratorBase<TSettings> {
   resetTimestamp?: number
 }
 
-export interface GeneratorProcessor<TSettings, TRuntime = any> {
+export interface GeneratorProcessor<TSettings, TRuntime = unknown> {
   init: (settings: TSettings, seed: number) => TRuntime
   step?: (runtime: TRuntime, dtMs: number) => void
   generate: (runtime: TRuntime) => { points: Vec2[] }
@@ -49,8 +47,6 @@ export function getDefaultRandomWalkSettings(): RandomWalkSettings {
   return {
     steps: 500,
     stepLength: 20,
-    turnJitterDeg: 30,
-    boundsMode: 'page',
     start: { x: 400, y: 300 },
     seed: 1,
     throttleFps: 30,

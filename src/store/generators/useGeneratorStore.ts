@@ -7,6 +7,7 @@ import {
   type RandomWalkSettings,
   getDefaultRandomWalkSettings,
 } from '../../types/generators'
+import { ShapeRenderer } from '../../components/generators/core/ShapeRenderer'
 
 type AnyGenerator = RandomWalkGenerator
 
@@ -65,16 +66,8 @@ export const useGeneratorStore = create<GeneratorStoreState>()(
       
       // Clean up any preview shapes before deleting
       if (gen && editor) {
-        const allShapes = editor.getCurrentPageShapes()
-        const generatorShapes = allShapes.filter(shape => 
-          shape.meta?.isGeneratorPreview && shape.meta?.generatorId === id
-        )
-        
-        if (generatorShapes.length > 0) {
-          editor.run(() => {
-            editor.deleteShapes(generatorShapes.map(s => s.id))
-          }, { history: 'ignore', ignoreShapeLock: true })
-        }
+        const shapeRenderer = new ShapeRenderer(editor)
+        shapeRenderer.removeGeneratorShapes(id)
       }
       
       set((state) => {
@@ -103,17 +96,9 @@ export const useGeneratorStore = create<GeneratorStoreState>()(
       const editor = get().editor
       if (!gen || !editor) return
       
-      // Delete all generator preview shapes
-      const allShapes = editor.getCurrentPageShapes()
-      const generatorShapes = allShapes.filter(shape => 
-        shape.meta?.isGeneratorPreview && shape.meta?.generatorId === id
-      )
-      
-      if (generatorShapes.length > 0) {
-        editor.run(() => {
-          editor.deleteShapes(generatorShapes.map(s => s.id))
-        }, { history: 'ignore', ignoreShapeLock: true })
-      }
+      // Delete all generator preview shapes using ShapeRenderer
+      const shapeRenderer = new ShapeRenderer(editor)
+      shapeRenderer.removeGeneratorShapes(id)
       
       // Force runtime state recreation by updating a timestamp
       get().updateGenerator(id, { 
