@@ -84,6 +84,95 @@ export const MODIFIER_DISPLAY_NAMES = {
   [MODIFIER_TYPES.L_SYSTEM]: 'L-System'
 } as const
 
+// L-System presets (examples)
+export const L_SYSTEM_PRESETS = [
+  {
+    id: 'binary-tree',
+    label: 'Binary Tree',
+    settings: {
+      axiom: 'F',
+      rules: { F: 'F[+F]F[-F]F' },
+      iterations: 6,
+      angle: 25,
+      stepPercent: 100,
+      lengthDecay: 0.75,
+      scalePerIteration: 1.0,
+    }
+  },
+  {
+    id: 'bushy-tree',
+    label: 'Bushy Tree',
+    settings: {
+      axiom: 'F',
+      rules: { F: 'FF-[-F+F+F]+[+F-F-F]' },
+      iterations: 4,
+      angle: 22.5,
+      stepPercent: 100,
+      lengthDecay: 0.7,
+      scalePerIteration: 1.0,
+      branches: [-35, -10, 10, 35],
+      angleJitter: 5,
+      lengthJitter: 0.15,
+      branchProbability: 0.9,
+      continueTrunk: true,
+    }
+  },
+  {
+    id: 'wide-canopy',
+    label: 'Wide Canopy',
+    settings: {
+      axiom: 'F',
+      rules: { F: 'F[+F]F[+F]F' },
+      iterations: 5,
+      angle: 35,
+      stepPercent: 100,
+      lengthDecay: 0.8,
+      scalePerIteration: 1.0,
+      branches: [-45, -20, 0, 20, 45],
+      angleJitter: 8,
+      lengthJitter: 0.2,
+      branchProbability: 0.85,
+      continueTrunk: false,
+    }
+  },
+  {
+    id: 'symmetric-20deg',
+    label: 'Symmetric 20°',
+    settings: {
+      axiom: 'F',
+      rules: { F: 'F[+F]F[-F]F' },
+      iterations: 6,
+      angle: 20,
+      stepPercent: 100,
+      lengthDecay: 1.0,
+      scalePerIteration: 1.0,
+      branches: [-20, 0, 20],
+      angleJitter: 0,
+      lengthJitter: 0,
+      branchProbability: 1,
+      continueTrunk: true,
+    }
+  },
+  {
+    id: 'natural-sparse',
+    label: 'Natural Sparse',
+    settings: {
+      axiom: 'F',
+      rules: { F: 'F[+F]F[-F]F' },
+      iterations: 7,
+      angle: 18,
+      stepPercent: 100,
+      lengthDecay: 0.85,
+      scalePerIteration: 0.95,
+      branches: [-30, -12, 5, 22, 40],
+      angleJitter: 10,
+      lengthJitter: 0.25,
+      branchProbability: 0.7,
+      continueTrunk: true,
+    }
+  },
+] as const
+
 // Mirror axis options
 export const MIRROR_AXIS_OPTIONS = [
   { value: 'x', label: 'Horizontal (X)' },

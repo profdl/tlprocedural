@@ -55,8 +55,27 @@ export const LSystemProcessor: ModifierProcessor = {
       const nextLen = length * decayBase
       const nextDepth = depth - 1
       const nextLevel = level + 1
-      branch(nx, ny, heading + angleRad, nextDepth, nextLen, nextLevel, source)
-      branch(nx, ny, heading - angleRad, nextDepth, nextLen, nextLevel, source)
+      // Determine branch angles
+      const baseAngles = (settings.branches && settings.branches.length > 0)
+        ? settings.branches.map(a => (a * Math.PI) / 180)
+        : [-angleRad, angleRad]
+      const rngSeed = (settings.seed ?? 1) + nextLevel * 997
+      let rnd = rngSeed
+      const rand = () => {
+        // simple LCG
+        rnd = (rnd * 1664525 + 1013904223) % 4294967296
+        return rnd / 4294967296
+      }
+      const angleJitter = (settings.angleJitter ?? 0) * (Math.PI / 180)
+      const lengthJitterFrac = settings.lengthJitter ?? 0
+      const prob = settings.branchProbability ?? 1
+      baseAngles.forEach(rel => {
+        if (rand() <= prob) {
+          const jitterAng = angleJitter ? (rand() * 2 - 1) * angleJitter : 0
+          const jitterLen = lengthJitterFrac ? (1 + (rand() * 2 - 1) * lengthJitterFrac) : 1
+          branch(nx, ny, heading + rel + jitterAng, nextDepth, nextLen * jitterLen, nextLevel, source)
+        }
+      })
     }
 
     // Run for each starting instance

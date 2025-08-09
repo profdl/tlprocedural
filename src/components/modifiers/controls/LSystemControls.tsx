@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import type { LSystemSettings } from '../../../types/modifiers'
 import { ModifierPropertyInput } from './ModifierPropertyInput'
+import { L_SYSTEM_PRESETS } from '../constants'
 
 interface LSystemControlsProps {
   settings: LSystemSettings
@@ -31,6 +32,22 @@ export function LSystemControls({ settings, onChange }: LSystemControlsProps) {
   return (
     <div className="modifier-controls__section">
       <div className="modifier-controls__grid">
+        <div className="modifier-controls__field" style={{ gridColumn: '1 / -1' }}>
+          <label>Preset</label>
+          <select
+            value=""
+            onChange={(e) => {
+              const preset = L_SYSTEM_PRESETS.find(p => p.id === e.target.value)
+              if (preset) onChange({ ...settings, ...preset.settings })
+            }}
+            className="modifier-property-input__number"
+          >
+            <option value="" disabled>Select a preset…</option>
+            {L_SYSTEM_PRESETS.map(p => (
+              <option key={p.id} value={p.id}>{p.label}</option>
+            ))}
+          </select>
+        </div>
         <div className="modifier-controls__field">
           <label>Axiom</label>
           <input
@@ -86,6 +103,47 @@ export function LSystemControls({ settings, onChange }: LSystemControlsProps) {
           step={0.01}
           onChange={(value) => updateSetting('scalePerIteration', value)}
         />
+
+      <ModifierPropertyInput
+        label="Angle Jitter"
+        value={settings.angleJitter ?? 0}
+        min={0}
+        max={30}
+        step={1}
+        onChange={(value) => updateSetting('angleJitter', value)}
+      />
+
+      <ModifierPropertyInput
+        label="Length Jitter"
+        value={settings.lengthJitter ?? 0}
+        min={0}
+        max={0.5}
+        step={0.01}
+        onChange={(value) => updateSetting('lengthJitter', value)}
+      />
+
+      <ModifierPropertyInput
+        label="Branch Probability"
+        value={settings.branchProbability ?? 1}
+        min={0.3}
+        max={1}
+        step={0.01}
+        onChange={(value) => updateSetting('branchProbability', value)}
+      />
+
+      <div className="modifier-controls__field" style={{ gridColumn: '1 / -1' }}>
+        <label>Custom Branch Angles (deg, comma-separated; empty = use symmetric ±angle)</label>
+        <input
+          type="text"
+          value={(settings.branches ?? []).join(', ')}
+          onChange={(e) => {
+            const parts = e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+            const nums = parts.map(v => Number(v)).filter(v => !isNaN(v))
+            updateSetting('branches', nums)
+          }}
+          className="modifier-property-input__number"
+        />
+      </div>
 
       <ModifierPropertyInput
         label="Length Decay"
