@@ -13,7 +13,6 @@ import {
 } from 'tldraw'
 import { ModifierControls } from './modifiers/ModifierControls'
 import { GeneratorControls } from './generators/GeneratorControls'
-import { DebugPathTest } from './generators/DebugPathTest'
 
 type TabType = 'styles' | 'modifiers' | 'generators'
 
@@ -91,7 +90,6 @@ export const CustomStylePanel = (props: TLUiStylePanelProps) => {
         {activeTab === 'generators' && (
           <div className="tlui-style-panel__section">
             <GeneratorControls />
-            <DebugPathTest />
           </div>
         )}
       </div>

@@ -39,13 +39,10 @@ export class GeneratedPathShapeUtil extends BaseBoxShapeUtil<GeneratedPathShape>
 
   override component(shape: GeneratedPathShape) {
     const { d, stroke, strokeWidth } = shape.props
-    console.log(`[GeneratedPathShape] rendering with d.length=${d.length}, w=${shape.props.w}, h=${shape.props.h}`)
     return (
       <HTMLContainer>
-        <svg width={shape.props.w} height={shape.props.h} style={{ overflow: 'visible', border: '1px solid red' }}>
+        <svg width={shape.props.w} height={shape.props.h} style={{ overflow: 'visible' }}>
           <path d={d} fill="none" stroke={stroke} strokeWidth={strokeWidth} />
-          {/* Debug: show the SVG bounds */}
-          <rect x="0" y="0" width={shape.props.w} height={shape.props.h} fill="none" stroke="blue" strokeWidth="1" opacity="0.3" />
         </svg>
       </HTMLContainer>
     )

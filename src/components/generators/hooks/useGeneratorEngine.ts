@@ -119,8 +119,6 @@ export function useGeneratorEngine() {
           runtime.points.push(newPoint)
           runtime.stepCount++
 
-          console.log(`[GeneratorEngine] step ${runtime.stepCount}: points=${runtime.points.length}`, runtime.points.slice(-2))
-
           // Create or update preview shape after each step
           const shapeId = gen.previewShapeId
           
@@ -131,11 +129,6 @@ export function useGeneratorEngine() {
           const w = bounds.width + 40
           const h = bounds.height + 40
           const d = generateLocalPath(runtime.points, bounds.minX - 20, bounds.minY - 20)
-
-          console.log(`[GeneratorEngine] bounds: x=${x}, y=${y}, w=${w}, h=${h}`)
-          console.log(`[GeneratorEngine] path length: ${d.length} chars`)
-          console.log(`[GeneratorEngine] points count: ${runtime.points.length}`)
-          console.log(`[GeneratorEngine] full path: "${d}"`)
 
           if (!shapeId) {
             // Create new preview shape
@@ -156,7 +149,6 @@ export function useGeneratorEngine() {
                 meta: { isGeneratorPreview: true, generatorId: gen.id },
               })
               store.setPreviewShape(gen.id, created.id as TLShapeId)
-              console.log(`[GeneratorEngine] created shape ${created.id} with d="${d}"`)
             }, { history: 'ignore' })
           } else {
             // Delete and recreate instead of update (tldraw update issue workaround)
@@ -178,7 +170,6 @@ export function useGeneratorEngine() {
                 meta: { isGeneratorPreview: true, generatorId: gen.id },
               })
               store.setPreviewShape(gen.id, created.id as TLShapeId)
-              console.log(`[GeneratorEngine] recreated shape ${created.id} - path length: ${d.length} chars`)
             }, { history: 'ignore' })
           }
         }
@@ -250,46 +241,4 @@ function generateLocalPath(points: { x: number; y: number }[], originX: number, 
   return d
 }
 
-function generateDynamicPathAndBounds(points: { x: number; y: number }[]): {
-  x: number
-  y: number
-  w: number
-  h: number
-  d: string
-} {
-  if (points.length === 0) {
-    return { x: 0, y: 0, w: 1, h: 1, d: '' }
-  }
 
-  // Find bounds of all points
-  let minX = points[0].x
-  let minY = points[0].y
-  let maxX = points[0].x
-  let maxY = points[0].y
-
-  for (let i = 1; i < points.length; i++) {
-    const p = points[i]
-    if (p.x < minX) minX = p.x
-    if (p.y < minY) minY = p.y
-    if (p.x > maxX) maxX = p.x
-    if (p.y > maxY) maxY = p.y
-  }
-
-  // Add some padding
-  const padding = 10
-  minX -= padding
-  minY -= padding
-  maxX += padding
-  maxY += padding
-
-  const width = Math.max(1, maxX - minX)
-  const height = Math.max(1, maxY - minY)
-
-  // Generate SVG path in local coordinates
-  let d = `M ${points[0].x - minX} ${points[0].y - minY}`
-  for (let i = 1; i < points.length; i++) {
-    d += ` L ${points[i].x - minX} ${points[i].y - minY}`
-  }
-
-  return { x: minX, y: minY, w: width, h: height, d }
-}
