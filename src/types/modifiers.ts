@@ -49,7 +49,7 @@ export interface GroupContext {
 }
 
 // NEW: Interface that all modifiers must implement for stacking
-export interface ModifierProcessor<T = LinearArraySettings | CircularArraySettings | GridArraySettings | MirrorSettings> {
+export interface ModifierProcessor<T = LinearArraySettings | CircularArraySettings | GridArraySettings | MirrorSettings | LSystemSettings> {
   process(input: ShapeState, settings: T, groupContext?: GroupContext): ShapeState
 }
 
@@ -92,12 +92,24 @@ export interface MirrorSettings {
   mergeThreshold: number
 }
 
+// L-System Modifier Settings
+export interface LSystemSettings {
+  axiom: string
+  rules: Record<string, string>
+  iterations: number
+  angle: number // degrees
+  stepPercent: number // percent of shape size used as base step
+  lengthDecay?: number // per-branch depth, 0..1
+  scalePerIteration?: number // multiplicative scale applied to the shape each level (0..1)
+}
+
 // Union of all modifier types
 export type TLModifier = 
   | TLLinearArrayModifier
   | TLCircularArrayModifier
   | TLGridArrayModifier
   | TLMirrorModifier
+  | TLLSystemModifier
 
 // Specific modifier types
 export interface TLLinearArrayModifier extends TLModifierRecord {
@@ -118,6 +130,11 @@ export interface TLGridArrayModifier extends TLModifierRecord {
 export interface TLMirrorModifier extends TLModifierRecord {
   type: 'mirror'
   props: MirrorSettings
+}
+
+export interface TLLSystemModifier extends TLModifierRecord {
+  type: 'lsystem'
+  props: LSystemSettings
 }
 
 // Utility types

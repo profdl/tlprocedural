@@ -5,6 +5,7 @@ import { LinearArrayControls } from '../controls/LinearArrayControls'
 import { CircularArrayControls } from '../controls/CircularArrayControls'
 import { GridArrayControls } from '../controls/GridArrayControls'
 import { MirrorControls } from '../controls/MirrorControls'
+import { LSystemControls } from '../controls/LSystemControls'
 import type { 
   TLModifier, 
   TLModifierId,
@@ -13,6 +14,7 @@ import type {
   GridArraySettings,
   MirrorSettings
 } from '../../../types/modifiers'
+import type { LSystemSettings } from '../../../types/modifiers'
 import { useModifierStore } from '../../../store/modifierStore'
 
 // Local stopEventPropagation implementation
@@ -88,7 +90,7 @@ interface ModifierItemProps {
   onToggleCollapsed: (modifierId: string) => void
   onToggleModifier: (modifierId: string) => void
   onRemoveModifier: (modifierId: string) => void
-  onUpdateSettings: (newSettings: LinearArraySettings | CircularArraySettings | GridArraySettings | MirrorSettings) => void
+  onUpdateSettings: (newSettings: LinearArraySettings | CircularArraySettings | GridArraySettings | MirrorSettings | LSystemSettings) => void
 }
 
 /**
@@ -169,6 +171,12 @@ function ModifierItem({
           )}
           {modifier.type === 'mirror' && (
             <MirrorControls
+              settings={modifier.props}
+              onChange={onUpdateSettings}
+            />
+          )}
+          {modifier.type === 'lsystem' && (
+            <LSystemControls
               settings={modifier.props}
               onChange={onUpdateSettings}
             />

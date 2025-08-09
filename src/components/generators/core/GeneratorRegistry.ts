@@ -35,7 +35,7 @@ const randomWalkProcessor: GeneratorProcessor<RandomWalkGenerator, RandomWalkRun
     return needsRandomWalkRuntimeReset(runtime, generator.settings, resetTimestamp)
   },
 
-  processStep: (runtime, generator, editor, shapeRenderer) => {
+  processStep: (runtime, generator, _editor, shapeRenderer) => {
     // Check if we've reached the step limit
     if (runtime.stepCount >= generator.settings.steps) {
       return { shouldContinue: false }
@@ -89,11 +89,11 @@ const sineWaveProcessor: GeneratorProcessor<SineWaveGenerator, SineWaveRuntime> 
     }
   },
 
-  needsRuntimeReset: (runtime, generator, resetTimestamp) => {
+  needsRuntimeReset: (runtime, _generator, resetTimestamp) => {
     return !runtime || (resetTimestamp !== undefined && runtime.lastResetTimestamp !== resetTimestamp)
   },
 
-  processStep: (runtime, generator, editor, shapeRenderer) => {
+  processStep: (runtime, generator, _editor, shapeRenderer) => {
     const settings = generator.settings
     const totalSteps = Math.floor(settings.length / 2) // Generate points every 2 pixels
     

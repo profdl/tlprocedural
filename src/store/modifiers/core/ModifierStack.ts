@@ -11,7 +11,8 @@ import {
   LinearArrayProcessor,
   CircularArrayProcessor,
   GridArrayProcessor,
-  MirrorProcessor
+  MirrorProcessor,
+  LSystemProcessor
 } from '../processors'
 import { findTopLevelGroup, calculateGroupBounds } from '../../../components/modifiers/utils'
 
@@ -227,6 +228,8 @@ export class ModifierStack {
         return GridArrayProcessor
       case 'mirror':
         return MirrorProcessor
+      case 'lsystem':
+        return LSystemProcessor
       default:
         console.error(`❌ Unknown modifier type: ${type}`)
         return null

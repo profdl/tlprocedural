@@ -3,7 +3,8 @@ export const MODIFIER_TYPES = {
   LINEAR_ARRAY: 'linear-array',
   CIRCULAR_ARRAY: 'circular-array',
   GRID_ARRAY: 'grid-array',
-  MIRROR: 'mirror'
+  MIRROR: 'mirror',
+  L_SYSTEM: 'lsystem'
 } as const
 
 export type ModifierType = typeof MODIFIER_TYPES[keyof typeof MODIFIER_TYPES]
@@ -40,6 +41,15 @@ export const DEFAULT_SETTINGS = {
     axis: 'x' as const,
     offset: 0,
     mergeThreshold: 10
+  },
+  [MODIFIER_TYPES.L_SYSTEM]: {
+    axiom: 'F',
+    rules: { 'F': 'F+F−F−F+F' },
+    iterations: 6,
+    angle: 20,
+    stepPercent: 100,
+    lengthDecay: 1.0,
+    scalePerIteration: 1.0
   }
 } as const
 
@@ -70,7 +80,8 @@ export const MODIFIER_DISPLAY_NAMES = {
   [MODIFIER_TYPES.LINEAR_ARRAY]: 'Linear Array',
   [MODIFIER_TYPES.CIRCULAR_ARRAY]: 'Circular Array',
   [MODIFIER_TYPES.GRID_ARRAY]: 'Grid Array',
-  [MODIFIER_TYPES.MIRROR]: 'Mirror'
+  [MODIFIER_TYPES.MIRROR]: 'Mirror',
+  [MODIFIER_TYPES.L_SYSTEM]: 'L-System'
 } as const
 
 // Mirror axis options

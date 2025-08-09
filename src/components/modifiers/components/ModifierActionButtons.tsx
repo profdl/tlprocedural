@@ -7,7 +7,7 @@ function stopEventPropagation(e: React.SyntheticEvent | Event) {
   e.stopPropagation()
 }
 
-type ModifierType = 'linear' | 'circular' | 'grid' | 'mirror'
+type ModifierType = 'linear' | 'circular' | 'grid' | 'mirror' | 'lsystem'
 
 interface ModifierActionButtonsProps {
   selectedShape: boolean
@@ -31,7 +31,8 @@ export function ModifierActionButtons({
       'linear': 'linear',
       'circular': 'circular',
       'grid': 'grid',
-      'mirror': 'mirror'
+      'mirror': 'mirror',
+      'lsystem': 'lsystem'
     }
     const type = typeMap[optionId]
     if (type) {
@@ -60,6 +61,11 @@ export function ModifierActionButtons({
       id: 'mirror',
       label: 'Mirror',
       icon: 'mirror'
+    },
+    {
+      id: 'lsystem',
+      label: 'L-System',
+      icon: 'code'
     }
   ]
 

@@ -32,7 +32,7 @@ interface ModifierStoreState {
    */
   createModifier: (
     targetShapeId: TLShapeId,
-    type: 'linear-array' | 'circular-array' | 'grid-array' | 'mirror',
+    type: 'linear-array' | 'circular-array' | 'grid-array' | 'mirror' | 'lsystem',
     settings?: object
   ) => TLModifier
 
@@ -77,7 +77,7 @@ export const useModifierStore = create<ModifierStoreState>()(
     },
     
     // Create a new generic modifier
-    createModifier: (targetShapeId: TLShapeId, type: 'linear-array' | 'circular-array' | 'grid-array' | 'mirror', settings: object = {}) => {
+    createModifier: (targetShapeId: TLShapeId, type: 'linear-array' | 'circular-array' | 'grid-array' | 'mirror' | 'lsystem', settings: object = {}) => {
       const { getModifiersForShape } = get()
       const id = createModifierId()
       let modifier: TLModifier
@@ -152,6 +152,25 @@ export const useModifierStore = create<ModifierStoreState>()(
             ...settings
           }
         } as TLMirrorModifier
+      } else if (type === 'lsystem') {
+        modifier = {
+          id,
+          typeName: 'modifier',
+          type: 'lsystem',
+          targetShapeId,
+          enabled: true,
+          order: getModifiersForShape(targetShapeId).length,
+          props: {
+            axiom: 'F',
+            rules: { F: 'F+F−F−F+F' },
+            iterations: 6,
+            angle: 20,
+            stepPercent: 100,
+            lengthDecay: 1.0,
+            scalePerIteration: 1.0,
+            ...settings
+          }
+        } as any
       } else {
         throw new Error(`Unknown modifier type: ${type}`)
       }

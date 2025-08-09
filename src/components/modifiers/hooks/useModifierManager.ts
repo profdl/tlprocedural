@@ -6,7 +6,7 @@ import { useEditor } from 'tldraw'
 import type { TLShape } from 'tldraw'
 import type { TLModifier, TLModifierId } from '../../../types/modifiers'
 
-type ModifierType = 'linear' | 'circular' | 'grid' | 'mirror'
+type ModifierType = 'linear' | 'circular' | 'grid' | 'mirror' | 'lsystem'
 
 interface UseModifierManagerProps {
   selectedShapes: TLShape[]
@@ -45,11 +45,12 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
   const addModifier = useCallback((type: ModifierType) => {
     if (!selectedShape) return
     // Map UI type to store type
-    const typeMap: Record<ModifierType, 'linear-array' | 'circular-array' | 'grid-array' | 'mirror'> = {
+    const typeMap: Record<ModifierType, 'linear-array' | 'circular-array' | 'grid-array' | 'mirror' | 'lsystem'> = {
       linear: 'linear-array',
       circular: 'circular-array',
       grid: 'grid-array',
       mirror: 'mirror',
+      lsystem: 'lsystem'
     }
     const storeType = typeMap[type]
     const settings = DEFAULT_SETTINGS[storeType] || {}
