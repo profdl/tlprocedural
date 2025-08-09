@@ -36,6 +36,28 @@ export function GeneratorControls() {
               <span style={{ fontSize: '12px', color: '#666' }}>
                 ({g.running ? 'running' : 'stopped'})
               </span>
+              <div style={{ marginLeft: 'auto' }}>
+                <button
+                  onClick={() => store.deleteGenerator(g.id)}
+                  style={{
+                    background: 'none',
+                    border: '1px solid #ccc',
+                    borderRadius: 2,
+                    width: 20,
+                    height: 20,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    color: '#666'
+                  }}
+                  title="Remove generator"
+                  disabled={g.running}
+                >
+                  ×
+                </button>
+              </div>
             </div>
 
             {/* Controls */}

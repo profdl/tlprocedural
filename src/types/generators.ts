@@ -54,7 +54,7 @@ export function getDefaultRandomWalkSettings(): RandomWalkSettings {
     start: { x: 400, y: 300 },
     seed: 1,
     throttleFps: 30,
-    showPoints: true,
+    showPoints: false,
     showCurve: true,
   }
 }
