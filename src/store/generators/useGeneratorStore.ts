@@ -27,6 +27,7 @@ interface GeneratorStoreState {
   pause: (id: string) => void
   reset: (id: string) => void
   setPreviewShape: (id: string, shapeId: TLShapeId | undefined) => void
+  applyGenerator: (id: string) => void
 }
 
 function createId() {
@@ -131,6 +132,23 @@ export const useGeneratorStore = create<GeneratorStoreState>()(
       const gen = get().generators[id]
       if (!gen) return
       get().updateGenerator(id, { previewShapeId: shapeId })
+    },
+
+    applyGenerator: (id) => {
+      const gen = get().generators[id]
+      const editor = get().editor
+      if (!gen || !editor) return
+      
+      // Convert generator shapes to permanent shapes
+      const shapeRenderer = new ShapeRenderer(editor)
+      shapeRenderer.applyGeneratorShapes(id)
+      
+      // Remove the generator from the store without deleting the shapes
+      set((state) => {
+        const next = { ...state.generators }
+        delete next[id]
+        return { generators: next }
+      })
     },
   }))
 )

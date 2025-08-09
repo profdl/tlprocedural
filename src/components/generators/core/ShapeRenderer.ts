@@ -111,4 +111,34 @@ export class ShapeRenderer {
       }, { history: 'ignore', ignoreShapeLock: true })
     }
   }
+
+  /**
+   * Converts generator preview shapes to permanent shapes
+   */
+  applyGeneratorShapes(generatorId: string): void {
+    const allShapes = this.editor.getCurrentPageShapes()
+    const generatorShapes = allShapes.filter(shape => 
+      shape.meta?.isGeneratorPreview && shape.meta?.generatorId === generatorId
+    )
+    
+    if (generatorShapes.length > 0) {
+      this.editor.run(() => {
+        // Update each shape to remove the preview metadata, making them permanent
+        generatorShapes.forEach(shape => {
+          // Create new meta object without generator-specific properties
+          const newMeta = { ...shape.meta }
+          delete newMeta.isGeneratorPreview
+          delete newMeta.generatorId
+          delete newMeta.isPoint
+          delete newMeta.isCurve
+          
+          this.editor.updateShape({
+            id: shape.id,
+            type: shape.type,
+            meta: newMeta
+          })
+        })
+      })
+    }
+  }
 }

@@ -358,6 +358,22 @@ export function GeneratorControls() {
                 <button onClick={() => store.start(g.id)}>Start</button>
               )}
               <button onClick={() => store.reset(g.id)}>Reset</button>
+              {g.type === 'random-walk' && (
+                <button 
+                  onClick={() => store.applyGenerator(g.id)}
+                  style={{
+                    backgroundColor: '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 4,
+                    padding: '4px 8px',
+                    cursor: 'pointer'
+                  }}
+                  title="Convert simulation to permanent shape"
+                >
+                  Apply
+                </button>
+              )}
             </div>
 
             {/* Type-specific Parameter Controls */}
