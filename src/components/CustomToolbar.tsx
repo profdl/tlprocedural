@@ -36,6 +36,14 @@ export function CustomToolbar() {
         return <TldrawUiMenuItem key="sine-wave" {...item} isSelected={selected} />
       })()}
 
+      {/* Triangle tool */}
+      {(() => {
+        const item = tools['triangle']
+        if (!item) return null
+        const selected = useIsToolSelected(item)
+        return <TldrawUiMenuItem key="triangle" {...item} isSelected={selected} />
+      })()}
+
       {/* Continue with common tools */}
       {['geo', 'arrow', 'line', 'frame', 'image'].map((id) => {
         const item = tools[id]
@@ -61,6 +69,8 @@ export function CustomToolbar() {
               'line',
               'frame',
               'image',
+              'sine-wave',
+              'triangle',
             ].includes(id)
         )
         .map((id) => {

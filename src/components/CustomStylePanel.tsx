@@ -14,7 +14,9 @@ import {
 import { ModifierControls } from './modifiers/ModifierControls'
 import { GeneratorControls } from './generators/GeneratorControls'
 import { SineWaveControls } from './shapes/SineWaveControls'
+import { TriangleControls } from './shapes/TriangleControls'
 import type { SineWaveShape } from './shapes/SineWaveShape'
+import type { TriangleShape } from './shapes/TriangleShape'
 
 type TabType = 'styles' | 'modifiers' | 'generators'
 
@@ -89,6 +91,15 @@ export const CustomStylePanel = (props: TLUiStylePanelProps) => {
               return sineWaveShapes.length > 0 ? (
                 <div className="tlui-style-panel__section">
                   <SineWaveControls shapes={sineWaveShapes} />
+                </div>
+              ) : null
+            })()}
+            {/* Show triangle controls if any selected shapes are triangles */}
+            {(() => {
+              const triangleShapes = selectedShapes.filter(shape => shape.type === 'triangle') as TriangleShape[]
+              return triangleShapes.length > 0 ? (
+                <div className="tlui-style-panel__section">
+                  <TriangleControls shapes={triangleShapes} />
                 </div>
               ) : null
             })()}

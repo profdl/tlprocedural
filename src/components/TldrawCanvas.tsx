@@ -18,6 +18,8 @@ import { isArrayClone } from './modifiers/utils'
 import { GeneratorEngine } from './generators/GeneratorEngine'
 import { SineWaveShapeUtil } from './shapes/SineWaveShape'
 import { SineWaveShapeTool } from './shapes/SineWaveTool'
+import { TriangleShapeUtil } from './shapes/TriangleShape'
+import { TriangleTool } from './shapes/TriangleTool'
 
 // Try to configure DrawShapeUtil with smoothing (may not work in all versions)
 const ConfiguredDrawShapeUtil = DrawShapeUtil.configure({
@@ -32,14 +34,15 @@ const components: TLComponents = {
   Toolbar: CustomToolbar,
 }
 
-// Custom assets: provide a custom icon for the sine-wave tool
+// Custom assets: provide custom icons for tools
 const assetUrls = {
   icons: {
     'tool-sine-wave': '/sine-wave.svg',
+    'tool-triangle': '/triangle.svg',
   },
 }
 
-// Provide a UI tool item for the sine wave so it appears in the toolbar
+// Provide UI tool items for custom shapes so they appear in the toolbar
 const uiOverrides = {
   tools(editor: Editor, tools: TLUiToolsContextType): TLUiToolsContextType {
     const newTools = { ...tools }
@@ -49,6 +52,13 @@ const uiOverrides = {
       icon: 'tool-sine-wave',
       kbd: 'y',
       onSelect: () => editor.setCurrentTool('sine-wave'),
+    } as TLUiToolItem
+    newTools['triangle'] = {
+      id: 'triangle',
+      label: 'Triangle',
+      icon: 'tool-triangle',
+      kbd: 'r',
+      onSelect: () => editor.setCurrentTool('triangle'),
     } as TLUiToolItem
     return newTools
   },
@@ -105,8 +115,8 @@ export function TldrawCanvas() {
     <div style={{ position: 'fixed', inset: 0 }}>
       <Tldraw 
         components={components}
-        shapeUtils={[ConfiguredDrawShapeUtil, SineWaveShapeUtil]}
-        tools={[SineWaveShapeTool]}
+        shapeUtils={[ConfiguredDrawShapeUtil, SineWaveShapeUtil, TriangleShapeUtil]}
+        tools={[SineWaveShapeTool, TriangleTool]}
         assetUrls={assetUrls}
         overrides={uiOverrides}
         options={editorOptions}
