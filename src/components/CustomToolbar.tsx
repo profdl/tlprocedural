@@ -20,15 +20,15 @@ export function CustomToolbar() {
 
   return (
     <DefaultToolbar>
-      {/* Core tools in a reasonable order */}
-      {['select', 'hand', 'zoom', 'draw', 'eraser', 'text', 'sticky'].map((id) => {
+      {/* Essential navigation and drawing tools */}
+      {['select', 'hand', 'zoom', 'draw', 'eraser'].map((id) => {
         const item = tools[id]
         if (!item) return null
         const selected = useIsToolSelected(item)
         return <TldrawUiMenuItem key={id} {...item} isSelected={selected} />
       })}
 
-      {/* Sine wave tool (uses the same menu item to inherit selected highlighting) */}
+      {/* Our custom shapes */}
       {(() => {
         const item = tools['sine-wave']
         if (!item) return null
@@ -36,7 +36,6 @@ export function CustomToolbar() {
         return <TldrawUiMenuItem key="sine-wave" {...item} isSelected={selected} />
       })()}
 
-      {/* Triangle tool */}
       {(() => {
         const item = tools['triangle']
         if (!item) return null
@@ -44,41 +43,13 @@ export function CustomToolbar() {
         return <TldrawUiMenuItem key="triangle" {...item} isSelected={selected} />
       })()}
 
-      {/* Continue with common tools */}
-      {['geo', 'arrow', 'line', 'frame', 'image'].map((id) => {
+      {/* Keep only arrow and line from native shapes */}
+      {['arrow', 'line'].map((id) => {
         const item = tools[id]
         if (!item) return null
         const selected = useIsToolSelected(item)
         return <TldrawUiMenuItem key={id} {...item} isSelected={selected} />
       })}
-
-      {/* Render any remaining tools not explicitly ordered above */}
-      {Object.keys(tools)
-        .filter(
-          (id) =>
-            ![
-              'select',
-              'hand',
-              'zoom',
-              'draw',
-              'eraser',
-              'text',
-              'sticky',
-              'geo',
-              'arrow',
-              'line',
-              'frame',
-              'image',
-              'sine-wave',
-              'triangle',
-            ].includes(id)
-        )
-        .map((id) => {
-          const item = tools[id]
-          if (!item) return null
-          const selected = useIsToolSelected(item)
-          return <TldrawUiMenuItem key={id} {...item} isSelected={selected} />
-        })}
     </DefaultToolbar>
   )
 }
