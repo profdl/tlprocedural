@@ -1,4 +1,4 @@
-import { BaseBoxShapeUtil, HTMLContainer, T, type TLBaseShape, type RecordProps } from 'tldraw'
+import { BaseBoxShapeUtil, HTMLContainer, T, type TLBaseShape, type RecordProps, type TLResizeInfo } from 'tldraw'
 
 export type SineWaveShape = TLBaseShape<
   'sine-wave',
@@ -44,6 +44,10 @@ export class SineWaveShapeUtil extends BaseBoxShapeUtil<SineWaveShape> {
   override component(shape: SineWaveShape) {
     const { frequency, phase, strokeWidth, color } = shape.props
     
+    // Check for flip states from metadata
+    const isFlippedX = shape.meta?.isFlippedX || false
+    const isFlippedY = shape.meta?.isFlippedY || false
+    
     // Use the drawn box as the container for the wave
     const waveWidth = shape.props.w
     const amplitude = Math.max(1, shape.props.h / 2)
@@ -56,7 +60,12 @@ export class SineWaveShapeUtil extends BaseBoxShapeUtil<SineWaveShape> {
     for (let i = 0; i <= steps; i++) {
       const x = (i / steps) * waveWidth
       const radians = (phase * Math.PI / 180) + (x * frequency * 2 * Math.PI / waveWidth)
-      const y = amplitude + amplitude * Math.sin(radians)
+      let y = amplitude + amplitude * Math.sin(radians)
+      
+      // Apply vertical flip if needed
+      if (isFlippedY) {
+        y = waveHeight - y
+      }
       
       if (i === 0) {
         points.push(`M${x},${y}`)
@@ -67,12 +76,20 @@ export class SineWaveShapeUtil extends BaseBoxShapeUtil<SineWaveShape> {
     
     const pathData = points.join(' ')
     
+    // Apply horizontal flip through CSS transform if needed
+    const transform = isFlippedX ? 'scaleX(-1)' : undefined
+    const transformOrigin = isFlippedX ? `${waveWidth / 2}px center` : undefined
+    
     return (
       <HTMLContainer>
         <svg 
           width={waveWidth} 
           height={waveHeight} 
-          style={{ overflow: 'visible' }}
+          style={{ 
+            overflow: 'visible',
+            transform,
+            transformOrigin
+          }}
         >
           <path 
             d={pathData} 
@@ -170,4 +187,56 @@ export class SineWaveShapeUtil extends BaseBoxShapeUtil<SineWaveShape> {
 
   override canResize = () => true as const
   override canBind = () => false as const
+
+  // Enable flipping by handling negative scaling
+  override onResize = (shape: SineWaveShape, info: TLResizeInfo<SineWaveShape>) => {
+    const { scaleX, scaleY } = info
+    
+    // Check for negative scaling (flipping)
+    const isFlippedX = scaleX < 0
+    const isFlippedY = scaleY < 0
+    
+    // Use absolute values for dimensions
+    const absScaleX = Math.abs(scaleX)
+    const absScaleY = Math.abs(scaleY)
+    
+    // Calculate new dimensions
+    const newW = Math.max(50, Math.round(shape.props.w * absScaleX))
+    const newH = Math.max(20, Math.round(shape.props.h * absScaleY))
+    
+    // Calculate new wave parameters
+    const newLength = newW
+    const newAmplitude = Math.max(2, Math.round(newH / 2))
+    
+    // Apply flipping to phase (horizontal flip) and/or amplitude sign (vertical flip)
+    let newPhase = shape.props.phase
+    let newAmplitudeValue = newAmplitude
+    
+    if (isFlippedX) {
+      // Horizontal flip: invert the phase to flip the wave horizontally
+      newPhase = (180 - shape.props.phase) % 360
+    }
+    
+    if (isFlippedY) {
+      // Vertical flip: we'll use a negative amplitude internally but render it correctly
+      // Store flip state in metadata for the component to handle
+    }
+    
+    return {
+      ...shape,
+      props: {
+        ...shape.props,
+        w: newW,
+        h: newH,
+        length: newLength,
+        amplitude: newAmplitudeValue,
+        phase: newPhase,
+      },
+      meta: {
+        ...shape.meta,
+        isFlippedX,
+        isFlippedY,
+      }
+    }
+  }
 }
