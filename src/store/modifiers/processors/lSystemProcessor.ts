@@ -12,7 +12,6 @@ export const LSystemProcessor: ModifierProcessor = {
   process(input: ShapeState, settings: LSystemSettings): ShapeState {
     const { iterations, angle, stepPercent } = settings
     const angleRad = (angle * Math.PI) / 180
-    const decayBase = settings.lengthDecay ?? 0.75
     const scalePerIteration = settings.scalePerIteration ?? 1.0
 
     const newInstances: ShapeInstance[] = []
@@ -21,17 +20,22 @@ export const LSystemProcessor: ModifierProcessor = {
     function addCloneAt(centerX: number, centerY: number, heading: number, source: ShapeInstance, depth: number, level: number) {
       const shapeWidth = 'w' in source.shape.props ? (source.shape.props.w as number) : 100
       const shapeHeight = 'h' in source.shape.props ? (source.shape.props.h as number) : 100
+      const scaleFactor = Math.pow(scalePerIteration, level)
+      
       // tldraw rotations assume 0 rad is along +X. Most shapes are designed upright at 0 rad.
       // Align the visual center to the turtle position and rotate with a +90° offset so that
       // a heading of -90° (up) yields 0° shape rotation (upright).
       const rotation = heading + Math.PI / 2
       const cos = Math.cos(rotation)
       const sin = Math.sin(rotation)
+      
+      // Simple approach: center the shape at the turtle position with proper rotation handling
+      // Use original dimensions for consistent positioning regardless of scale
       const centerOffsetX = (shapeWidth / 2) * (cos - 1) - (shapeHeight / 2) * sin
       const centerOffsetY = (shapeWidth / 2) * sin + (shapeHeight / 2) * (cos - 1)
       const topLeftX = centerX - shapeWidth / 2 - centerOffsetX
       const topLeftY = centerY - shapeHeight / 2 - centerOffsetY
-      const scaleFactor = Math.pow(scalePerIteration, Math.max(0, level))
+      
       const newTransform: Transform = {
         x: topLeftX,
         y: topLeftY,
@@ -52,7 +56,7 @@ export const LSystemProcessor: ModifierProcessor = {
       const nx = x + Math.cos(heading) * length
       const ny = y + Math.sin(heading) * length
       addCloneAt(nx, ny, heading, source, depth, level)
-      const nextLen = length * decayBase
+      const nextLen = length * Math.pow(scalePerIteration, level)
       const nextDepth = depth - 1
       const nextLevel = level + 1
       // Determine branch angles
@@ -67,13 +71,11 @@ export const LSystemProcessor: ModifierProcessor = {
         return rnd / 4294967296
       }
       const angleJitter = (settings.angleJitter ?? 0) * (Math.PI / 180)
-      const lengthJitterFrac = settings.lengthJitter ?? 0
       const prob = settings.branchProbability ?? 1
       baseAngles.forEach(rel => {
         if (rand() <= prob) {
           const jitterAng = angleJitter ? (rand() * 2 - 1) * angleJitter : 0
-          const jitterLen = lengthJitterFrac ? (1 + (rand() * 2 - 1) * lengthJitterFrac) : 1
-          branch(nx, ny, heading + rel + jitterAng, nextDepth, nextLen * jitterLen, nextLevel, source)
+          branch(nx, ny, heading + rel + jitterAng, nextDepth, nextLen, nextLevel, source)
         }
       })
     }
@@ -93,5 +95,3 @@ export const LSystemProcessor: ModifierProcessor = {
     return { ...input, instances: newInstances }
   }
 }
-
-

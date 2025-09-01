@@ -15,7 +15,7 @@ export function LSystemControls({ settings, onChange }: LSystemControlsProps) {
       .join('\n')
   }, [settings.rules])
 
-  const updateSetting = useCallback((key: keyof LSystemSettings, value: any) => {
+  const updateSetting = useCallback((key: keyof LSystemSettings, value: unknown) => {
     onChange({ ...settings, [key]: value })
   }, [settings, onChange])
 
@@ -68,6 +68,7 @@ export function LSystemControls({ settings, onChange }: LSystemControlsProps) {
           />
         </div>
 
+
         <ModifierPropertyInput
           label="Iterations"
           value={settings.iterations}
@@ -87,21 +88,22 @@ export function LSystemControls({ settings, onChange }: LSystemControlsProps) {
         />
 
         <ModifierPropertyInput
+          label="Scale per Level"
+          value={settings.scalePerIteration ?? 1.0}
+          min={0.2}
+          max={1.2}
+          step={0.01}
+          precision={2}
+          onChange={(value) => updateSetting('scalePerIteration', value)}
+        />
+
+        <ModifierPropertyInput
           label="Step (% of size)"
           value={settings.stepPercent}
           min={25}
           max={200}
           step={1}
           onChange={(value) => updateSetting('stepPercent', value)}
-        />
-
-        <ModifierPropertyInput
-          label="Scale per Level"
-          value={settings.scalePerIteration ?? 1.0}
-          min={0.2}
-          max={1.2}
-          step={0.01}
-          onChange={(value) => updateSetting('scalePerIteration', value)}
         />
 
       <ModifierPropertyInput
@@ -113,14 +115,6 @@ export function LSystemControls({ settings, onChange }: LSystemControlsProps) {
         onChange={(value) => updateSetting('angleJitter', value)}
       />
 
-      <ModifierPropertyInput
-        label="Length Jitter"
-        value={settings.lengthJitter ?? 0}
-        min={0}
-        max={0.5}
-        step={0.01}
-        onChange={(value) => updateSetting('lengthJitter', value)}
-      />
 
       <ModifierPropertyInput
         label="Branch Probability"
@@ -145,17 +139,7 @@ export function LSystemControls({ settings, onChange }: LSystemControlsProps) {
         />
       </div>
 
-      <ModifierPropertyInput
-        label="Length Decay"
-        value={settings.lengthDecay ?? 0.75}
-        min={0.3}
-        max={1}
-        step={0.01}
-        onChange={(value) => updateSetting('lengthDecay', value)}
-      />
       </div>
     </div>
   )
 }
-
-

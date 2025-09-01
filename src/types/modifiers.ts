@@ -99,11 +99,9 @@ export interface LSystemSettings {
   iterations: number
   angle: number // degrees
   stepPercent: number // percent of shape size used as base step
-  lengthDecay?: number // per-branch depth, 0..1
   scalePerIteration?: number // multiplicative scale applied to the shape each level (0..1)
   branches?: readonly number[] // explicit branch angles in degrees, relative to heading
   angleJitter?: number // degrees, applied per branch
-  lengthJitter?: number // 0..1 fraction, applied per branch
   branchProbability?: number // 0..1 probability per branch
   continueTrunk?: boolean // add a 0° branch to continue trunk
   seed?: number
@@ -158,4 +156,4 @@ export interface ModifierInstance {
 // Helper to create modifier IDs
 export function createModifierId(id?: string): TLModifierId {
   return `modifier:${id ?? Math.random().toString(36).substr(2, 9)}` as TLModifierId
-} 
+}
