@@ -37,7 +37,7 @@ export class SineWaveShapeUtil extends BaseBoxShapeUtil<SineWaveShape> {
       frequency: 1,
       phase: 0,
       strokeWidth: 2,
-      color: 'black',
+      color: '#000000',
     }
   }
 

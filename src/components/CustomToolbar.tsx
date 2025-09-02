@@ -20,36 +20,37 @@ export function CustomToolbar() {
 
   return (
     <DefaultToolbar>
-      {/* Essential navigation and drawing tools */}
-      {['select', 'hand', 'zoom', 'draw', 'eraser'].map((id) => {
+      {/* Essential navigation tools */}
+      {['select', 'hand', 'zoom'].map((id) => {
         const item = tools[id]
         if (!item) return null
         const selected = useIsToolSelected(item)
         return <TldrawUiMenuItem key={id} {...item} isSelected={selected} />
       })}
 
-      {/* Our custom shapes */}
+      {/* Basic custom shapes */}
+      {['circle', 'polygon', 'triangle'].map((id) => {
+        const item = tools[id]
+        if (!item) return null
+        const selected = useIsToolSelected(item)
+        return <TldrawUiMenuItem key={id} {...item} isSelected={selected} />
+      })}
+
+      {/* Drawing and path tools */}
+      {['custom-line', 'custom-draw', 'bezier'].map((id) => {
+        const item = tools[id]
+        if (!item) return null
+        const selected = useIsToolSelected(item)
+        return <TldrawUiMenuItem key={id} {...item} isSelected={selected} />
+      })}
+
+      {/* Procedural shapes */}
       {(() => {
         const item = tools['sine-wave']
         if (!item) return null
         const selected = useIsToolSelected(item)
         return <TldrawUiMenuItem key="sine-wave" {...item} isSelected={selected} />
       })()}
-
-      {(() => {
-        const item = tools['triangle']
-        if (!item) return null
-        const selected = useIsToolSelected(item)
-        return <TldrawUiMenuItem key="triangle" {...item} isSelected={selected} />
-      })()}
-
-      {/* Keep only arrow and line from native shapes */}
-      {['arrow', 'line'].map((id) => {
-        const item = tools[id]
-        if (!item) return null
-        const selected = useIsToolSelected(item)
-        return <TldrawUiMenuItem key={id} {...item} isSelected={selected} />
-      })}
     </DefaultToolbar>
   )
 }

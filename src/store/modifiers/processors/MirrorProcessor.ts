@@ -10,7 +10,7 @@ import type { TLShape } from 'tldraw'
 
 // Mirror Processor implementation - Clean slate
 export const MirrorProcessor: ModifierProcessor = {
-  process(input: ShapeState, settings: MirrorSettings, groupContext?: GroupContext): ShapeState {
+  process(input: ShapeState, settings: MirrorSettings, _groupContext?: GroupContext): ShapeState {
     const { axis, offset } = settings
     
     console.log('🪞 Mirror processor: Starting implementation for axis:', axis, 'offset:', offset)
@@ -31,7 +31,6 @@ export const MirrorProcessor: ModifierProcessor = {
       // Get shape bounds for mirroring calculations
       const shape = inputInstance.shape
       const shapeWidth = 'w' in shape.props ? shape.props.w as number : 100
-      const shapeHeight = 'h' in shape.props ? shape.props.h as number : 100
       
       // Calculate mirrored position
       // For X-axis mirroring, we flip horizontally around the shape's center + offset
@@ -104,8 +103,8 @@ function createFlippedShape(originalShape: TLShape): TLShape {
       }
       break
       
-    case 'draw':
-      // For draw shapes, we need to flip the path points
+    case 'custom-draw':
+      // For custom draw shapes, we need to flip the path points
       if ('segments' in originalShape.props) {
         const segments = originalShape.props.segments as any[]
         const width = ('w' in originalShape.props ? originalShape.props.w : 100) as number
@@ -125,27 +124,8 @@ function createFlippedShape(originalShape: TLShape): TLShape {
       }
       break
       
-    case 'geo':
-      // For geo shapes, no additional processing needed - the visual flip will be handled by CSS transform
-      break
-      
-    case 'arrow':
-      // For arrows, flip the start and end points
-      if ('start' in originalShape.props && 'end' in originalShape.props) {
-        const start = originalShape.props.start as any
-        const end = originalShape.props.end as any
-        const width = ('w' in originalShape.props ? originalShape.props.w : 100) as number
-        
-        flippedShape.props = {
-          ...originalShape.props,
-          start: { ...start, x: width - start.x },
-          end: { ...end, x: width - end.x }
-        }
-      }
-      break
-      
-    case 'line':
-      // For lines, flip the handles
+    case 'custom-line':
+      // For custom lines, flip the handles
       if ('handles' in originalShape.props) {
         const handles = originalShape.props.handles as Record<string, any>
         const width = ('w' in originalShape.props ? originalShape.props.w : 100) as number
@@ -161,6 +141,16 @@ function createFlippedShape(originalShape: TLShape): TLShape {
           ...originalShape.props,
           handles: flippedHandles
         }
+      }
+      break
+      
+    case 'circle':
+    case 'polygon':
+    case 'bezier':
+      // For custom shapes, add flip metadata that can be used by CSS transforms
+      flippedShape.meta = {
+        ...originalShape.meta,
+        isFlippedX: true
       }
       break
       
