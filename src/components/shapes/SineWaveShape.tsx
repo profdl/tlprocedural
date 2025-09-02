@@ -188,6 +188,37 @@ export class SineWaveShapeUtil extends BaseBoxShapeUtil<SineWaveShape> {
   override canResize = () => true as const
   override canBind = () => false as const
 
+  // Native tldraw flip support - called by editor.flipShapes()
+  onFlip = (shape: SineWaveShape, direction: 'horizontal' | 'vertical') => {
+    const currentFlippedX = shape.meta?.isFlippedX || false
+    const currentFlippedY = shape.meta?.isFlippedY || false
+    
+    let newFlippedX = currentFlippedX
+    let newFlippedY = currentFlippedY
+    let newPhase = shape.props.phase
+    
+    if (direction === 'horizontal') {
+      newFlippedX = !currentFlippedX
+      // Horizontal flip: invert the phase to flip the wave horizontally
+      newPhase = (180 - shape.props.phase) % 360
+    } else {
+      newFlippedY = !currentFlippedY
+    }
+    
+    return {
+      ...shape,
+      props: {
+        ...shape.props,
+        phase: newPhase,
+      },
+      meta: {
+        ...shape.meta,
+        isFlippedX: newFlippedX,
+        isFlippedY: newFlippedY,
+      }
+    }
+  }
+
   // Enable flipping by handling negative scaling
   override onResize = (shape: SineWaveShape, info: TLResizeInfo<SineWaveShape>) => {
     const { scaleX, scaleY } = info

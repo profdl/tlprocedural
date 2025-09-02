@@ -1,4 +1,5 @@
-import { BaseBoxShapeUtil, HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle } from 'tldraw'
+import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle } from 'tldraw'
+import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 
 export type LineShape = TLBaseShape<
   'custom-line',
@@ -15,7 +16,7 @@ export type LineShape = TLBaseShape<
   }
 >
 
-export class LineShapeUtil extends BaseBoxShapeUtil<LineShape> {
+export class LineShapeUtil extends FlippableShapeUtil<LineShape> {
   static override type = 'custom-line' as const
 
   static override props: RecordProps<LineShape> = {

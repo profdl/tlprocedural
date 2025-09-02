@@ -1,4 +1,5 @@
-import { BaseBoxShapeUtil, HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle } from 'tldraw'
+import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle } from 'tldraw'
+import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 
 export interface BezierPoint {
   x: number
@@ -20,7 +21,7 @@ export type BezierShape = TLBaseShape<
   }
 >
 
-export class BezierShapeUtil extends BaseBoxShapeUtil<BezierShape> {
+export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   static override type = 'bezier' as const
 
   static override props: RecordProps<BezierShape> = {
@@ -59,6 +60,9 @@ export class BezierShapeUtil extends BaseBoxShapeUtil<BezierShape> {
   override component(shape: BezierShape) {
     const { points, color, strokeWidth, fill, isClosed } = shape.props
     
+    // Get flip transform from the FlippableShapeUtil
+    const flipTransform = this.getFlipTransform(shape)
+    
     if (points.length < 2) {
       return <HTMLContainer><svg width={shape.props.w} height={shape.props.h}></svg></HTMLContainer>
     }
@@ -71,7 +75,10 @@ export class BezierShapeUtil extends BaseBoxShapeUtil<BezierShape> {
         <svg 
           width={shape.props.w} 
           height={shape.props.h} 
-          style={{ overflow: 'visible' }}
+          style={{ 
+            overflow: 'visible',
+            ...flipTransform
+          }}
         >
           <path
             d={pathData}
@@ -302,6 +309,44 @@ export class BezierShapeUtil extends BaseBoxShapeUtil<BezierShape> {
     }
   }
 
-  override canResize = () => false as const // Bezier shapes shouldn't be resized directly
+  // Custom flip behavior for Bezier curves
+  protected override onFlipCustom(
+    shape: BezierShape,
+    direction: 'horizontal' | 'vertical',
+    isFlippedX: boolean,
+    isFlippedY: boolean
+  ): BezierShape {
+    // For Bezier curves, we need to flip the actual point coordinates
+    const { w, h } = shape.props
+    
+    const flippedPoints = shape.props.points.map(point => {
+      let newPoint = { ...point }
+      
+      if (direction === 'horizontal' || isFlippedX) {
+        newPoint.x = w - point.x
+        if (point.cp1) newPoint.cp1 = { x: w - point.cp1.x, y: point.cp1.y }
+        if (point.cp2) newPoint.cp2 = { x: w - point.cp2.x, y: point.cp2.y }
+      }
+      
+      if (direction === 'vertical' || isFlippedY) {
+        newPoint.y = h - point.y
+        if (point.cp1) newPoint.cp1 = { x: newPoint.cp1?.x || point.cp1.x, y: h - point.cp1.y }
+        if (point.cp2) newPoint.cp2 = { x: newPoint.cp2?.x || point.cp2.x, y: h - point.cp2.y }
+      }
+      
+      return newPoint
+    })
+    
+    return {
+      ...shape,
+      props: {
+        ...shape.props,
+        points: flippedPoints
+      }
+    }
+  }
+
+  // Allow resize for flipping support, but disable handles if needed
+  override canResize = () => true as const
   override canBind = () => true as const
 }

@@ -1,4 +1,5 @@
-import { BaseBoxShapeUtil, HTMLContainer, T, type TLBaseShape, type RecordProps } from 'tldraw'
+import { HTMLContainer, T, type TLBaseShape, type RecordProps } from 'tldraw'
+import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 
 export type DrawShape = TLBaseShape<
   'custom-draw',
@@ -17,7 +18,7 @@ export type DrawShape = TLBaseShape<
   }
 >
 
-export class DrawShapeUtil extends BaseBoxShapeUtil<DrawShape> {
+export class DrawShapeUtil extends FlippableShapeUtil<DrawShape> {
   static override type = 'custom-draw' as const
 
   static override props: RecordProps<DrawShape> = {
@@ -183,6 +184,7 @@ export class DrawShapeUtil extends BaseBoxShapeUtil<DrawShape> {
     }
   }
 
-  override canResize = () => false as const // Drawing shapes shouldn't be resized
+  // Allow resize for flipping support
+  override canResize = () => true as const
   override canBind = () => false as const
 }

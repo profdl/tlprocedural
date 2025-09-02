@@ -118,12 +118,11 @@ export class CircleShapeUtil extends FlippableShapeUtil<CircleShape> {
   }
 
   // Custom behavior for circle-specific properties
-  protected override onFlip(
+  protected override onFlipCustom(
     shape: CircleShape, 
+    _direction: 'horizontal' | 'vertical',
     _isFlippedX: boolean, 
-    _isFlippedY: boolean, 
-    _scaleX: number, 
-    _scaleY: number
+    _isFlippedY: boolean
   ): CircleShape {
     // For circles/ellipses, flipping doesn't require any special property adjustments
     return shape

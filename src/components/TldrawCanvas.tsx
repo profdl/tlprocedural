@@ -33,6 +33,8 @@ import { DrawShapeUtil as CustomDrawShapeUtil } from './shapes/DrawShape'
 import { DrawTool as CustomDrawTool } from './shapes/DrawTool'
 import { BezierShapeUtil } from './shapes/BezierShape'
 import { BezierTool } from './shapes/BezierTool'
+import { CustomArrowShapeUtil } from './shapes/ArrowShape'
+import { CustomArrowTool } from './shapes/ArrowTool'
 
 // Using only custom shapes - no native tldraw shapes
 
@@ -177,7 +179,8 @@ const lucideIcons = {
   minus: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>',
   penTool: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.707 21.293a1 1 0 0 1-1.414 0l-1.586-1.586a1 1 0 0 1 0-1.414l5.586-5.586a1 1 0 0 1 1.414 0l1.586 1.586a1 1 0 0 1 0 1.414z"/><path d="m18 13-1.375-6.874a1 1 0 0 0-.746-.776L3.235 2.028a1 1 0 0 0-1.207 1.207L5.35 15.879a1 1 0 0 0 .776.746L13 18"/><path d="m2.3 2.3 7.286 7.286"/><circle cx="11" cy="11" r="2"/></svg>',
   waves: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>',
-  spline: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><path d="M5 17A12 12 0 0 1 17 5"/></svg>'
+  spline: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><path d="M5 17A12 12 0 0 1 17 5"/></svg>',
+  arrow: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>'
 }
 
 // Provide UI tool items for custom shapes so they appear in the toolbar
@@ -252,6 +255,14 @@ const uiOverrides = {
       onSelect: () => editor.setCurrentTool('bezier'),
     } as TLUiToolItem
     
+    newTools['custom-arrow'] = {
+      id: 'custom-arrow',
+      label: 'Arrow',
+      icon: 'tool-arrow',
+      kbd: 'a',
+      onSelect: () => editor.setCurrentTool('custom-arrow'),
+    } as TLUiToolItem
+    
     return newTools
   },
 }
@@ -277,6 +288,7 @@ export function TldrawCanvas() {
       'tool-draw': createIconDataUrl(lucideIcons.penTool),
       'tool-bezier': createIconDataUrl(lucideIcons.spline),
       'tool-sine-wave': createIconDataUrl(lucideIcons.waves),
+      'tool-arrow': createIconDataUrl(lucideIcons.arrow),
     }
   }), [])
   const handleMount = (editor: Editor) => {
@@ -336,7 +348,8 @@ export function TldrawCanvas() {
           CircleShapeUtil, 
           LineShapeUtil, 
           CustomDrawShapeUtil, 
-          BezierShapeUtil
+          BezierShapeUtil,
+          CustomArrowShapeUtil
         ]}
         tools={[
           SineWaveShapeTool, 
@@ -345,7 +358,8 @@ export function TldrawCanvas() {
           CircleTool, 
           LineTool, 
           CustomDrawTool, 
-          BezierTool
+          BezierTool,
+          CustomArrowTool
         ]}
         overrides={uiOverrides}
         options={editorOptions}
