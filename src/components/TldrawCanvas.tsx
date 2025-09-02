@@ -5,11 +5,15 @@ import {
   type Editor,
   type TLShapeId,
   type TLUiToolsContextType,
-  type TLUiToolItem
+  type TLUiToolItem,
+  useEditor,
+  useIsDarkMode,
+  useValue,
+  approximately
 } from 'tldraw'
 import type { TLComponents } from 'tldraw'
 import 'tldraw/tldraw.css'
-import { useMemo } from 'react'
+import { useMemo, useLayoutEffect, useRef } from 'react'
 import { CustomStylePanel } from './CustomStylePanel'
 import { CustomToolbar } from './CustomToolbar'
 import { ModifierOverlay } from './ModifierRenderer'
@@ -32,9 +36,126 @@ import { BezierTool } from './shapes/BezierTool'
 
 // Using only custom shapes - no native tldraw shapes
 
+// Custom Grid Component inspired by cuttle.xyz
+const CuttleGrid = ({ size, ...camera }: { size: number } & any) => {
+  const editor = useEditor()
+
+  const screenBounds = useValue('screenBounds', () => editor.getViewportScreenBounds(), [])
+  const devicePixelRatio = useValue('dpr', () => editor.getInstanceState().devicePixelRatio, [])
+  const isDarkMode = useIsDarkMode()
+
+  const canvas = useRef<HTMLCanvasElement>(null)
+
+  useLayoutEffect(() => {
+    if (!canvas.current) return
+    
+    const canvasW = screenBounds.w * devicePixelRatio
+    const canvasH = screenBounds.h * devicePixelRatio
+    canvas.current.width = canvasW
+    canvas.current.height = canvasH
+
+    const ctx = canvas.current?.getContext('2d')
+    if (!ctx) return
+
+    ctx.clearRect(0, 0, canvasW, canvasH)
+
+    const pageViewportBounds = editor.getViewportPageBounds()
+
+    const startPageX = Math.ceil(pageViewportBounds.minX / size) * size
+    const startPageY = Math.ceil(pageViewportBounds.minY / size) * size
+    const endPageX = Math.floor(pageViewportBounds.maxX / size) * size
+    const endPageY = Math.floor(pageViewportBounds.maxY / size) * size
+    const numRows = Math.round((endPageY - startPageY) / size)
+    const numCols = Math.round((endPageX - startPageX) / size)
+
+    // Colors for cuttle.xyz style grid
+    const minorLineColor = isDarkMode ? '#333' : '#f0f0f0'
+    const majorLineColor = isDarkMode ? '#555' : '#ddd'
+    const axisLineColor = isDarkMode ? '#777' : '#aaa'
+
+    // Draw minor grid lines (every grid unit)
+    ctx.strokeStyle = minorLineColor
+    ctx.lineWidth = 1
+
+    for (let row = 0; row <= numRows; row++) {
+      const pageY = startPageY + row * size
+      const canvasY = (pageY + camera.y) * camera.z * devicePixelRatio
+      
+      ctx.beginPath()
+      ctx.moveTo(0, canvasY)
+      ctx.lineTo(canvasW, canvasY)
+      ctx.stroke()
+    }
+    
+    for (let col = 0; col <= numCols; col++) {
+      const pageX = startPageX + col * size
+      const canvasX = (pageX + camera.x) * camera.z * devicePixelRatio
+      
+      ctx.beginPath()
+      ctx.moveTo(canvasX, 0)
+      ctx.lineTo(canvasX, canvasH)
+      ctx.stroke()
+    }
+
+    // Draw major grid lines (every 10 grid units)
+    ctx.strokeStyle = majorLineColor
+    ctx.lineWidth = 1
+
+    for (let row = 0; row <= numRows; row++) {
+      const pageY = startPageY + row * size
+      if (approximately(pageY % (size * 10), 0)) {
+        const canvasY = (pageY + camera.y) * camera.z * devicePixelRatio
+        
+        ctx.beginPath()
+        ctx.moveTo(0, canvasY)
+        ctx.lineTo(canvasW, canvasY)
+        ctx.stroke()
+      }
+    }
+    
+    for (let col = 0; col <= numCols; col++) {
+      const pageX = startPageX + col * size
+      if (approximately(pageX % (size * 10), 0)) {
+        const canvasX = (pageX + camera.x) * camera.z * devicePixelRatio
+        
+        ctx.beginPath()
+        ctx.moveTo(canvasX, 0)
+        ctx.lineTo(canvasX, canvasH)
+        ctx.stroke()
+      }
+    }
+
+    // Draw center axis lines at origin (0,0) - darker than major lines
+    ctx.strokeStyle = axisLineColor
+    ctx.lineWidth = 2
+
+    // Draw X-axis (horizontal line at Y=0 in page space)
+    const originCanvasY = (0 + camera.y) * camera.z * devicePixelRatio
+    if (originCanvasY >= 0 && originCanvasY <= canvasH) {
+      ctx.beginPath()
+      ctx.moveTo(0, originCanvasY)
+      ctx.lineTo(canvasW, originCanvasY)
+      ctx.stroke()
+    }
+
+    // Draw Y-axis (vertical line at X=0 in page space)
+    const originCanvasX = (0 + camera.x) * camera.z * devicePixelRatio
+    if (originCanvasX >= 0 && originCanvasX <= canvasW) {
+      ctx.beginPath()
+      ctx.moveTo(originCanvasX, 0)
+      ctx.lineTo(originCanvasX, canvasH)
+      ctx.stroke()
+    }
+
+  }, [screenBounds, camera, size, devicePixelRatio, editor, isDarkMode])
+
+  return <canvas className="tl-grid" ref={canvas} />
+}
+
 const components: TLComponents = {
   StylePanel: CustomStylePanel,
   Toolbar: CustomToolbar,
+  Grid: CuttleGrid,
 }
 
 // Helper function to create SVG data URLs for Lucide icons
@@ -159,6 +280,14 @@ export function TldrawCanvas() {
     }
   }), [])
   const handleMount = (editor: Editor) => {
+    // Enable grid mode to show the custom grid
+    editor.updateInstanceState({ 
+      isGridMode: true
+    })
+    
+    // Enable snap mode using the user preferences
+    editor.user.updateUserPreferences({ isSnapMode: true })
+    
     // Set up side effects to keep array clone shapes locked and non-interactive
     
     // Prevent array clones from being unlocked
