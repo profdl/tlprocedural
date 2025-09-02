@@ -300,6 +300,16 @@ export function TldrawCanvas() {
     // Enable snap mode using the user preferences
     editor.user.updateUserPreferences({ isSnapMode: true })
     
+    // Center the view on the origin (0,0)
+    editor.zoomToFit()
+    editor.resetZoom()
+    const viewportBounds = editor.getViewportScreenBounds()
+    editor.setCamera({
+      x: viewportBounds.w / 2,
+      y: viewportBounds.h / 2,
+      z: editor.getCamera().z
+    })
+    
     // Set up side effects to keep array clone shapes locked and non-interactive
     
     // Prevent array clones from being unlocked
