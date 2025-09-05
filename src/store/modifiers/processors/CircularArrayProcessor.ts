@@ -20,40 +20,63 @@ export const CircularArrayProcessor: ModifierProcessor = {
       return processGroupCircularArray(input, settings, groupContext, editor)
     }
     
+    // Calculate the center of all instances for group-based circular positioning
+    const instanceCenterX = input.instances.reduce((sum, inst) => sum + inst.transform.x, 0) / input.instances.length
+    const instanceCenterY = input.instances.reduce((sum, inst) => sum + inst.transform.y, 0) / input.instances.length
+    
+    // Create a reference shape at the group center for circular positioning
+    const referenceShape = {
+      ...input.instances[0].shape,
+      x: instanceCenterX,
+      y: instanceCenterY,
+      rotation: 0
+    }
+    
+    // Calculate circular positions once for the group center
+    const circularPositions = []
+    for (let i = 0; i < count; i++) {
+      const position = calculateCircularPosition(
+        referenceShape,
+        i + 1,
+        centerX || 0,
+        centerY || 0,
+        radius,
+        startAngle,
+        endAngle,
+        rotateEach || 0,
+        rotateAll || 0,
+        alignToTangent || false,
+        count,
+        editor
+      )
+      circularPositions.push(position)
+    }
+    
     // For each existing instance, create the circular array
     input.instances.forEach(inputInstance => {
-      // Create circular array copies using the improved transform utilities
+      // Calculate this instance's offset from the group center
+      const offsetFromCenterX = inputInstance.transform.x - instanceCenterX
+      const offsetFromCenterY = inputInstance.transform.y - instanceCenterY
+      
       for (let i = 0; i < count; i++) {
-        // Create a temporary shape with the current instance's transform position
-        const transformedShape = {
-          ...inputInstance.shape,
-          x: inputInstance.transform.x,
-          y: inputInstance.transform.y,
-          rotation: inputInstance.transform.rotation
-        }
+        const circularPos = circularPositions[i]
         
-        // Use the new calculateCircularPosition function with the transformed position
-        const position = calculateCircularPosition(
-          transformedShape,
-          i + 1, // Add 1 since calculateCircularPosition expects 1-based indexing
-          centerX || 0,
-          centerY || 0,
-          radius,
-          startAngle,
-          endAngle,
-          rotateEach || 0,
-          rotateAll || 0,
-          alignToTangent || false,
-          count,
-          editor
-        )
+        // Apply the circular position's rotation to the offset
+        const cos = Math.cos(circularPos.rotation)
+        const sin = Math.sin(circularPos.rotation)
+        const rotatedOffsetX = offsetFromCenterX * cos - offsetFromCenterY * sin
+        const rotatedOffsetY = offsetFromCenterX * sin + offsetFromCenterY * cos
+        
+        // Calculate final position
+        const finalX = circularPos.x + rotatedOffsetX
+        const finalY = circularPos.y + rotatedOffsetY
         
         const newTransform: Transform = {
-          x: position.x,
-          y: position.y,
-          rotation: inputInstance.transform.rotation + position.rotation,
-          scaleX: inputInstance.transform.scaleX * position.scaleX,
-          scaleY: inputInstance.transform.scaleY * position.scaleY
+          x: finalX,
+          y: finalY,
+          rotation: inputInstance.transform.rotation + circularPos.rotation,
+          scaleX: inputInstance.transform.scaleX * circularPos.scaleX,
+          scaleY: inputInstance.transform.scaleY * circularPos.scaleY
         }
         
         const newInstance: ShapeInstance = {

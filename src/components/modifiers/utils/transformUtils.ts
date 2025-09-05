@@ -157,8 +157,8 @@ export function calculateCircularPosition(
   
   let baseRotation = 0
   if (pointToCenter) {
-    const angleFromCenter = Math.atan2(circleY - centerPosY, circleX - centerPosX)
-    baseRotation = angleFromCenter + Math.PI
+    // For align to tangent, use the angle perpendicular to the radius (tangent direction)
+    baseRotation = angle + Math.PI / 2
   }
   
   const rotateAllRadians = degreesToRadians(rotateAll || 0)
