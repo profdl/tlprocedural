@@ -6,7 +6,7 @@ import type {
   CircularArraySettings,
   GroupContext
 } from '../../../types/modifiers'
-import { calculateCircularPosition } from '../../../components/modifiers/utils'
+import { calculateCircularPosition, getShapeDimensions } from '../../../components/modifiers/utils'
 
 // Circular Array Processor implementation
 export const CircularArrayProcessor: ModifierProcessor = {
@@ -20,19 +20,36 @@ export const CircularArrayProcessor: ModifierProcessor = {
       return processGroupCircularArray(input, settings, groupContext, editor)
     }
     
-    // Calculate the center of all instances for group-based circular positioning
-    const instanceCenterX = input.instances.reduce((sum, inst) => sum + inst.transform.x, 0) / input.instances.length
-    const instanceCenterY = input.instances.reduce((sum, inst) => sum + inst.transform.y, 0) / input.instances.length
+    // Calculate the geometric center of the linear array entity
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     
-    // Create a reference shape at the group center for circular positioning
+    input.instances.forEach(inst => {
+      const { width, height } = getShapeDimensions(inst.shape)
+      const left = inst.transform.x
+      const right = inst.transform.x + width
+      const top = inst.transform.y
+      const bottom = inst.transform.y + height
+      
+      minX = Math.min(minX, left)
+      maxX = Math.max(maxX, right)
+      minY = Math.min(minY, top)
+      maxY = Math.max(maxY, bottom)
+    })
+    
+    // The true center of the linear array entity
+    const entityCenterX = (minX + maxX) / 2
+    const entityCenterY = (minY + maxY) / 2
+    
+    // Create a reference shape at the entity center for circular positioning
     const referenceShape = {
       ...input.instances[0].shape,
-      x: instanceCenterX,
-      y: instanceCenterY,
+      x: entityCenterX,
+      y: entityCenterY,
       rotation: 0
     }
     
     // Calculate circular positions once for the group center
+    // Use alignToTangent=false for positioning to keep positions consistent
     const circularPositions = []
     for (let i = 0; i < count; i++) {
       const position = calculateCircularPosition(
@@ -45,18 +62,32 @@ export const CircularArrayProcessor: ModifierProcessor = {
         endAngle,
         rotateEach || 0,
         rotateAll || 0,
-        alignToTangent || false,
+        false, // Always false for positioning - we'll handle tangent rotation separately
         count,
         editor
       )
+      
+      // Calculate tangent rotation separately if needed
+      const totalAngle = endAngle - startAngle
+      const angleStep = totalAngle / (count - 1)
+      const angle = (startAngle + (angleStep * i)) * Math.PI / 180
+      
+      let tangentRotation = 0
+      if (alignToTangent) {
+        tangentRotation = angle + Math.PI / 2
+      }
+      
+      // Add tangent rotation to the position rotation
+      position.rotation += tangentRotation
+      
       circularPositions.push(position)
     }
     
     // For each existing instance, create the circular array
     input.instances.forEach(inputInstance => {
-      // Calculate this instance's offset from the group center
-      const offsetFromCenterX = inputInstance.transform.x - instanceCenterX
-      const offsetFromCenterY = inputInstance.transform.y - instanceCenterY
+      // Calculate this instance's offset from the entity center
+      const offsetFromCenterX = inputInstance.transform.x - entityCenterX
+      const offsetFromCenterY = inputInstance.transform.y - entityCenterY
       
       for (let i = 0; i < count; i++) {
         const circularPos = circularPositions[i]
