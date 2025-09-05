@@ -6,7 +6,6 @@ import type {
   MirrorSettings,
   GroupContext
 } from '../../../types/modifiers'
-import type { TLShape } from 'tldraw'
 
 // Mirror Processor implementation - Clean slate
 export const MirrorProcessor: ModifierProcessor = {
