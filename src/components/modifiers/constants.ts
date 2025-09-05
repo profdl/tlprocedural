@@ -27,7 +27,7 @@ export const DEFAULT_SETTINGS = {
     centerY: 0,
     rotateEach: 0,
     rotateAll: 0,
-    pointToCenter: false
+    alignToTangent: false
   },
   [MODIFIER_TYPES.GRID_ARRAY]: {
     rows: 3,

@@ -54,10 +54,11 @@ export function CircularArrayControls({ settings, onChange }: CircularArrayContr
         />
         
         <ModifierCheckboxInput
-          label="Point to Center"
-          checked={settings.pointToCenter}
-          onChange={(checked) => updateSetting('pointToCenter', checked)}
+          label="Align to Tangent"
+          checked={settings.alignToTangent || false}
+          onChange={(checked) => updateSetting('alignToTangent', checked)}
         />
+        
       </div>
     </div>
   )
