@@ -14,7 +14,7 @@ import {
   MirrorProcessor,
   LSystemProcessor
 } from '../processors'
-import { findTopLevelGroup, calculateGroupBounds } from '../../../components/modifiers/utils'
+import { findTopLevelGroup, getGroupPageBounds, getGroupChildShapes } from '../../../components/modifiers/utils'
 
 /**
  * Refactored ModifierStack class
@@ -82,7 +82,7 @@ export class ModifierStack {
       const processor = ModifierStack.getProcessor(modifier.type)
       if (processor) {
         const previousInstanceCount = currentState.instances.length
-        currentState = processor.process(currentState, modifier.props)
+        currentState = processor.process(currentState, modifier.props, undefined, editor)
         const newInstanceCount = currentState.instances.length
         
         if (enabledModifiers.length > 1) {
@@ -107,26 +107,9 @@ export class ModifierStack {
     modifiers: TLModifier[],
     editor: Editor
   ): ShapeState {
-    // Get all shapes in the group
-    const groupShapeIds = editor.getShapeAndDescendantIds([group.id])
-    const groupShapes = Array.from(groupShapeIds)
-      .map(id => editor.getShape(id))
-      .filter(Boolean) as TLShape[]
-    
-    // Filter out the group shape itself - we only want child shapes for bounds calculation
-    const childShapes = groupShapes.filter(shape => shape.id !== group.id)
-    
-    console.log('Child shapes for bounds calculation:', childShapes.map(s => ({
-      id: s.id,
-      type: s.type,
-      x: s.x,
-      y: s.y,
-      hasW: 'w' in s.props,
-      hasH: 'h' in s.props
-    })))
-    
-    // Calculate group bounds using top-left corner as reference
-    const groupBounds = calculateGroupBounds(childShapes)
+    // Use TLDraw's built-in group utilities
+    const childShapes = getGroupChildShapes(group, editor)
+    const groupBounds = getGroupPageBounds(group, editor)
     const groupTopLeft = {
       x: groupBounds.minX,
       y: groupBounds.minY
@@ -134,7 +117,6 @@ export class ModifierStack {
     
     console.log('Processing group modifiers:', {
       groupId: group.id,
-      allGroupShapes: groupShapes.length,
       childShapes: childShapes.length,
       groupBounds,
       groupTopLeft,
@@ -146,7 +128,7 @@ export class ModifierStack {
     })
     
     // Create initial state with child shapes in the group, not just the selected one
-    const allInstances = childShapes.map((groupShape, index) => {
+    const allInstances = childShapes.map((groupShape: TLShape, index: number) => {
       console.log(`Group shape ${index}:`, {
         id: groupShape.id,
         type: groupShape.type,
@@ -205,7 +187,7 @@ export class ModifierStack {
           }
         }
         console.log('processGroupModifiers: Calling processor with groupContext:', groupContext)
-        currentState = processor.process(currentState, modifier.props, groupContext)
+        currentState = processor.process(currentState, modifier.props, groupContext, editor)
         const newInstanceCount = currentState.instances.length
         
         console.log(`Group modifier ${modifier.type}: ${previousInstanceCount} → ${newInstanceCount} instances`)

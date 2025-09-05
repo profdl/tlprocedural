@@ -6,137 +6,46 @@ import type {
   CircularArraySettings,
   GroupContext
 } from '../../../types/modifiers'
+import { calculateCircularPosition } from '../../../components/modifiers/utils'
 
 // Circular Array Processor implementation
 export const CircularArrayProcessor: ModifierProcessor = {
-  process(input: ShapeState, settings: CircularArraySettings, groupContext?: GroupContext): ShapeState {
+  process(input: ShapeState, settings: CircularArraySettings, groupContext?: GroupContext, editor?: any): ShapeState {
     const { count, radius, startAngle, endAngle, centerX, centerY, rotateAll, rotateEach, alignToTangent } = settings
     
     const newInstances: ShapeInstance[] = []
     
     // Check if this is a group modifier
     if (groupContext) {
-      return processGroupCircularArray(input, settings, groupContext)
+      return processGroupCircularArray(input, settings, groupContext, editor)
     }
     
     // For each existing instance, create the circular array
     input.instances.forEach(inputInstance => {
-      // Get shape dimensions to calculate offset
-      const shapeWidth = 'w' in inputInstance.shape.props ? (inputInstance.shape.props.w as number) : 100
-      const shapeHeight = 'h' in inputInstance.shape.props ? (inputInstance.shape.props.h as number) : 100
-      
-      // Calculate the offset needed to move the array center so the original shape becomes the first position
-      const firstAngle = startAngle * Math.PI / 180
-      let offsetX = Math.cos(firstAngle) * radius
-      let offsetY = Math.sin(firstAngle) * radius
-      
-      
-      // Calculate center point relative to the instance CENTER (not top-left), offset so original becomes first position
-      const shapeCenterX = inputInstance.transform.x + shapeWidth / 2
-      const shapeCenterY = inputInstance.transform.y + shapeHeight / 2
-      const centerPointX = shapeCenterX + (centerX || 0) - offsetX
-      const centerPointY = shapeCenterY + (centerY || 0) - offsetY
-      
-      const totalAngle = endAngle - startAngle
-      const angleStep = totalAngle / (count - 1)
-      
-      // Create circular array copies (including the original at the first position)
+      // Create circular array copies using the improved transform utilities
       for (let i = 0; i < count; i++) {
-        const angle = (startAngle + (angleStep * i)) * Math.PI / 180
+        // Use the new calculateCircularPosition function
+        const position = calculateCircularPosition(
+          inputInstance.shape,
+          i + 1, // Add 1 since calculateCircularPosition expects 1-based indexing
+          centerX || 0,
+          centerY || 0,
+          radius,
+          startAngle,
+          endAngle,
+          rotateEach || 0,
+          rotateAll || 0,
+          alignToTangent || false,
+          count,
+          editor
+        )
         
-        // For the first instance (i=0), position it at the start angle in the circle
-        if (i === 0) {
-          const x = centerPointX + Math.cos(angle) * radius
-          const y = centerPointY + Math.sin(angle) * radius
-          
-          
-          // Calculate rotation: if aligning to tangent, use tangent as base rotation, otherwise use source rotation
-          let baseRotation = inputInstance.transform.rotation
-          if (alignToTangent) {
-            // Tangent direction is perpendicular to radius (angle + 90°)
-            baseRotation = angle + Math.PI / 2
-          }
-          
-          // Add additional rotations on top of base rotation
-          const rotateAllRadians = (rotateAll || 0) * Math.PI / 180
-          const rotateEachRadians = (rotateEach || 0) * i * Math.PI / 180
-          const finalRotation = baseRotation + rotateAllRadians + rotateEachRadians
-          
-          // IMPORTANT: Compensate for tldraw's rotation behavior
-          // tldraw rotates around the top-left corner, so we need to adjust the position
-          // to make it appear as if it's rotating around the center
-          const cos = Math.cos(finalRotation)
-          const sin = Math.sin(finalRotation)
-          
-          // Calculate how much the center moves when rotating around top-left
-          const centerOffsetX = (shapeWidth / 2) * (cos - 1) - (shapeHeight / 2) * sin
-          const centerOffsetY = (shapeWidth / 2) * sin + (shapeHeight / 2) * (cos - 1)
-          
-          // Adjust the final position to compensate for tldraw's rotation behavior
-          const finalX = x - shapeWidth / 2 - centerOffsetX
-          const finalY = y - shapeHeight / 2 - centerOffsetY
-
-          const newTransform: Transform = {
-            x: finalX,
-            y: finalY,
-            rotation: finalRotation,
-            scaleX: inputInstance.transform.scaleX,
-            scaleY: inputInstance.transform.scaleY
-          }
-          
-          const newInstance: ShapeInstance = {
-            shape: { ...inputInstance.shape },
-            transform: newTransform,
-            index: newInstances.length,
-            metadata: {
-              ...inputInstance.metadata,
-              arrayIndex: i,
-              sourceInstance: inputInstance.index,
-              isFirstClone: true // Mark this as the first clone to hide it
-            }
-          }
-          
-          newInstances.push(newInstance)
-          continue
-        }
-        
-        // For other instances, calculate circular positions
-        const x = centerPointX + Math.cos(angle) * radius
-        const y = centerPointY + Math.sin(angle) * radius
-        
-        
-        // Calculate rotation: if aligning to tangent, use tangent as base rotation, otherwise use source rotation
-        let baseRotation = inputInstance.transform.rotation
-        if (alignToTangent) {
-          // Tangent direction is perpendicular to radius (angle + 90°)
-          baseRotation = angle + Math.PI / 2
-        }
-        
-        // Add additional rotations on top of base rotation
-        const rotateAllRadians = (rotateAll || 0) * Math.PI / 180
-        const rotateEachRadians = (rotateEach || 0) * i * Math.PI / 180
-        const finalRotation = baseRotation + rotateAllRadians + rotateEachRadians
-        
-        // IMPORTANT: Compensate for tldraw's rotation behavior
-        // tldraw rotates around the top-left corner, so we need to adjust the position
-        // to make it appear as if it's rotating around the center
-        const cos = Math.cos(finalRotation)
-        const sin = Math.sin(finalRotation)
-        
-        // Calculate how much the center moves when rotating around top-left
-        const centerOffsetX = (shapeWidth / 2) * (cos - 1) - (shapeHeight / 2) * sin
-        const centerOffsetY = (shapeWidth / 2) * sin + (shapeHeight / 2) * (cos - 1)
-        
-        // Adjust the final position to compensate for tldraw's rotation behavior
-        const finalX = x - shapeWidth / 2 - centerOffsetX
-        const finalY = y - shapeHeight / 2 - centerOffsetY
-
         const newTransform: Transform = {
-          x: finalX,
-          y: finalY,
-          rotation: finalRotation, // Apply all rotations
-          scaleX: inputInstance.transform.scaleX,
-          scaleY: inputInstance.transform.scaleY
+          x: position.x,
+          y: position.y,
+          rotation: position.rotation,
+          scaleX: inputInstance.transform.scaleX * position.scaleX,
+          scaleY: inputInstance.transform.scaleY * position.scaleY
         }
         
         const newInstance: ShapeInstance = {
@@ -146,7 +55,8 @@ export const CircularArrayProcessor: ModifierProcessor = {
           metadata: {
             ...inputInstance.metadata,
             arrayIndex: i,
-            sourceInstance: inputInstance.index
+            sourceInstance: inputInstance.index,
+            isFirstClone: i === 0 // Mark the first clone
           }
         }
         
@@ -165,7 +75,8 @@ export const CircularArrayProcessor: ModifierProcessor = {
 function processGroupCircularArray(
   input: ShapeState, 
   settings: CircularArraySettings, 
-  groupContext: GroupContext
+  groupContext: GroupContext,
+  editor?: any
 ): ShapeState {
   const { count, radius, startAngle, endAngle, centerX, centerY, rotateAll, rotateEach, alignToTangent } = settings
   const { groupTopLeft, groupBounds, groupTransform } = groupContext
@@ -185,24 +96,12 @@ function processGroupCircularArray(
   
   // For each existing instance (which represents a shape in the group), create the array
   input.instances.forEach(inputInstance => {
-    // Get shape dimensions to calculate rotation offset
-    const shapeWidth = 'w' in inputInstance.shape.props ? (inputInstance.shape.props.w as number) : 100
-    const shapeHeight = 'h' in inputInstance.shape.props ? (inputInstance.shape.props.h as number) : 100
     console.log('Processing instance for circular array:', {
       shapeId: inputInstance.shape.id,
       shapeType: inputInstance.shape.type,
       originalPosition: { x: inputInstance.transform.x, y: inputInstance.transform.y },
       groupTopLeft: { x: groupTopLeft.x, y: groupTopLeft.y }
     })
-    
-    // Calculate the offset needed to move the array center so the original shape becomes the first position
-    const firstAngle = startAngle * Math.PI / 180
-    const offsetX = Math.cos(firstAngle) * radius
-    const offsetY = Math.sin(firstAngle) * radius
-    
-    // Calculate center point relative to the group's CENTER (not top-left corner)
-    const centerPointX = groupContext.groupCenter.x + (centerX || 0) - offsetX
-    const centerPointY = groupContext.groupCenter.y + (centerY || 0) - offsetY
     
     const totalAngle = endAngle - startAngle
     const angleStep = totalAngle / (count - 1)
@@ -290,27 +189,34 @@ function processGroupCircularArray(
         finalRotation: (finalRotation * 180 / Math.PI).toFixed(1) + '°'
       })
       
-      // IMPORTANT: Compensate for tldraw's rotation behavior
-      // tldraw rotates around the top-left corner, so we need to adjust the position
-      // to make it appear as if it's rotating around the center
-      const cos = Math.cos(finalRotation)
-      const sin = Math.sin(finalRotation)
+      // Use the improved circular position calculation
+      const basePosition = calculateCircularPosition(
+        inputInstance.shape,
+        i,
+        centerX || 0,
+        centerY || 0,
+        radius,
+        startAngle,
+        endAngle,
+        rotateEach || 0,
+        rotateAll || 0,
+        alignToTangent || false,
+        count,
+        editor
+      )
       
-      // Calculate how much the center moves when rotating around top-left
-      const centerOffsetX = (shapeWidth / 2) * (cos - 1) - (shapeHeight / 2) * sin
-      const centerOffsetY = (shapeWidth / 2) * sin + (shapeHeight / 2) * (cos - 1)
-      
-      // Adjust the final position to compensate for tldraw's rotation behavior
-      const compensatedX = finalX - centerOffsetX
-      const compensatedY = finalY - centerOffsetY
+      // Apply group transformations to the base position
+      finalX = basePosition.x
+      finalY = basePosition.y
+      finalRotation = basePosition.rotation
 
       // Compose the transform
       const newTransform: Transform = {
-        x: compensatedX,
-        y: compensatedY,
+        x: finalX,
+        y: finalY,
         rotation: finalRotation,
-        scaleX: inputInstance.transform.scaleX,
-        scaleY: inputInstance.transform.scaleY
+        scaleX: inputInstance.transform.scaleX * basePosition.scaleX,
+        scaleY: inputInstance.transform.scaleY * basePosition.scaleY
       }
       
       const newInstance: ShapeInstance = {

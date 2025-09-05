@@ -6,10 +6,11 @@ import type {
   LinearArraySettings,
   GroupContext
 } from '../../../types/modifiers'
+import { calculateLinearPosition } from '../../../components/modifiers/utils'
 
-// Linear Array Processor implementation
+// Linear Array Processor implementation  
 export const LinearArrayProcessor: ModifierProcessor = {
-  process(input: ShapeState, settings: LinearArraySettings, groupContext?: GroupContext): ShapeState {
+  process(input: ShapeState, settings: LinearArraySettings, groupContext?: GroupContext, editor?: any): ShapeState {
     console.log('LinearArrayProcessor.process called with settings:', settings)
     console.log('LinearArrayProcessor groupContext:', groupContext)
     const { count, offsetX, offsetY, rotation, scaleStep } = settings
@@ -30,76 +31,26 @@ export const LinearArrayProcessor: ModifierProcessor = {
       // Add the original instance first
       newInstances.push(inputInstance)
       
-      // Get shape dimensions for center calculations
-      const shapeWidth = 'w' in inputInstance.shape.props ? (inputInstance.shape.props.w as number) : 100
-      const shapeHeight = 'h' in inputInstance.shape.props ? (inputInstance.shape.props.h as number) : 100
-      
-      // Calculate the center of the original shape
-      const originalCenterX = inputInstance.transform.x + shapeWidth / 2
-      const originalCenterY = inputInstance.transform.y + shapeHeight / 2
-      
-      console.log('LinearArrayProcessor: Center-based rotation calculation:', {
-        originalCenter: { x: originalCenterX, y: originalCenterY },
-        shapeDimensions: { width: shapeWidth, height: shapeHeight },
-        originalPosition: { x: inputInstance.transform.x, y: inputInstance.transform.y }
-      })
-      
-      // Create array copies
+      // Create array copies using the improved transform utilities
       for (let i = 1; i < count; i++) {
-        // Convert percentage offsets to pixel values based on shape width
-        const pixelOffsetX = (offsetX / 100) * shapeWidth
-        const pixelOffsetY = (offsetY / 100) * shapeHeight
-        
-        // Calculate rotation in radians for this clone
-        const rotationRadians = (rotation * i * Math.PI / 180)
-        
-        // Calculate the offset from the original center
-        const offsetFromCenterX = pixelOffsetX * i
-        const offsetFromCenterY = pixelOffsetY * i
-        
-        // Apply rotation to the offset around the center
-        const cos = Math.cos(rotationRadians)
-        const sin = Math.sin(rotationRadians)
-        
-        const rotatedOffsetX = offsetFromCenterX * cos - offsetFromCenterY * sin
-        const rotatedOffsetY = offsetFromCenterX * sin + offsetFromCenterY * cos
-        
-        // Calculate the final center position after rotation
-        const finalCenterX = originalCenterX + rotatedOffsetX
-        const finalCenterY = originalCenterY + rotatedOffsetY
-        
-        // IMPORTANT: Compensate for tldraw's rotation behavior
-        // tldraw rotates around the top-left corner, so we need to adjust the position
-        // to make it appear as if it's rotating around the center
-        
-        // Calculate how much the center moves when rotating around top-left
-        const centerOffsetX = (shapeWidth / 2) * (cos - 1) - (shapeHeight / 2) * sin
-        const centerOffsetY = (shapeWidth / 2) * sin + (shapeHeight / 2) * (cos - 1)
-        
-        // Adjust the final position to compensate for tldraw's rotation behavior
-        const finalX = finalCenterX - shapeWidth / 2 - centerOffsetX
-        const finalY = finalCenterY - shapeHeight / 2 - centerOffsetY
-        
-        console.log(`LinearArrayProcessor: Clone ${i} calculation:`, {
-          rotationDegrees: rotation * i,
-          rotationRadians,
-          offsetFromCenter: { x: offsetFromCenterX, y: offsetFromCenterY },
-          rotatedOffset: { x: rotatedOffsetX, y: rotatedOffsetY },
-          finalCenter: { x: finalCenterX, y: finalCenterY },
-          centerOffset: { x: centerOffsetX, y: centerOffsetY },
-          finalPosition: { x: finalX, y: finalY }
-        })
-        
-        // Calculate scale using linear interpolation from original (1.0) to final scale
-        const progress = i / (count - 1) // 0 for first clone, 1 for last clone
-        const interpolatedScale = 1 + (scaleStep - 1) * progress
+        // Use the new calculateLinearPosition function with proper transform handling
+        const position = calculateLinearPosition(
+          inputInstance.shape,
+          i,
+          offsetX,
+          offsetY,
+          rotation,
+          scaleStep,
+          count,
+          editor
+        )
         
         const newTransform: Transform = {
-          x: finalX,
-          y: finalY,
-          rotation: inputInstance.transform.rotation + rotationRadians,
-          scaleX: inputInstance.transform.scaleX * interpolatedScale,
-          scaleY: inputInstance.transform.scaleY * interpolatedScale
+          x: position.x,
+          y: position.y,
+          rotation: inputInstance.transform.rotation + position.rotation,
+          scaleX: inputInstance.transform.scaleX * position.scaleX,
+          scaleY: inputInstance.transform.scaleY * position.scaleY
         }
         
         const newInstance: ShapeInstance = {
@@ -201,23 +152,26 @@ function processGroupArray(
       let shapeRelativeX = inputInstance.transform.x - groupTopLeft.x
       let shapeRelativeY = inputInstance.transform.y - groupTopLeft.y
       
-      // Calculate scale using linear interpolation from original (1.0) to final scale
-      const progress = (i - 1) / (count - 1) // Use (i-1) so first clone has scale 1
-      const interpolatedScale = 1 + (scaleStep - 1) * progress
-      
-      // SCALE the relative vector BEFORE rotation
-      shapeRelativeX *= interpolatedScale
-      shapeRelativeY *= interpolatedScale
-      
-      // Now rotate the scaled relative vector
-      const rotatedRelativeX = shapeRelativeX * cos - shapeRelativeY * sin
-      const rotatedRelativeY = shapeRelativeX * sin + shapeRelativeY * cos
+      // Calculate position using improved transform utilities
+      const relativePosition = calculateLinearPosition(
+        inputInstance.shape,
+        i - 1, // Use (i-1) so first clone has no offset
+        (offsetX / groupBounds.width) * 100, // Convert back to percentage based on shape
+        (offsetY / groupBounds.height) * 100,
+        rotation,
+        scaleStep,
+        count
+      )
       
       // Calculate the final position of this shape in the cloned group
-      let finalX = newGroupTopLeftX + rotatedRelativeX
-      let finalY = newGroupTopLeftY + rotatedRelativeY
-      let finalRotation = inputInstance.transform.rotation + rotationRadians
-      const finalScale = interpolatedScale
+      let finalX = newGroupTopLeftX + shapeRelativeX
+      let finalY = newGroupTopLeftY + shapeRelativeY
+      let finalRotation = inputInstance.transform.rotation + relativePosition.rotation
+      const finalScale = relativePosition.scaleX
+      
+      // For logging compatibility, create dummy rotated relative values
+      const rotatedRelativeX = shapeRelativeX
+      const rotatedRelativeY = shapeRelativeY
       
       // Apply the group's current transform to make clones move with the group
       if (groupTransform) {

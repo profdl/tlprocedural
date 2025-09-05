@@ -8,7 +8,9 @@ export {
 // Group utilities
 export {
   calculateGroupBounds,
-  findTopLevelGroup
+  findTopLevelGroup,
+  getGroupPageBounds,
+  getGroupChildShapes
 } from './groupUtils'
 
 // Shape scaling utilities
@@ -26,6 +28,9 @@ export {
   calculateLinearPosition,
   calculateCircularPosition,
   calculateGridPosition,
+  calculatePositionInPageSpace,
+  localToPageSpace,
+  getShapeCenterInPageSpace,
   type Position
 } from './transformUtils'
 

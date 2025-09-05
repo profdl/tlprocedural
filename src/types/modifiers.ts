@@ -1,4 +1,4 @@
-import type { BaseRecord, TLShapeId, RecordId, TLShape } from 'tldraw'
+import type { BaseRecord, TLShapeId, RecordId, TLShape, Editor } from 'tldraw'
 
 // Modifier ID type
 export type TLModifierId = RecordId<TLModifierRecord>
@@ -50,7 +50,7 @@ export interface GroupContext {
 
 // NEW: Interface that all modifiers must implement for stacking
 export interface ModifierProcessor<T = LinearArraySettings | CircularArraySettings | GridArraySettings | MirrorSettings | LSystemSettings> {
-  process(input: ShapeState, settings: T, groupContext?: GroupContext): ShapeState
+  process(input: ShapeState, settings: T, groupContext?: GroupContext, editor?: Editor): ShapeState
 }
 
 // Linear Array Modifier Settings

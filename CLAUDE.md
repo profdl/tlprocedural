@@ -207,6 +207,58 @@ const transform = editor.getShapePageTransform(shapeId)
 // Use transform.applyToPoint(point) to transform coordinates
 ```
 
+### TLDraw Rotation System
+
+**Critical Understanding**: TLDraw has two different rotation behaviors:
+
+1. **Direct `rotation` property assignment**: Rotates around shape's top-left corner (origin)
+2. **`editor.rotateShapesBy()` method**: Rotates around shape's center (like transform handles)
+
+**The Problem with Manual Rotation**:
+```typescript
+// ❌ This rotates around top-left corner (not what users expect)
+const shape = { ...originalShape, rotation: Math.PI / 4 }
+editor.updateShape(shape)
+
+// ✅ This rotates around center (matches UI behavior)
+editor.rotateShapesBy([shapeId], Math.PI / 4)
+```
+
+**Proper Rotation Methods**:
+
+**Method 1 - Use TLDraw's rotation API (Recommended)**:
+```typescript
+// Create shapes without rotation
+const shapes = [{ ...shapeData, rotation: 0 }]
+editor.createShapes(shapes)
+
+// Then rotate around center using TLDraw's API
+const shapeIds = shapes.map(s => s.id)
+editor.rotateShapesBy(shapeIds, rotationInRadians)
+```
+
+**Method 2 - Manual rotation compensation (Current implementation)**:
+```typescript
+// If you must set rotation directly, compensate for TLDraw's rotation behavior
+const rotationCompensationX = (shapeWidth / 2) * (cos - 1) - (shapeHeight / 2) * sin
+const rotationCompensationY = (shapeWidth / 2) * sin + (shapeHeight / 2) * (cos - 1)
+
+const compensatedX = centerBasedX - shapeWidth / 2 - rotationCompensationX
+const compensatedY = centerBasedY - shapeHeight / 2 - rotationCompensationY
+
+const shape = { 
+  ...originalShape, 
+  x: compensatedX, 
+  y: compensatedY, 
+  rotation: rotationInRadians 
+}
+```
+
+**When to Use Each Approach**:
+- **Use `editor.rotateShapesBy()`** when creating shapes that need rotation
+- **Use manual compensation** when working with modifier systems that need precise control over transforms
+- **Never directly set rotation property** without compensation unless you want origin-based rotation
+
 ### Important TLDraw Shape Constraints
 
 **No Negative Scaling**: 
@@ -231,10 +283,13 @@ const transform = editor.getShapePageTransform(shapeId)
 - Mixing coordinate spaces (e.g., applying page coordinates as local coordinates)
 - Not accounting for shape rotation when calculating positions  
 - Using screen coordinates instead of page coordinates for shape manipulation
+- **Setting rotation property directly** without compensation (causes origin-based rotation instead of center-based)
 - Attempting negative scaling (use flipping operations instead)
 
 **Best Practices for Modifier Development**:
 - Always work in consistent coordinate space (preferably page space)
 - Use TLDraw's transform methods rather than manual coordinate calculations
+- **For rotation**: Use `editor.rotateShapesBy()` for center-based rotation, or apply proper compensation if setting rotation directly
 - Test with rotated shapes and nested groups
 - Account for different shape types having different origin behaviors
+- Prefer TLDraw's built-in APIs (`getShapePageBounds`, `getShapePageTransform`) over manual calculations
