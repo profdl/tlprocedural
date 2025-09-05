@@ -79,11 +79,34 @@ export function extractShapesFromState(state: ShapeState): TLShape[] {
       })
     }
     
-    // Handle mirrored shapes - the shape data has already been flipped
-    if (instance.metadata?.isMirrored) {
-      // For mirrored shapes, use the flipped shape data directly
+    // Apply scaling to all shapes first (both mirrored and non-mirrored)
+    if (instance.transform.scaleX !== 1 || instance.transform.scaleY !== 1) {
+      // Only apply scaling if both values are positive (to avoid negative dimensions)
+      if (instance.transform.scaleX > 0 && instance.transform.scaleY > 0) {
+        const scaledShape = applyShapeScaling(instance.shape, instance.transform.scaleX, instance.transform.scaleY)
+        baseShape.props = scaledShape.props
+        
+        console.log(`Applied comprehensive scaling to instance ${index}:`, {
+          shapeType: instance.shape.type,
+          scaleX: instance.transform.scaleX,
+          scaleY: instance.transform.scaleY,
+          isMirrored: !!instance.metadata?.isMirrored
+        })
+      } else {
+        console.warn(`Skipping negative scaling for instance ${index}:`, {
+          scaleX: instance.transform.scaleX,
+          scaleY: instance.transform.scaleY
+        })
+        // Fall back to original props if scaling can't be applied
+        baseShape.props = instance.shape.props
+      }
+    } else {
+      // No scaling needed, use original props
       baseShape.props = instance.shape.props
-      
+    }
+
+    // Handle mirrored shapes - add mirror metadata after scaling is applied
+    if (instance.metadata?.isMirrored) {
       // Store mirror metadata for reference
       baseShape.meta = {
         ...baseShape.meta,
@@ -91,30 +114,10 @@ export function extractShapesFromState(state: ShapeState): TLShape[] {
         isMirrored: true
       }
       
-      console.log('Using flipped shape data for mirrored instance:', {
+      console.log('Applied mirror metadata to scaled instance:', {
         shapeType: instance.shape.type,
         mirrorAxis: instance.metadata.mirrorAxis
       })
-    } else {
-      // Apply comprehensive scaling to all shape types (only for positive scales)
-      if (instance.transform.scaleX !== 1 || instance.transform.scaleY !== 1) {
-        // Only apply scaling if both values are positive (to avoid negative dimensions)
-        if (instance.transform.scaleX > 0 && instance.transform.scaleY > 0) {
-          const scaledShape = applyShapeScaling(instance.shape, instance.transform.scaleX, instance.transform.scaleY)
-          baseShape.props = scaledShape.props
-          
-          console.log(`Applied comprehensive scaling to instance ${index}:`, {
-            shapeType: instance.shape.type,
-            scaleX: instance.transform.scaleX,
-            scaleY: instance.transform.scaleY
-          })
-        } else {
-          console.warn(`Skipping negative scaling for instance ${index}:`, {
-            scaleX: instance.transform.scaleX,
-            scaleY: instance.transform.scaleY
-          })
-        }
-      }
     }
     
     console.log(`Final shape ${index} props:`, baseShape.props)

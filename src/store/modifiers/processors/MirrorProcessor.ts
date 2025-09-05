@@ -30,16 +30,20 @@ export const MirrorProcessor: ModifierProcessor = {
       
       // Get shape bounds for mirroring calculations
       const shape = inputInstance.shape
-      const shapeWidth = 'w' in shape.props ? shape.props.w as number : 100
-      const shapeHeight = 'h' in shape.props ? shape.props.h as number : 100
+      const originalWidth = 'w' in shape.props ? shape.props.w as number : 100
+      const originalHeight = 'h' in shape.props ? shape.props.h as number : 100
+      
+      // Apply scaling to get the actual dimensions of this instance
+      const scaledWidth = originalWidth * inputInstance.transform.scaleX
+      const scaledHeight = originalHeight * inputInstance.transform.scaleY
       
       // For rotated shapes, we need to work with the actual rotated center position
       // The transform gives us the top-left of the bounding box, but for rotated shapes
       // we need to get the actual center of the rotated shape
       
-      // Get the center of the shape in its local coordinate system
-      const localCenterX = shapeWidth / 2
-      const localCenterY = shapeHeight / 2
+      // Get the center of the SCALED shape in its local coordinate system
+      const localCenterX = scaledWidth / 2
+      const localCenterY = scaledHeight / 2
       
       // Apply rotation to get the actual center position in world space
       const rotation = inputInstance.transform.rotation
@@ -80,7 +84,7 @@ export const MirrorProcessor: ModifierProcessor = {
       const mirroredCos = Math.cos(mirroredRotation)
       const mirroredSin = Math.sin(mirroredRotation)
       
-      // Transform back from world center to local top-left coordinates
+      // Transform back from world center to local top-left coordinates using scaled dimensions
       const mirroredTopLeftX = mirroredCenterX - (localCenterX * mirroredCos - localCenterY * mirroredSin)
       const mirroredTopLeftY = mirroredCenterY - (localCenterX * mirroredSin + localCenterY * mirroredCos)
       
