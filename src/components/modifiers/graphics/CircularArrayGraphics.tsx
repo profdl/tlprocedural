@@ -20,11 +20,20 @@ export function CircularArrayGraphics({ shape, settings, groupContext }: Circula
   const { centerX, centerY, radius, startAngle } = settings
   const camera = editor.getCamera()
   
-  // Calculate source shape center first
+  // Calculate source shape center first - accounting for rotation
   const shapeWidth = 'w' in shape.props ? (shape.props.w as number) : 100
   const shapeHeight = 'h' in shape.props ? (shape.props.h as number) : 100
-  const sourceCenterX = shape.x + shapeWidth / 2
-  const sourceCenterY = shape.y + shapeHeight / 2
+  
+  // For rotated shapes, calculate the actual center position in world coordinates
+  const localCenterX = shapeWidth / 2
+  const localCenterY = shapeHeight / 2
+  const rotation = shape.rotation || 0
+  const cos = Math.cos(rotation)
+  const sin = Math.sin(rotation)
+  
+  // Transform the local center to world coordinates
+  const sourceCenterX = shape.x + (localCenterX * cos - localCenterY * sin)
+  const sourceCenterY = shape.y + (localCenterX * sin + localCenterY * cos)
   
   // Calculate the offset needed to position the original shape at the first position
   // This matches the logic in CircularArrayProcessor
