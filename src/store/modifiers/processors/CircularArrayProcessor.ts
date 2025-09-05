@@ -31,9 +31,11 @@ export const CircularArrayProcessor: ModifierProcessor = {
       let offsetY = Math.sin(firstAngle) * radius
       
       
-      // Calculate center point relative to the instance, offset so original becomes first position
-      const centerPointX = inputInstance.transform.x + (centerX || 0) - offsetX
-      const centerPointY = inputInstance.transform.y + (centerY || 0) - offsetY
+      // Calculate center point relative to the instance CENTER (not top-left), offset so original becomes first position
+      const shapeCenterX = inputInstance.transform.x + shapeWidth / 2
+      const shapeCenterY = inputInstance.transform.y + shapeHeight / 2
+      const centerPointX = shapeCenterX + (centerX || 0) - offsetX
+      const centerPointY = shapeCenterY + (centerY || 0) - offsetY
       
       const totalAngle = endAngle - startAngle
       const angleStep = totalAngle / (count - 1)
@@ -198,9 +200,9 @@ function processGroupCircularArray(
     const offsetX = Math.cos(firstAngle) * radius
     const offsetY = Math.sin(firstAngle) * radius
     
-    // Calculate center point relative to the group's top-left corner
-    const centerPointX = groupTopLeft.x + (centerX || 0) - offsetX
-    const centerPointY = groupTopLeft.y + (centerY || 0) - offsetY
+    // Calculate center point relative to the group's CENTER (not top-left corner)
+    const centerPointX = groupContext.groupCenter.x + (centerX || 0) - offsetX
+    const centerPointY = groupContext.groupCenter.y + (centerY || 0) - offsetY
     
     const totalAngle = endAngle - startAngle
     const angleStep = totalAngle / (count - 1)
