@@ -24,9 +24,17 @@ export const CircularArrayProcessor: ModifierProcessor = {
     input.instances.forEach(inputInstance => {
       // Create circular array copies using the improved transform utilities
       for (let i = 0; i < count; i++) {
-        // Use the new calculateCircularPosition function
+        // Create a temporary shape with the current instance's transform position
+        const transformedShape = {
+          ...inputInstance.shape,
+          x: inputInstance.transform.x,
+          y: inputInstance.transform.y,
+          rotation: inputInstance.transform.rotation
+        }
+        
+        // Use the new calculateCircularPosition function with the transformed position
         const position = calculateCircularPosition(
-          inputInstance.shape,
+          transformedShape,
           i + 1, // Add 1 since calculateCircularPosition expects 1-based indexing
           centerX || 0,
           centerY || 0,
@@ -43,7 +51,7 @@ export const CircularArrayProcessor: ModifierProcessor = {
         const newTransform: Transform = {
           x: position.x,
           y: position.y,
-          rotation: position.rotation,
+          rotation: inputInstance.transform.rotation + position.rotation,
           scaleX: inputInstance.transform.scaleX * position.scaleX,
           scaleY: inputInstance.transform.scaleY * position.scaleY
         }
@@ -208,7 +216,7 @@ function processGroupCircularArray(
       // Apply group transformations to the base position
       finalX = basePosition.x
       finalY = basePosition.y
-      finalRotation = basePosition.rotation
+      // Don't overwrite finalRotation - it was already calculated above with proper composition
 
       // Compose the transform
       const newTransform: Transform = {

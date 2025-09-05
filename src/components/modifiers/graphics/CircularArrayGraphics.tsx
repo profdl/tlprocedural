@@ -144,8 +144,8 @@ export function CircularArrayGraphics({ shape, settings, groupContext }: Circula
         <div
           style={{
             position: 'absolute',
-            left: arrayScreenX - radiusScreenSize,
-            top: arrayScreenY - radiusScreenSize,
+            left: sourceScreenX - radiusScreenSize,
+            top: sourceScreenY - radiusScreenSize,
             width: radiusScreenSize * 2,
             height: radiusScreenSize * 2,
             border: '1px dashed #0066FF40',
