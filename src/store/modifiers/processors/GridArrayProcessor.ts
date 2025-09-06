@@ -73,25 +73,9 @@ function processGroupGridArray(
   
   const newInstances: ShapeInstance[] = []
   
-  console.log('processGroupGridArray called with:', {
-    rows,
-    columns,
-    spacingX,
-    spacingY,
-    offsetX,
-    offsetY,
-    groupTopLeft,
-    groupBounds
-  })
   
   // For each existing instance (which represents a shape in the group), create the array
   input.instances.forEach(inputInstance => {
-    console.log('Processing instance for grid array:', {
-      shapeId: inputInstance.shape.id,
-      shapeType: inputInstance.shape.type,
-      originalPosition: { x: inputInstance.transform.x, y: inputInstance.transform.y },
-      groupTopLeft: { x: groupTopLeft.x, y: groupTopLeft.y }
-    })
     
     // Create grid positions
     for (let row = 0; row < rows; row++) {
@@ -152,20 +136,8 @@ function processGroupGridArray(
           
           finalRotation += groupTransform.rotation
           
-          console.log(`Applied group transform to grid clone (${row},${col}):`, {
-            clonedGroupCenter: { x: clonedGroupCenterX, y: clonedGroupCenterY },
-            cloneOffset: { x: cloneOffsetX, y: cloneOffsetY },
-            groupRotation: groupTransform.rotation,
-            finalPosition: { x: finalX, y: finalY }
-          })
         }
         
-        console.log(`Grid clone (${row},${col}) calculations:`, {
-          offsetFromTopLeft: { x: offsetFromTopLeftX, y: offsetFromTopLeftY },
-          newGroupTopLeft: { x: newGroupTopLeftX, y: newGroupTopLeftY },
-          shapeRelative: { x: shapeRelativeX, y: shapeRelativeY },
-          finalPosition: { x: finalX, y: finalY }
-        })
         
         const newTransform: Transform = {
           x: finalX,

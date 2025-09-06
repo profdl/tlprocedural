@@ -81,31 +81,18 @@ export function calculateLinearPosition(
     )
   }
   
-  // Fallback to manual calculation for backwards compatibility
+  // Calculate position without rotation compensation
+  // Since we'll use editor.rotateShapesBy() to apply rotation after shape creation
   const originalCenterX = originalShape.x + shapeWidth / 2
   const originalCenterY = originalShape.y + shapeHeight / 2
   
-  // Apply rotation to the offset around the center
-  const cos = Math.cos(rotationRadians)
-  const sin = Math.sin(rotationRadians)
+  // Calculate the final center position (offset from original)
+  const finalCenterX = originalCenterX + offsetFromCenterX
+  const finalCenterY = originalCenterY + offsetFromCenterY
   
-  const rotatedOffsetX = offsetFromCenterX * cos - offsetFromCenterY * sin
-  const rotatedOffsetY = offsetFromCenterX * sin + offsetFromCenterY * cos
-  
-  // Calculate the final center position after rotation
-  const finalCenterX = originalCenterX + rotatedOffsetX
-  const finalCenterY = originalCenterY + rotatedOffsetY
-  
-  // Convert back to top-left coordinates with TLDraw rotation compensation
-  // TLDraw rotates around top-left, so we need to compensate to achieve center rotation
-  // Reuse the cos/sin values calculated above
-  
-  // Calculate compensation for TLDraw's top-left rotation
-  const rotationCompensationX = (shapeWidth / 2) * (cos - 1) - (shapeHeight / 2) * sin
-  const rotationCompensationY = (shapeWidth / 2) * sin + (shapeHeight / 2) * (cos - 1)
-  
-  const finalX = finalCenterX - shapeWidth / 2 - rotationCompensationX
-  const finalY = finalCenterY - shapeHeight / 2 - rotationCompensationY
+  // Convert center coordinates to top-left coordinates
+  const finalX = finalCenterX - shapeWidth / 2
+  const finalY = finalCenterY - shapeHeight / 2
   
   logShapeOperation('calculateLinearPosition', originalShape.id, {
     index,
@@ -113,7 +100,6 @@ export function calculateLinearPosition(
     offsetFromCenter: { x: offsetFromCenterX, y: offsetFromCenterY },
     rotationDegrees: rotation * index,
     rotationRadians,
-    rotatedOffset: { x: rotatedOffsetX, y: rotatedOffsetY },
     finalPosition: { x: finalX, y: finalY },
     shapeDimensions: { width: shapeWidth, height: shapeHeight }
   })
@@ -165,17 +151,10 @@ export function calculateCircularPosition(
   const rotateEachRadians = degreesToRadians((rotateEach || 0) * index)
   const totalRotation = baseRotation + rotateAllRadians + rotateEachRadians
   
-  // Convert back to top-left coordinates with TLDraw rotation compensation
-  // TLDraw rotates around top-left, so we need to compensate to achieve center rotation
-  const cosTotal = Math.cos(totalRotation)
-  const sinTotal = Math.sin(totalRotation)
-  
-  // Calculate compensation for TLDraw's top-left rotation
-  const rotationCompensationX = (shapeWidth / 2) * (cosTotal - 1) - (shapeHeight / 2) * sinTotal
-  const rotationCompensationY = (shapeWidth / 2) * sinTotal + (shapeHeight / 2) * (cosTotal - 1)
-  
-  const x = circleX - shapeWidth / 2 - rotationCompensationX
-  const y = circleY - shapeHeight / 2 - rotationCompensationY
+  // Convert center coordinates to top-left coordinates
+  // No rotation compensation needed since we'll use editor.rotateShapesBy()
+  const x = circleX - shapeWidth / 2
+  const y = circleY - shapeHeight / 2
   
   // Use TLDraw's transform system if editor is available
   if (editor) {
@@ -258,27 +237,16 @@ function calculateLinearPositionWithTLDrawTransforms(
   const centerX = pageBounds.center.x
   const centerY = pageBounds.center.y
   
-  // Apply rotation around the center
-  const cos = Math.cos(rotation)
-  const sin = Math.sin(rotation)
-  const rotatedOffsetX = offsetX * cos - offsetY * sin
-  const rotatedOffsetY = offsetX * sin + offsetY * cos
+  // Calculate final center position (simple offset, no rotation of offset)
+  // The rotation will be applied later using editor.rotateShapesBy()
+  const finalCenterX = centerX + offsetX
+  const finalCenterY = centerY + offsetY
   
-  // Calculate final center position
-  const finalCenterX = centerX + rotatedOffsetX
-  const finalCenterY = centerY + rotatedOffsetY
-  
-  // Convert back to top-left coordinates with TLDraw rotation compensation
-  // TLDraw rotates around top-left, so we need to compensate to achieve center rotation
+  // Convert center coordinates to top-left coordinates
   const shapeWidth = pageBounds.width
   const shapeHeight = pageBounds.height
-  
-  // Calculate compensation for TLDraw's top-left rotation
-  const rotationCompensationX = (shapeWidth / 2) * (cos - 1) - (shapeHeight / 2) * sin
-  const rotationCompensationY = (shapeWidth / 2) * sin + (shapeHeight / 2) * (cos - 1)
-  
-  const finalX = finalCenterX - shapeWidth / 2 - rotationCompensationX
-  const finalY = finalCenterY - shapeHeight / 2 - rotationCompensationY
+  const finalX = finalCenterX - shapeWidth / 2
+  const finalY = finalCenterY - shapeHeight / 2
   
   return {
     x: finalX,

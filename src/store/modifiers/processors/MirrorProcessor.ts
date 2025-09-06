@@ -12,11 +12,9 @@ export const MirrorProcessor: ModifierProcessor = {
   process(input: ShapeState, settings: MirrorSettings, _groupContext?: GroupContext): ShapeState {
     const { axis, offset } = settings
     
-    console.log('🪞 Mirror processor: Starting implementation for axis:', axis, 'offset:', offset)
     
     // Support both X-axis and Y-axis mirroring
     if (axis !== 'x' && axis !== 'y') {
-      console.log('🪞 Mirror processor: Only X and Y axis mirroring implemented')
       return input
     }
     
@@ -117,7 +115,6 @@ export const MirrorProcessor: ModifierProcessor = {
       newInstances.push(mirroredInstance)
     })
     
-    console.log('🪞 Mirror processor: Generated', newInstances.length, 'instances from', input.instances.length, 'input instances')
     
     return {
       ...input,

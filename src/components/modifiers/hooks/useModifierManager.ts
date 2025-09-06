@@ -96,7 +96,6 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
           store.deleteModifier(modifier.id)
         })
         
-        console.log(`Applied ${shapesToCreate.length} shapes from modifiers`)
       }
     } catch (error) {
       console.error('Failed to apply modifiers:', error)

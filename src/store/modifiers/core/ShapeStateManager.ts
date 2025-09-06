@@ -37,22 +37,7 @@ export function createInitialShapeState(shape: TLShape): ShapeState {
  * This is the final step in modifier processing
  */
 export function extractShapesFromState(state: ShapeState): TLShape[] {
-  console.log('extractShapesFromState called with instances:', state.instances.length)
-  console.log('State metadata:', state.metadata)
-  
   return state.instances.map((instance: ShapeInstance, index: number) => {
-    console.log(`Processing instance ${index}:`, {
-      transform: instance.transform,
-      hasW: 'w' in instance.shape.props,
-      hasH: 'h' in instance.shape.props,
-      originalW: 'w' in instance.shape.props ? instance.shape.props.w : 'N/A',
-      originalH: 'h' in instance.shape.props ? instance.shape.props.h : 'N/A',
-      scaleX: instance.transform.scaleX,
-      scaleY: instance.transform.scaleY,
-      shapeType: instance.shape.type,
-      isGroupMember: instance.metadata?.isGroupMember,
-      isGroupClone: instance.metadata?.isGroupClone
-    })
     
     const baseShape = {
       ...instance.shape,
@@ -61,23 +46,6 @@ export function extractShapesFromState(state: ShapeState): TLShape[] {
       rotation: instance.transform.rotation
     }
     
-    // Debug logging to see what values we're applying
-    if (instance.metadata?.isMirrored && 'w' in instance.shape.props && 'h' in instance.shape.props) {
-      console.log('Mirror transform:', {
-        originalW: instance.shape.props.w,
-        originalH: instance.shape.props.h,
-        scaleX: instance.transform.scaleX,
-        scaleY: instance.transform.scaleY,
-        willFlipX: instance.transform.scaleX < 0,
-        willFlipY: instance.transform.scaleY < 0,
-        rotationTransfer: {
-          originalShapeRotation: instance.shape.rotation,
-          transformRotation: instance.transform.rotation,
-          finalShapeRotation: instance.transform.rotation,
-          rotationInDegrees: (instance.transform.rotation * 180 / Math.PI).toFixed(1) + '°'
-        }
-      })
-    }
     
     // Apply scaling to all shapes first (both mirrored and non-mirrored)
     if (instance.transform.scaleX !== 1 || instance.transform.scaleY !== 1) {
@@ -86,12 +54,6 @@ export function extractShapesFromState(state: ShapeState): TLShape[] {
         const scaledShape = applyShapeScaling(instance.shape, instance.transform.scaleX, instance.transform.scaleY)
         baseShape.props = scaledShape.props
         
-        console.log(`Applied comprehensive scaling to instance ${index}:`, {
-          shapeType: instance.shape.type,
-          scaleX: instance.transform.scaleX,
-          scaleY: instance.transform.scaleY,
-          isMirrored: !!instance.metadata?.isMirrored
-        })
       } else {
         console.warn(`Skipping negative scaling for instance ${index}:`, {
           scaleX: instance.transform.scaleX,
@@ -114,13 +76,8 @@ export function extractShapesFromState(state: ShapeState): TLShape[] {
         isMirrored: true
       }
       
-      console.log('Applied mirror metadata to scaled instance:', {
-        shapeType: instance.shape.type,
-        mirrorAxis: instance.metadata.mirrorAxis
-      })
     }
     
-    console.log(`Final shape ${index} props:`, baseShape.props)
     return baseShape
   })
 }

@@ -57,7 +57,21 @@ export function useCloneManager({
       })
       
       editor.run(() => {
-        editor.createShapes(processedShapes)
+        // Create shapes with rotation set to 0, then rotate them properly
+        const shapesToCreate = processedShapes.map(s => ({
+          ...s,
+          rotation: 0
+        }))
+        
+        
+        editor.createShapes(shapesToCreate)
+        
+        // Now rotate each shape around its center using TLDraw's API
+        processedShapes.forEach((processedShape, index) => {
+          if (processedShape.rotation && processedShape.rotation !== 0) {
+            editor.rotateShapesBy([shapesToCreate[index].id], processedShape.rotation)
+          }
+        })
       }, { history: 'ignore' })
     }
 
@@ -87,10 +101,6 @@ export function useCloneManager({
   useEffect(() => {
     if (!editor || !processedShapes.length) return
     
-    console.log('useCloneManager: Live update triggered for shape:', shape.id, {
-      shapeProps: shape.props,
-      modifierProps: modifiers.map(m => ({ type: m.type, props: m.props }))
-    })
 
     const existingClones = editor.getCurrentPageShapes().filter((s: TLShape) => {
       const originalId = getOriginalShapeId(s)
@@ -158,13 +168,22 @@ function moveOriginalShapeToFirstPosition(editor: Editor, shape: TLShape, proces
   if (firstClone) {
     editor.run(() => {
       // Move the original shape to the first array position
+      const targetRotation = firstClone.rotation || 0
+      const currentRotation = shape.rotation || 0
+      const rotationDelta = targetRotation - currentRotation
+      
+      // Update position first
       editor.updateShape({
         id: shape.id,
         type: shape.type,
         x: firstClone.x,
-        y: firstClone.y,
-        rotation: firstClone.rotation
+        y: firstClone.y
       })
+      
+      // Then rotate around center if needed
+      if (rotationDelta !== 0) {
+        editor.rotateShapesBy([shape.id], rotationDelta)
+      }
       
       // Make the first clone transparent since it's now redundant
       editor.updateShape({
@@ -191,25 +210,38 @@ function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModif
     
     if (!updatedShape) return null
 
+    // Store the target rotation separately
     return {
       id: clone.id,
       type: updatedShape.type,
       x: updatedShape.x,
       y: updatedShape.y,
-      rotation: updatedShape.rotation,
+      targetRotation: updatedShape.rotation || 0,
       props: { ...updatedShape.props }
     }
-  }).filter(Boolean) as TLShapePartial[]
+  }).filter(Boolean)
 
   if (updatedClones.length > 0) {
     editor.run(() => {
-      editor.updateShapes(updatedClones)
+      updatedClones.forEach((update) => {
+        if (update) {
+          const { targetRotation, ...shapeUpdate } = update
+          const currentShape = editor.getShape(update.id)
+          
+          // Update position and props (but not rotation)
+          editor.updateShape(shapeUpdate)
+          
+          // Apply rotation around center if needed
+          if (currentShape && targetRotation !== undefined) {
+            const currentRotation = currentShape.rotation || 0
+            const rotationDelta = targetRotation - currentRotation
+            if (rotationDelta !== 0) {
+              editor.rotateShapesBy([update.id], rotationDelta)
+            }
+          }
+        }
+      })
     }, { ignoreShapeLock: true, history: 'ignore' })
     
-    console.log('useCloneManager: Updated clones with new style properties:', {
-      shapeId: shape.id,
-      updatedClones: updatedClones.length,
-      hasStyleChanges: true
-    })
   }
 } 

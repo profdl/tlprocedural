@@ -145,25 +145,9 @@ function processGroupCircularArray(
   
   const newInstances: ShapeInstance[] = []
   
-  console.log('processGroupCircularArray called with:', {
-    count,
-    radius,
-    startAngle,
-    endAngle,
-    centerX,
-    centerY,
-    groupTopLeft,
-    groupBounds
-  })
   
   // For each existing instance (which represents a shape in the group), create the array
   input.instances.forEach(inputInstance => {
-    console.log('Processing instance for circular array:', {
-      shapeId: inputInstance.shape.id,
-      shapeType: inputInstance.shape.type,
-      originalPosition: { x: inputInstance.transform.x, y: inputInstance.transform.y },
-      groupTopLeft: { x: groupTopLeft.x, y: groupTopLeft.y }
-    })
     
     const totalAngle = endAngle - startAngle
     const angleStep = totalAngle / (count - 1)
@@ -234,22 +218,8 @@ function processGroupCircularArray(
         
         finalRotation += groupTransform.rotation
         
-        console.log(`Applied group transform to circular clone ${i}:`, {
-          clonedGroupCenter: { x: clonedGroupCenterX, y: clonedGroupCenterY },
-          cloneOffset: { x: cloneOffsetX, y: cloneOffsetY },
-          groupRotation: groupTransform.rotation,
-          finalPosition: { x: finalX, y: finalY }
-        })
       }
       
-      console.log(`Circular clone ${i} calculations:`, {
-        angle: (angle * 180 / Math.PI).toFixed(1) + '°',
-        offsetFromTopLeft: { x: offsetFromTopLeftX, y: offsetFromTopLeftY },
-        newGroupTopLeft: { x: newGroupTopLeftX, y: newGroupTopLeftY },
-        shapeRelative: { x: shapeRelativeX, y: shapeRelativeY },
-        finalPosition: { x: finalX, y: finalY },
-        finalRotation: (finalRotation * 180 / Math.PI).toFixed(1) + '°'
-      })
       
       // Use the improved circular position calculation
       const basePosition = calculateCircularPosition(

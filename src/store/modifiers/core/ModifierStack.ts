@@ -27,12 +27,6 @@ export class ModifierStack {
     modifiers: TLModifier[],
     editor?: Editor
   ): ShapeState {
-    console.log('🔄 ModifierStack: Processing modifiers:', {
-      shapeId: originalShape.id,
-      shapeType: originalShape.type,
-      modifierCount: modifiers.length,
-      modifiers: modifiers.map(m => ({ type: m.type, enabled: m.enabled, order: m.order }))
-    })
 
     if (modifiers.length === 0) {
       return createInitialShapeState(originalShape)
@@ -41,25 +35,16 @@ export class ModifierStack {
     // Check if this shape is part of a group
     const parentGroup = editor ? findTopLevelGroup(originalShape, editor) : null
     
-    console.log('Group detection:', {
-      shapeId: originalShape.id,
-      shapeType: originalShape.type,
-      parentGroup: parentGroup ? { id: parentGroup.id, type: parentGroup.type } : null,
-      hasEditor: !!editor
-    })
     
     // Special case: if the shape itself is a group, use group processing
     if (originalShape.type === 'group' && editor) {
-      console.log('Shape is a group, using group processing path')
       return ModifierStack.processGroupModifiers(originalShape, originalShape, modifiers, editor)
     }
     
     if (parentGroup && editor) {
-      console.log('Using group processing path')
       return ModifierStack.processGroupModifiers(originalShape, parentGroup, modifiers, editor)
     }
     
-    console.log('Using regular processing path')
     
     // Start with the original shape as initial state
     let currentState = createInitialShapeState(originalShape)
@@ -69,13 +54,6 @@ export class ModifierStack {
       .filter(modifier => modifier.enabled)
       .sort((a, b) => a.order - b.order)
 
-    // Debug logging for multiple modifier processing
-    if (enabledModifiers.length > 1) {
-      console.log(`🔧 Processing ${enabledModifiers.length} modifiers for shape:`, originalShape.id)
-      enabledModifiers.forEach((mod, index) => {
-        console.log(`  ${index + 1}. ${mod.type} (order: ${mod.order})`)
-      })
-    }
 
     // Process each modifier in sequence
     for (const modifier of enabledModifiers) {
@@ -85,15 +63,9 @@ export class ModifierStack {
         currentState = processor.process(currentState, modifier.props, undefined, editor)
         const newInstanceCount = currentState.instances.length
         
-        if (enabledModifiers.length > 1) {
-          console.log(`    ${modifier.type}: ${previousInstanceCount} → ${newInstanceCount} instances`)
-        }
       }
     }
 
-    if (enabledModifiers.length > 1) {
-      console.log(`✅ Final result: ${currentState.instances.length} total instances`)
-    }
 
     return currentState
   }
@@ -115,31 +87,9 @@ export class ModifierStack {
       y: groupBounds.minY
     }
     
-    console.log('Processing group modifiers:', {
-      groupId: group.id,
-      childShapes: childShapes.length,
-      groupBounds,
-      groupTopLeft,
-      groupTransform: {
-        x: group.x,
-        y: group.y,
-        rotation: group.rotation
-      }
-    })
     
     // Create initial state with child shapes in the group, not just the selected one
     const allInstances = childShapes.map((groupShape: TLShape, index: number) => {
-      console.log(`Group shape ${index}:`, {
-        id: groupShape.id,
-        type: groupShape.type,
-        props: groupShape.props,
-        x: groupShape.x,
-        y: groupShape.y,
-        hasW: 'w' in groupShape.props,
-        hasH: 'h' in groupShape.props,
-        w: 'w' in groupShape.props ? groupShape.props.w : 'N/A',
-        h: 'h' in groupShape.props ? groupShape.props.h : 'N/A'
-      })
       
       return {
         shape: groupShape,
@@ -186,11 +136,9 @@ export class ModifierStack {
             rotation: group.rotation || 0
           }
         }
-        console.log('processGroupModifiers: Calling processor with groupContext:', groupContext)
         currentState = processor.process(currentState, modifier.props, groupContext, editor)
         const newInstanceCount = currentState.instances.length
         
-        console.log(`Group modifier ${modifier.type}: ${previousInstanceCount} → ${newInstanceCount} instances`)
       }
     }
     

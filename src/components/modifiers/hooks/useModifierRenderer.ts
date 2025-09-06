@@ -26,7 +26,6 @@ export function useModifierRenderer(): UseModifierRendererReturn {
     'shapes-with-modifiers',
     () => {
       const allShapes = editor.getCurrentPageShapes()
-      console.log('useModifierRenderer: All shapes:', allShapes.length)
       
       const shapesWithMods = allShapes
         .map(shape => {
@@ -40,10 +39,6 @@ export function useModifierRenderer(): UseModifierRendererReturn {
         })
         .filter(item => item.modifiers.length > 0)
       
-      console.log('useModifierRenderer: Shapes with modifiers:', shapesWithMods.length)
-      shapesWithMods.forEach(item => {
-        console.log(`Shape ${item.shape.id} has ${item.modifiers.length} modifiers:`, item.modifiers.map((m: TLModifier) => m.type))
-      })
       
       return shapesWithMods
     },
