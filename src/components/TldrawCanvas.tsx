@@ -292,13 +292,14 @@ export function TldrawCanvas() {
     }
   }), [])
   const handleMount = (editor: Editor) => {
-    // Enable grid mode to show the custom grid
+    // Disable built-in grid mode to prevent automatic grid snapping
+    // The visual grid is handled by our custom CuttleGrid component
+    // This allows users to control snapping via the snap mode toggle
     editor.updateInstanceState({ 
-      isGridMode: true
+      isGridMode: false
     })
     
-    // Enable snap mode using the user preferences
-    editor.user.updateUserPreferences({ isSnapMode: true })
+    // Note: Snap mode can be toggled by the user via the menu - don't force enable it
     
     // Center the view on the origin (0,0)
     editor.zoomToFit()
