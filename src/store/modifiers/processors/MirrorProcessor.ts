@@ -9,7 +9,7 @@ import type {
 
 // Mirror Processor implementation - Clean slate
 export const MirrorProcessor: ModifierProcessor = {
-  process(input: ShapeState, settings: MirrorSettings, _groupContext?: GroupContext): ShapeState {
+  process(input: ShapeState, settings: MirrorSettings, _groupContext?: GroupContext, editor?: any): ShapeState {
     const { axis, offset } = settings
     
     
@@ -20,10 +20,10 @@ export const MirrorProcessor: ModifierProcessor = {
     
     const newInstances: ShapeInstance[] = []
     
-    // For each existing instance, create the original and mirrored copy
+    // For each existing instance, create only the mirrored copy
     input.instances.forEach(inputInstance => {
-      // Add the original instance
-      newInstances.push(inputInstance)
+      // Unlike array modifiers, Mirror doesn't need to recreate the original position
+      // The original shape will be hidden by useCloneManager, and we only create the mirror
       
       // Get shape bounds for mirroring calculations
       const shape = inputInstance.shape
@@ -34,22 +34,27 @@ export const MirrorProcessor: ModifierProcessor = {
       const scaledWidth = originalWidth * inputInstance.transform.scaleX
       const scaledHeight = originalHeight * inputInstance.transform.scaleY
       
-      // For rotated shapes, we need to work with the actual rotated center position
-      // The transform gives us the top-left of the bounding box, but for rotated shapes
-      // we need to get the actual center of the rotated shape
+      // Get the center position using the same pattern as other processors
+      let worldCenterX: number
+      let worldCenterY: number
       
-      // Get the center of the SCALED shape in its local coordinate system
-      const localCenterX = scaledWidth / 2
-      const localCenterY = scaledHeight / 2
-      
-      // Apply rotation to get the actual center position in world space
-      const rotation = inputInstance.transform.rotation
-      const cos = Math.cos(rotation)
-      const sin = Math.sin(rotation)
-      
-      // Transform the local center to world coordinates
-      const worldCenterX = inputInstance.transform.x + (localCenterX * cos - localCenterY * sin)
-      const worldCenterY = inputInstance.transform.y + (localCenterX * sin + localCenterY * cos)
+      const shapeRotation = shape.rotation || 0
+      if (editor && shapeRotation !== 0) {
+        // For rotated shapes, use editor.getShapePageBounds() to get the visual center
+        const bounds = editor.getShapePageBounds(shape.id)
+        if (bounds) {
+          worldCenterX = bounds.x + bounds.width / 2
+          worldCenterY = bounds.y + bounds.height / 2
+        } else {
+          // Fallback if bounds not available
+          worldCenterX = inputInstance.transform.x + scaledWidth / 2
+          worldCenterY = inputInstance.transform.y + scaledHeight / 2
+        }
+      } else {
+        // For non-rotated shapes, calculate center from top-left position
+        worldCenterX = inputInstance.transform.x + scaledWidth / 2
+        worldCenterY = inputInstance.transform.y + scaledHeight / 2
+      }
       
       let mirroredCenterX = worldCenterX
       let mirroredCenterY = worldCenterY
@@ -77,13 +82,10 @@ export const MirrorProcessor: ModifierProcessor = {
       // Mirror the rotation - rotate in opposite direction for true mirror effect
       const mirroredRotation = -inputInstance.transform.rotation
       
-      // Convert mirrored center back to top-left coordinates, accounting for rotation
-      const mirroredCos = Math.cos(mirroredRotation)
-      const mirroredSin = Math.sin(mirroredRotation)
-      
-      // Transform back from world center to local top-left coordinates using scaled dimensions
-      const mirroredTopLeftX = mirroredCenterX - (localCenterX * mirroredCos - localCenterY * mirroredSin)
-      const mirroredTopLeftY = mirroredCenterY - (localCenterX * mirroredSin + localCenterY * mirroredCos)
+      // Convert mirrored center back to top-left coordinates
+      // For shapes, the position represents the top-left corner, so we need to adjust from center
+      const mirroredTopLeftX = mirroredCenterX - scaledWidth / 2
+      const mirroredTopLeftY = mirroredCenterY - scaledHeight / 2
       
       // Preserve the original scale values - flipping is handled by metadata
       const mirroredScaleX = inputInstance.transform.scaleX
@@ -105,6 +107,7 @@ export const MirrorProcessor: ModifierProcessor = {
         index: newInstances.length,
         metadata: {
           ...inputInstance.metadata,
+          arrayIndex: 0,
           isMirrored: true,
           mirrorAxis: axis,
           mirrorOffset: offset,
