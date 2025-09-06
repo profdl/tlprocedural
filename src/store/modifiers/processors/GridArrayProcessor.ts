@@ -6,15 +6,16 @@ import type {
   GridArraySettings,
   GroupContext
 } from '../../../types/modifiers'
+import { calculateGridPosition } from '../../../components/modifiers/utils'
 
 // Grid Array Processor implementation
 export const GridArrayProcessor: ModifierProcessor = {
-  process(input: ShapeState, settings: GridArraySettings, groupContext?: GroupContext): ShapeState {
+  process(input: ShapeState, settings: GridArraySettings, groupContext?: GroupContext, editor?: any): ShapeState {
     const { rows, columns, spacingX, spacingY, offsetX, offsetY } = settings
     
     // Check if this is a group modifier
     if (groupContext) {
-      return processGroupGridArray(input, settings, groupContext)
+      return processGroupGridArray(input, settings, groupContext, editor)
     }
     
     const newInstances: ShapeInstance[] = []
@@ -24,13 +25,24 @@ export const GridArrayProcessor: ModifierProcessor = {
       // Create grid positions including (0,0) which replaces the original
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < columns; col++) {
+          // Use calculateGridPosition to properly handle rotated shapes
+          const position = calculateGridPosition(
+            inputInstance.shape,
+            row,
+            col,
+            offsetX || 0,
+            offsetY || 0,
+            spacingX,
+            spacingY,
+            editor
+          )
           
           const newTransform: Transform = {
-            x: inputInstance.transform.x + (offsetX || 0) + (col * spacingX),
-            y: inputInstance.transform.y + (offsetY || 0) + (row * spacingY),
-            rotation: inputInstance.transform.rotation,
-            scaleX: inputInstance.transform.scaleX,
-            scaleY: inputInstance.transform.scaleY
+            x: position.x,
+            y: position.y,
+            rotation: inputInstance.transform.rotation + position.rotation,
+            scaleX: inputInstance.transform.scaleX * position.scaleX,
+            scaleY: inputInstance.transform.scaleY * position.scaleY
           }
           
           const newInstance: ShapeInstance = {
@@ -63,7 +75,8 @@ export const GridArrayProcessor: ModifierProcessor = {
 function processGroupGridArray(
   input: ShapeState, 
   settings: GridArraySettings, 
-  groupContext: GroupContext
+  groupContext: GroupContext,
+  editor?: any
 ): ShapeState {
   const { rows, columns, spacingX, spacingY, offsetX, offsetY } = settings
   const { groupTopLeft, groupBounds, groupTransform } = groupContext
