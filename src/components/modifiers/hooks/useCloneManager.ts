@@ -44,11 +44,16 @@ export function useCloneManager({
       cleanupGroupClones(editor, shape)
     }
 
-    // Move the original shape to the first array position and make the first clone transparent
-    // Only do this for non-group shapes
-    if (processedShapes.length > 0 && shape.type !== 'group') {
-      moveOriginalShapeToFirstPosition(editor, shape, processedShapes)
-    }
+    // Hide the original shape when we have modifiers active by making it transparent
+    // This prevents the "extra clone" that doesn't rotate/scale
+    const hasActiveModifiers = modifiers.some(m => m.enabled)
+    editor.run(() => {
+      editor.updateShape({
+        id: shape.id,
+        type: shape.type,
+        opacity: hasActiveModifiers ? 0 : 1
+      })
+    }, { history: 'ignore' })
 
     // Create new clones if we have processed shapes
     if (processedShapes.length > 0) {
@@ -89,6 +94,15 @@ export function useCloneManager({
           editor.deleteShapes(clonesToCleanup.map((s: TLShape) => s.id))
         }, { ignoreShapeLock: true, history: 'ignore' })
       }
+
+      // Restore original shape visibility when cleaning up
+      editor.run(() => {
+        editor.updateShape({
+          id: shape.id,
+          type: shape.type,
+          opacity: 1
+        })
+      }, { history: 'ignore' })
 
       // For group modifiers, also clean up clones of all shapes in the group during cleanup
       if (shape.type === 'group') {
@@ -199,16 +213,35 @@ function moveOriginalShapeToFirstPosition(editor: Editor, shape: TLShape, proces
  * Update existing clones with new positions and properties
  */
 function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModifier[], existingClones: TLShape[]) {
+  // Debug: Log when this function is called
+  console.log(`updateExistingClones called for shape ${shape.id}, rotation: ${shape.rotation ? (shape.rotation * 180 / Math.PI).toFixed(1) + '°' : '0°'}, existing clones: ${existingClones.length}`)
+  
   // Recalculate positions based on current shape state
   const result = ModifierStack.processModifiers(shape, modifiers, editor)
   const updatedShapes = extractShapesFromState(result)
   
+  console.log(`ModifierStack result: ${result.instances.length} instances, extractedShapes: ${updatedShapes.length}`)
+  
+  // Debug: Log existing clones metadata
+  existingClones.forEach((clone, i) => {
+    console.log(`Existing clone ${i}: id=${clone.id}, arrayIndex=${clone.meta?.arrayIndex}`)
+  })
+  
+  // Debug: Log updated shapes metadata  
+  updatedShapes.forEach((shape, i) => {
+    console.log(`Updated shape ${i}: id=${shape.id}, arrayIndex=${shape.meta?.arrayIndex}`)
+  })
+
   // Update existing clones with new positions
   const updatedClones = existingClones.map((clone: TLShape) => {
     const cloneIndex = clone.meta?.arrayIndex as number
     const updatedShape = updatedShapes.find(s => s.meta?.arrayIndex === cloneIndex)
     
+    console.log(`Looking for clone index ${cloneIndex}, found: ${!!updatedShape}`)
+    
     if (!updatedShape) return null
+
+    console.log(`Clone ${clone.id} (index ${cloneIndex}): current rotation ${clone.rotation ? (clone.rotation * 180 / Math.PI).toFixed(1) + '°' : '0°'}, target rotation ${updatedShape.rotation ? (updatedShape.rotation * 180 / Math.PI).toFixed(1) + '°' : '0°'}`)
 
     // Store the target rotation separately
     return {
@@ -236,6 +269,7 @@ function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModif
             const currentRotation = currentShape.rotation || 0
             const rotationDelta = targetRotation - currentRotation
             if (rotationDelta !== 0) {
+              console.log(`Updating clone ${update.id} rotation from ${(currentRotation * 180 / Math.PI).toFixed(1)}° to ${(targetRotation * 180 / Math.PI).toFixed(1)}°`)
               editor.rotateShapesBy([update.id], rotationDelta)
             }
           }

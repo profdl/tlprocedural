@@ -11,28 +11,20 @@ import { calculateLinearPosition } from '../../../components/modifiers/utils'
 // Linear Array Processor implementation  
 export const LinearArrayProcessor: ModifierProcessor = {
   process(input: ShapeState, settings: LinearArraySettings, groupContext?: GroupContext, editor?: any): ShapeState {
-    console.log('LinearArrayProcessor.process called with settings:', settings)
-    console.log('LinearArrayProcessor groupContext:', groupContext)
     const { count, offsetX, offsetY, rotation, scaleStep } = settings
     
     // If processing in group context, use group dimensions
     if (groupContext) {
-      console.log('LinearArrayProcessor: Using group processing path')
       return processGroupArray(input, settings, groupContext)
     }
-    
-    console.log('LinearArrayProcessor: Using regular processing path')
     
     // Start with empty instances (we'll generate new ones)
     const newInstances: ShapeInstance[] = []
     
     // For each existing instance, create the array
     input.instances.forEach(inputInstance => {
-      // Add the original instance first
-      newInstances.push(inputInstance)
-      
-      // Create array copies using the improved transform utilities
-      for (let i = 1; i < count; i++) {
+      // Create all array positions including the first one (i=0) which replaces the original
+      for (let i = 0; i < count; i++) {
         // Use the new calculateLinearPosition function with proper transform handling
         const position = calculateLinearPosition(
           inputInstance.shape,
@@ -68,6 +60,8 @@ export const LinearArrayProcessor: ModifierProcessor = {
       }
     })
     
+    console.log(`LinearArrayProcessor: Created ${newInstances.length} instances for count=${count}`)
+    
     return {
       ...input,
       instances: newInstances
@@ -84,27 +78,6 @@ function processGroupArray(
   const { count, offsetX, offsetY, rotation, scaleStep } = settings
   const { groupTopLeft, groupBounds, groupShapes, groupTransform } = groupContext
   
-  console.log('processGroupArray called with:', {
-    count,
-    offsetX,
-    offsetY,
-    rotation,
-    scaleStep,
-    groupTopLeft,
-    groupBounds,
-    groupShapesCount: groupShapes.length
-  })
-  
-  console.log('Group bounds details:', {
-    minX: groupBounds.minX,
-    maxX: groupBounds.maxX,
-    minY: groupBounds.minY,
-    maxY: groupBounds.maxY,
-    width: groupBounds.width,
-    height: groupBounds.height,
-    centerX: groupBounds.centerX,
-    centerY: groupBounds.centerY
-  })
   
   // Start with empty instances (we'll generate new ones)
   const newInstances: ShapeInstance[] = []
@@ -113,21 +86,9 @@ function processGroupArray(
   const pixelOffsetX = (offsetX / 100) * groupBounds.width
   const pixelOffsetY = (offsetY / 100) * groupBounds.height
   
-  console.log('Group-based offsets:', {
-    pixelOffsetX,
-    pixelOffsetY,
-    groupWidth: groupBounds.width,
-    groupHeight: groupBounds.height
-  })
   
   // For each existing instance (which represents a shape in the group), create the array
   input.instances.forEach(inputInstance => {
-    console.log('Processing instance for array:', {
-      shapeId: inputInstance.shape.id,
-      shapeType: inputInstance.shape.type,
-      originalPosition: { x: inputInstance.transform.x, y: inputInstance.transform.y },
-      groupTopLeft: { x: groupTopLeft.x, y: groupTopLeft.y }
-    })
     
     for (let i = 1; i < count; i++) { // Start from i=1, skip the original (i=0)
       
@@ -204,23 +165,8 @@ function processGroupArray(
         
         finalRotation += groupTransform.rotation
         
-        console.log(`Applied group transform to clone ${i}:`, {
-          cloneOffset: { x: cloneOffsetX, y: cloneOffsetY },
-          groupRotation: groupTransform.rotation,
-          finalPosition: { x: finalX, y: finalY }
-        })
       }
       
-      console.log(`Clone ${i} calculations:`, {
-        rotationRadians,
-        offsetFromTopLeft: { x: offsetFromTopLeftX, y: offsetFromTopLeftY },
-        rotatedOffset: { x: rotatedOffsetX, y: rotatedOffsetY },
-        newGroupTopLeft: { x: newGroupTopLeftX, y: newGroupTopLeftY },
-        shapeRelative: { x: shapeRelativeX, y: shapeRelativeY },
-        rotatedRelative: { x: rotatedRelativeX, y: rotatedRelativeY },
-        finalPosition: { x: finalX, y: finalY },
-        finalScale
-      })
       
       // Compose the transform
       const newTransform: Transform = {

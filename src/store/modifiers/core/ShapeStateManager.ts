@@ -67,15 +67,10 @@ export function extractShapesFromState(state: ShapeState): TLShape[] {
       baseShape.props = instance.shape.props
     }
 
-    // Handle mirrored shapes - add mirror metadata after scaling is applied
-    if (instance.metadata?.isMirrored) {
-      // Store mirror metadata for reference
-      baseShape.meta = {
-        ...baseShape.meta,
-        mirrorAxis: instance.metadata.mirrorAxis as string,
-        isMirrored: true
-      }
-      
+    // Transfer all instance metadata to shape meta
+    baseShape.meta = {
+      ...baseShape.meta,
+      ...instance.metadata
     }
     
     return baseShape
