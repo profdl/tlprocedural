@@ -56,29 +56,18 @@ export function useCloneManager({
       })
       
       editor.run(() => {
-        // Try a different approach: create shapes at ORIGINAL position, then move and rotate
+        // Create shapes at their target positions with rotation set to 0
         const shapesToCreate = processedShapes.map(s => ({
           ...s,
-          x: shape.x,  // Create at original position
-          y: shape.y,  // Create at original position  
-          rotation: 0
+          rotation: 0  // Always create with 0 rotation
         }))
         
         editor.createShapes(shapesToCreate)
         
-        // Now move and rotate each shape using TLDraw's transform methods
+        // Apply rotation using rotateShapesBy for center-based rotation
         processedShapes.forEach((processedShape, index) => {
-          const shapeId = shapesToCreate[index].id
-          
-          // Move the shape to its target position
-          const deltaX = (processedShape.x || 0) - shape.x
-          const deltaY = (processedShape.y || 0) - shape.y
-          if (deltaX !== 0 || deltaY !== 0) {
-            editor.nudgeShapes([shapeId], { x: deltaX, y: deltaY })
-          }
-          
-          // Rotate the shape around its center
           if (processedShape.rotation && processedShape.rotation !== 0) {
+            const shapeId = shapesToCreate[index].id
             editor.rotateShapesBy([shapeId], processedShape.rotation)
           }
         })
@@ -222,23 +211,24 @@ function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModif
 
   if (updatedClones.length > 0) {
     editor.run(() => {
+      // Batch process all clones
       updatedClones.forEach((update) => {
-        if (update) {
-          const { targetRotation, ...shapeUpdate } = update
-          const currentShape = editor.getShape(update.id)
-          
-          // Update position and props (but not rotation)
-          editor.updateShape(shapeUpdate)
-          
-          // Apply rotation around center if needed
-          if (currentShape && targetRotation !== undefined) {
-            const currentRotation = currentShape.rotation || 0
-            const rotationDelta = targetRotation - currentRotation
-            if (rotationDelta !== 0) {
-              console.log(`Updating clone ${update.id} rotation from ${(currentRotation * 180 / Math.PI).toFixed(1)}° to ${(targetRotation * 180 / Math.PI).toFixed(1)}°`)
-              editor.rotateShapesBy([update.id], rotationDelta)
-            }
-          }
+        if (!update) return
+        
+        const { targetRotation, ...shapeUpdate } = update
+        const currentShape = editor.getShape(update.id)
+        if (!currentShape) return
+        
+        // Update position and props (but NOT rotation)
+        editor.updateShape(shapeUpdate)
+        
+        // Calculate rotation delta and apply it
+        const currentRotation = currentShape.rotation || 0
+        const rotationDelta = targetRotation - currentRotation
+        
+        if (Math.abs(rotationDelta) > 0.001) { // Only rotate if there's a meaningful difference
+          console.log(`Rotating clone ${update.id} from ${(currentRotation * 180 / Math.PI).toFixed(1)}° to ${(targetRotation * 180 / Math.PI).toFixed(1)}° (delta: ${(rotationDelta * 180 / Math.PI).toFixed(1)}°)`)
+          editor.rotateShapesBy([update.id], rotationDelta)
         }
       })
     }, { ignoreShapeLock: true, history: 'ignore' })

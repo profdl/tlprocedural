@@ -48,7 +48,7 @@ export function calculateLinearPosition(
   rotation: number,
   scaleStep: number,
   count: number,
-  _editor?: Editor
+  editor?: Editor
 ): Position {
   // Get shape dimensions
   const { width: shapeWidth, height: shapeHeight } = getShapeDimensions(originalShape)
@@ -57,8 +57,44 @@ export function calculateLinearPosition(
   const pixelOffsetX = (offsetX / 100) * shapeWidth
   const pixelOffsetY = (offsetY / 100) * shapeHeight
   
-  // Calculate position directly - no coordinate system conversion needed
-  // TLDraw will handle the rotation around the shape's center automatically
+  // When the shape is rotated, we need to calculate from the visual center
+  // not the top-left corner which moves when rotated
+  const shapeRotation = originalShape.rotation || 0
+  
+  if (editor && shapeRotation !== 0) {
+    // Get the shape's center in page space (accounting for rotation)
+    const bounds = editor.getShapePageBounds(originalShape.id)
+    if (bounds) {
+      // Calculate from the center of the rotated shape
+      const centerX = bounds.x + bounds.width / 2
+      const centerY = bounds.y + bounds.height / 2
+      
+      // Apply offset from center, then convert back to top-left for the clone
+      const cloneCenterX = centerX + (pixelOffsetX * index)
+      const cloneCenterY = centerY + (pixelOffsetY * index)
+      
+      // Convert back to top-left position for the clone
+      const finalX = cloneCenterX - shapeWidth / 2
+      const finalY = cloneCenterY - shapeHeight / 2
+      
+      // Calculate rotation for this index
+      const rotationRadians = degreesToRadians(rotation * index)
+      
+      // Calculate scale using linear interpolation
+      const progress = count > 1 ? index / (count - 1) : 0
+      const interpolatedScale = 1 + (scaleStep - 1) * progress
+      
+      return {
+        x: finalX,
+        y: finalY,
+        rotation: rotationRadians,
+        scaleX: interpolatedScale,
+        scaleY: interpolatedScale
+      }
+    }
+  }
+  
+  // Fallback to original calculation if no rotation or no editor
   const finalX = originalShape.x + (pixelOffsetX * index)
   const finalY = originalShape.y + (pixelOffsetY * index)
   
@@ -90,20 +126,40 @@ export function calculateCircularPosition(
   rotateAll: number,
   pointToCenter: boolean,
   count: number,
-  _editor?: Editor
+  editor?: Editor
 ): Position {
   // Calculate angle for this position on the circle
   const totalAngle = endAngle - startAngle
   const angleStep = count > 1 ? totalAngle / (count - 1) : 0
   const angle = degreesToRadians(startAngle + (angleStep * index))
   
-  // Calculate offset from original position - no center calculations
+  // Get shape dimensions for center calculations
+  const { width: shapeWidth, height: shapeHeight } = getShapeDimensions(originalShape)
+  const shapeRotation = originalShape.rotation || 0
+  
+  let baseX = originalShape.x
+  let baseY = originalShape.y
+  
+  // When the shape is rotated, calculate from its visual center
+  if (editor && shapeRotation !== 0) {
+    const bounds = editor.getShapePageBounds(originalShape.id)
+    if (bounds) {
+      // Use the center of the rotated shape as base
+      const shapeCenterX = bounds.x + bounds.width / 2
+      const shapeCenterY = bounds.y + bounds.height / 2
+      // Convert back to top-left for positioning
+      baseX = shapeCenterX - shapeWidth / 2
+      baseY = shapeCenterY - shapeHeight / 2
+    }
+  }
+  
+  // Calculate offset from base position
   const offsetX = centerX + Math.cos(angle) * radius
   const offsetY = centerY + Math.sin(angle) * radius
   
-  // Apply offset directly to original shape position
-  const finalX = originalShape.x + offsetX
-  const finalY = originalShape.y + offsetY
+  // Apply offset to base position
+  const finalX = baseX + offsetX
+  const finalY = baseY + offsetY
   
   // Calculate rotation
   let baseRotation = 0
@@ -133,10 +189,28 @@ export function calculateGridPosition(
   offsetY: number,
   spacingX: number,
   spacingY: number,
-  _editor?: Editor
+  editor?: Editor
 ): Position {
-  const x = originalShape.x + offsetX + (col * spacingX)
-  const y = originalShape.y + offsetY + (row * spacingY)
+  const shapeRotation = originalShape.rotation || 0
+  let baseX = originalShape.x
+  let baseY = originalShape.y
+  
+  // When the shape is rotated, calculate from its visual center
+  if (editor && shapeRotation !== 0) {
+    const bounds = editor.getShapePageBounds(originalShape.id)
+    if (bounds) {
+      const { width: shapeWidth, height: shapeHeight } = getShapeDimensions(originalShape)
+      // Use the center of the rotated shape as base
+      const shapeCenterX = bounds.x + bounds.width / 2
+      const shapeCenterY = bounds.y + bounds.height / 2
+      // Convert back to top-left for positioning
+      baseX = shapeCenterX - shapeWidth / 2
+      baseY = shapeCenterY - shapeHeight / 2
+    }
+  }
+  
+  const x = baseX + offsetX + (col * spacingX)
+  const y = baseY + offsetY + (row * spacingY)
   
   return {
     x,
