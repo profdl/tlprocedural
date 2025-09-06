@@ -20,76 +20,32 @@ export const CircularArrayProcessor: ModifierProcessor = {
       return processGroupCircularArray(input, settings, groupContext, editor)
     }
     
-    // Calculate the geometric center of the linear array entity
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    
-    input.instances.forEach(inst => {
-      const { width, height } = getShapeDimensions(inst.shape)
-      const left = inst.transform.x
-      const right = inst.transform.x + width
-      const top = inst.transform.y
-      const bottom = inst.transform.y + height
-      
-      minX = Math.min(minX, left)
-      maxX = Math.max(maxX, right)
-      minY = Math.min(minY, top)
-      maxY = Math.max(maxY, bottom)
-    })
-    
-    // The true center of the linear array entity
-    const entityCenterX = (minX + maxX) / 2
-    const entityCenterY = (minY + maxY) / 2
-    
-    // Create a reference shape at the entity center for circular positioning
-    const referenceShape = {
-      ...input.instances[0].shape,
-      x: entityCenterX,
-      y: entityCenterY,
-      rotation: 0
-    }
-    
-    // Calculate circular positions once for the group center
-    // Use alignToTangent=false for positioning to keep positions consistent
-    const circularPositions: any[] = []
-    for (let i = 0; i < count; i++) {
-      const position = calculateCircularPosition(
-        referenceShape,
-        i, // Use i directly, not i + 1
-        centerX || 0,
-        centerY || 0,
-        radius,
-        startAngle,
-        endAngle,
-        rotateEach || 0,
-        rotateAll || 0,
-        alignToTangent || false, // Use alignToTangent directly from settings
-        count,
-        editor
-      )
-      
-      circularPositions.push(position)
-    }
-    
     // For each existing instance, create the circular array
     input.instances.forEach(inputInstance => {
-      // Calculate this instance's offset from the entity center
-      const offsetFromCenterX = inputInstance.transform.x - entityCenterX
-      const offsetFromCenterY = inputInstance.transform.y - entityCenterY
-      
+      // Create all array positions including the first one (i=0) which replaces the original
       for (let i = 0; i < count; i++) {
-        const circularPos = circularPositions[i]
-        
-        // Calculate final position without rotation compensation
-        // The rotation will be applied by useCloneManager using editor.rotateShapesBy()
-        const finalX = circularPos.x + offsetFromCenterX
-        const finalY = circularPos.y + offsetFromCenterY
+        // Use calculateCircularPosition directly with the actual shape (like LinearArrayProcessor)
+        const position = calculateCircularPosition(
+          inputInstance.shape,
+          i,
+          centerX || 0,
+          centerY || 0,
+          radius,
+          startAngle,
+          endAngle,
+          rotateEach || 0,
+          rotateAll || 0,
+          alignToTangent || false,
+          count,
+          editor
+        )
         
         const newTransform: Transform = {
-          x: finalX,
-          y: finalY,
-          rotation: inputInstance.transform.rotation + circularPos.rotation,
-          scaleX: inputInstance.transform.scaleX * circularPos.scaleX,
-          scaleY: inputInstance.transform.scaleY * circularPos.scaleY
+          x: position.x,
+          y: position.y,
+          rotation: inputInstance.transform.rotation + position.rotation,
+          scaleX: inputInstance.transform.scaleX * position.scaleX,
+          scaleY: inputInstance.transform.scaleY * position.scaleY
         }
         
         const newInstance: ShapeInstance = {

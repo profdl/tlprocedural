@@ -147,6 +147,7 @@ For TLDraw-specific development, reference these included documentation files:
 ### Recent Fixes
 - **Linear Array Extra Clone**: Fixed issue where LinearArrayProcessor created extra untransformed clones by properly hiding original shape when modifiers are active
 - **Clone Rotation**: Ensured all clones use `editor.rotateShapesBy()` for proper center-based rotation
+- **Rotated Shape Positioning**: Fixed clone positioning when original shape is rotated by calculating from visual center using `editor.getShapePageBounds()` instead of top-left corner
 
 ### Development Priorities
 1. **Stabilize Core Modifier System** - Fix shape state synchronization issues
@@ -264,6 +265,33 @@ editor.rotateShapesBy(shapeIds, rotationInRadians)
 - `getShapeGeometry().bounds` - Local geometry bounds (may be rotated)
 - Always use appropriate method for your coordinate space needs
 
+### Critical Pattern: Handling Rotated Shapes in Modifiers
+
+**When calculating positions for clones of rotated shapes**:
+```typescript
+// ✅ CORRECT - Calculate from visual center for rotated shapes
+const shapeRotation = originalShape.rotation || 0
+if (editor && shapeRotation !== 0) {
+  const bounds = editor.getShapePageBounds(originalShape.id)
+  if (bounds) {
+    // Use the center of the rotated shape
+    const centerX = bounds.x + bounds.width / 2
+    const centerY = bounds.y + bounds.height / 2
+    // Calculate clone positions from this center
+    // Then convert back to top-left for positioning
+  }
+}
+
+// ❌ WRONG - Using top-left corner directly
+const x = originalShape.x + offset // This moves when shape rotates!
+```
+
+**This pattern is critical because**:
+- When a shape rotates, its `x, y` (top-left corner) position changes
+- Calculating clone positions from the moving top-left causes incorrect positioning
+- Using the visual center (from `getShapePageBounds`) provides stable reference point
+- All array processors (Linear, Circular, Grid) must follow this pattern
+
 ### Modifier System Implications
 
 **Critical for modifier processors**:
@@ -271,6 +299,7 @@ editor.rotateShapesBy(shapeIds, rotationInRadians)
 2. **Transform Composition**: Multiple modifiers create compound transforms
 3. **Group Bounds**: Group shapes have special bounds calculation rules
 4. **Performance**: Avoid unnecessary coordinate space conversions
+5. **Rotated Shape Handling**: Always calculate from visual center for rotated shapes
 
 **Common Pitfalls**:
 - Mixing coordinate spaces (e.g., applying page coordinates as local coordinates)
@@ -282,6 +311,8 @@ editor.rotateShapesBy(shapeIds, rotationInRadians)
 - Always work in consistent coordinate space (preferably page space)
 - Use TLDraw's transform methods rather than manual coordinate calculations
 - **For rotation**: ALWAYS use `editor.rotateShapesBy()` for center-based rotation
+- **For positioning**: When shape is rotated, use `editor.getShapePageBounds()` to get visual center
 - Test with rotated shapes and nested groups
 - Account for different shape types having different origin behaviors
 - Prefer TLDraw's built-in APIs (`getShapePageBounds`, `getShapePageTransform`) over manual calculations
+- All position calculation functions in `transformUtils.ts` must handle rotated shapes correctly
