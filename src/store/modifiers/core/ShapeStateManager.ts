@@ -70,7 +70,7 @@ export function extractShapesFromState(state: ShapeState): TLShape[] {
     // Transfer all instance metadata to shape meta
     baseShape.meta = {
       ...baseShape.meta,
-      ...instance.metadata
+      ...instance.metadata as Record<string, any>
     }
     
     return baseShape

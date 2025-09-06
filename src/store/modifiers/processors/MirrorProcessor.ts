@@ -115,6 +115,7 @@ export const MirrorProcessor: ModifierProcessor = {
       newInstances.push(mirroredInstance)
     })
     
+    console.log(`MirrorProcessor: Created ${newInstances.length} instances (${input.instances.length} originals + mirrors) across ${axis}-axis`)
     
     return {
       ...input,

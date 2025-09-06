@@ -33,8 +33,10 @@ This is a **TLDraw-based procedural shape manipulation app** built with React + 
 **Shape Processing Flow**:
 1. Original shape → ShapeState (with single instance)
 2. Each enabled modifier processes ShapeState sequentially
-3. Each processor multiplies/transforms the shape instances
+3. Each processor creates new instances (e.g., LinearArray creates `count` instances including index 0)
 4. Final ShapeState contains all transformed instances for rendering
+5. useCloneManager hides original shape (opacity=0) and creates visible clones
+6. Clones are created with rotation=0, then rotated using `editor.rotateShapesBy()`
 
 ### Key Files
 
@@ -52,6 +54,8 @@ This is a **TLDraw-based procedural shape manipulation app** built with React + 
 - `src/components/ModifierRenderer.tsx` - Renders modifier effects 
 - `src/components/modifiers/ModifierControls.tsx` - Main modifier UI
 - `src/components/CustomStylePanel.tsx` - Right sidebar with modifiers tab
+- `src/components/modifiers/hooks/useCloneManager.ts` - Manages clone creation/cleanup and original shape hiding
+- `src/components/modifiers/hooks/useStackedModifier.ts` - Processes modifier stack for shapes
 
 ### Modifier Types
 
@@ -76,6 +80,9 @@ The system has special handling for grouped shapes:
 - Group modifiers work on all shapes in a group simultaneously
 - The system uses coordinate transforms rather than direct shape manipulation
 - All processors are stateless and functional
+- **Original Shape Hiding**: When modifiers are active, the original shape is hidden (opacity=0) to prevent "double" rendering
+- **Clone Management**: useCloneManager creates/destroys clones and manages original shape visibility
+- **Rotation Handling**: All rotations use `editor.rotateShapesBy()` for center-based rotation, never direct rotation property assignment
 
 ## TLDraw Integration
 
@@ -136,6 +143,10 @@ For TLDraw-specific development, reference these included documentation files:
 - **Memory Leaks**: Store subscriptions may not always clean up properly
 - **Type Safety**: Some modifier type definitions may be incomplete
 - **Error Handling**: Limited error handling in modifier processing pipeline
+
+### Recent Fixes
+- **Linear Array Extra Clone**: Fixed issue where LinearArrayProcessor created extra untransformed clones by properly hiding original shape when modifiers are active
+- **Clone Rotation**: Ensured all clones use `editor.rotateShapesBy()` for proper center-based rotation
 
 ### Development Priorities
 1. **Stabilize Core Modifier System** - Fix shape state synchronization issues

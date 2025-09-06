@@ -28,9 +28,6 @@ export {
   calculateLinearPosition,
   calculateCircularPosition,
   calculateGridPosition,
-  calculatePositionInPageSpace,
-  localToPageSpace,
-  getShapeCenterInPageSpace,
   type Position
 } from './transformUtils'
 

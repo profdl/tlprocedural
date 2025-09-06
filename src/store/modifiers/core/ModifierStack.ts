@@ -59,10 +59,7 @@ export class ModifierStack {
     for (const modifier of enabledModifiers) {
       const processor = ModifierStack.getProcessor(modifier.type)
       if (processor) {
-        const previousInstanceCount = currentState.instances.length
         currentState = processor.process(currentState, modifier.props, undefined, editor)
-        const newInstanceCount = currentState.instances.length
-        
       }
     }
 
@@ -124,7 +121,6 @@ export class ModifierStack {
     for (const modifier of enabledModifiers) {
       const processor = ModifierStack.getProcessor(modifier.type)
       if (processor) {
-        const previousInstanceCount = currentState.instances.length
         const groupContext = { 
           groupCenter: { x: groupBounds.centerX, y: groupBounds.centerY },
           groupTopLeft,
@@ -137,8 +133,6 @@ export class ModifierStack {
           }
         }
         currentState = processor.process(currentState, modifier.props, groupContext, editor)
-        const newInstanceCount = currentState.instances.length
-        
       }
     }
     

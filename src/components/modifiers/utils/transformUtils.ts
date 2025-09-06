@@ -1,7 +1,6 @@
 import type { TLShape, Editor } from 'tldraw'
 import { createShapeId } from 'tldraw'
 import { getShapeDimensions } from './shapeDimensions'
-import { logShapeOperation } from './debugUtils'
 
 /**
  * Clone utilities
@@ -49,60 +48,26 @@ export function calculateLinearPosition(
   rotation: number,
   scaleStep: number,
   count: number,
-  editor?: Editor
+  _editor?: Editor
 ): Position {
-  // Get shape dimensions for center calculations
+  // Get shape dimensions
   const { width: shapeWidth, height: shapeHeight } = getShapeDimensions(originalShape)
   
   // Convert percentage offsets to pixel values based on shape width
   const pixelOffsetX = (offsetX / 100) * shapeWidth
   const pixelOffsetY = (offsetY / 100) * shapeHeight
   
-  // Calculate rotation in radians for this clone
+  // Calculate position directly - no coordinate system conversion needed
+  // TLDraw will handle the rotation around the shape's center automatically
+  const finalX = originalShape.x + (pixelOffsetX * index)
+  const finalY = originalShape.y + (pixelOffsetY * index)
+  
+  // Calculate rotation for this index
   const rotationRadians = degreesToRadians(rotation * index)
   
-  // Calculate the offset from the original center
-  const offsetFromCenterX = pixelOffsetX * index
-  const offsetFromCenterY = pixelOffsetY * index
-  
-  // Calculate scale using linear interpolation from original (1.0) to final scale
+  // Calculate scale using linear interpolation
   const progress = count > 1 ? index / (count - 1) : 0
   const interpolatedScale = 1 + (scaleStep - 1) * progress
-  
-  // Use TLDraw's transform system if editor is available
-  if (editor) {
-    return calculateLinearPositionWithTLDrawTransforms(
-      originalShape,
-      offsetFromCenterX,
-      offsetFromCenterY,
-      rotationRadians,
-      interpolatedScale,
-      editor
-    )
-  }
-  
-  // Calculate position without rotation compensation
-  // Since we'll use editor.rotateShapesBy() to apply rotation after shape creation
-  const originalCenterX = originalShape.x + shapeWidth / 2
-  const originalCenterY = originalShape.y + shapeHeight / 2
-  
-  // Calculate the final center position (offset from original)
-  const finalCenterX = originalCenterX + offsetFromCenterX
-  const finalCenterY = originalCenterY + offsetFromCenterY
-  
-  // Convert center coordinates to top-left coordinates
-  const finalX = finalCenterX - shapeWidth / 2
-  const finalY = finalCenterY - shapeHeight / 2
-  
-  logShapeOperation('calculateLinearPosition', originalShape.id, {
-    index,
-    originalCenter: { x: originalCenterX, y: originalCenterY },
-    offsetFromCenter: { x: offsetFromCenterX, y: offsetFromCenterY },
-    rotationDegrees: rotation * index,
-    rotationRadians,
-    finalPosition: { x: finalX, y: finalY },
-    shapeDimensions: { width: shapeWidth, height: shapeHeight }
-  })
   
   return {
     x: finalX,
@@ -125,25 +90,25 @@ export function calculateCircularPosition(
   rotateAll: number,
   pointToCenter: boolean,
   count: number,
-  editor?: Editor
+  _editor?: Editor
 ): Position {
-  const { width: shapeWidth, height: shapeHeight } = getShapeDimensions(originalShape)
-  
-  // Calculate center position
-  const centerPosX = originalShape.x + shapeWidth / 2 + centerX
-  const centerPosY = originalShape.y + shapeHeight / 2 + centerY
-  
+  // Calculate angle for this position on the circle
   const totalAngle = endAngle - startAngle
-  const angleStep = totalAngle / (count - 1)
-  const angle = degreesToRadians(startAngle + (angleStep * (index - 1)))
+  const angleStep = count > 1 ? totalAngle / (count - 1) : 0
+  const angle = degreesToRadians(startAngle + (angleStep * index))
   
-  // Calculate position on circle
-  const circleX = centerPosX + Math.cos(angle) * radius
-  const circleY = centerPosY + Math.sin(angle) * radius
+  // Calculate offset from original position - no center calculations
+  const offsetX = centerX + Math.cos(angle) * radius
+  const offsetY = centerY + Math.sin(angle) * radius
   
+  // Apply offset directly to original shape position
+  const finalX = originalShape.x + offsetX
+  const finalY = originalShape.y + offsetY
+  
+  // Calculate rotation
   let baseRotation = 0
   if (pointToCenter) {
-    // For align to tangent, use the angle perpendicular to the radius (tangent direction)
+    // For align to tangent, use the angle perpendicular to the radius
     baseRotation = angle + Math.PI / 2
   }
   
@@ -151,25 +116,9 @@ export function calculateCircularPosition(
   const rotateEachRadians = degreesToRadians((rotateEach || 0) * index)
   const totalRotation = baseRotation + rotateAllRadians + rotateEachRadians
   
-  // Convert center coordinates to top-left coordinates
-  // No rotation compensation needed since we'll use editor.rotateShapesBy()
-  const x = circleX - shapeWidth / 2
-  const y = circleY - shapeHeight / 2
-  
-  // Use TLDraw's transform system if editor is available
-  if (editor) {
-    return calculateCircularPositionWithTLDrawTransforms(
-      originalShape,
-      x,
-      y,
-      totalRotation,
-      editor
-    )
-  }
-  
   return {
-    x,
-    y,
+    x: finalX,
+    y: finalY,
     rotation: totalRotation,
     scaleX: 1,
     scaleY: 1
@@ -184,21 +133,11 @@ export function calculateGridPosition(
   offsetY: number,
   spacingX: number,
   spacingY: number,
-  editor?: Editor
+  _editor?: Editor
 ): Position {
   const x = originalShape.x + offsetX + (col * spacingX)
   const y = originalShape.y + offsetY + (row * spacingY)
   
-  // Use TLDraw's transform system if editor is available
-  if (editor) {
-    return calculateGridPositionWithTLDrawTransforms(
-      originalShape,
-      x,
-      y,
-      editor
-    )
-  }
-  
   return {
     x,
     y,
@@ -208,139 +147,4 @@ export function calculateGridPosition(
   }
 }
 
-/**
- * TLDraw transform-based helper functions
- */
 
-function calculateLinearPositionWithTLDrawTransforms(
-  originalShape: TLShape,
-  offsetX: number,
-  offsetY: number,
-  rotation: number,
-  scale: number,
-  editor: Editor
-): Position {
-  // Get shape page bounds for proper coordinate handling
-  const pageBounds = editor.getShapePageBounds(originalShape.id)
-  if (!pageBounds) {
-    // Fallback if bounds not available
-    return {
-      x: originalShape.x + offsetX,
-      y: originalShape.y + offsetY,
-      rotation,
-      scaleX: scale,
-      scaleY: scale
-    }
-  }
-  
-  // Use the page bounds center for more accurate positioning
-  const centerX = pageBounds.center.x
-  const centerY = pageBounds.center.y
-  
-  // Calculate final center position (simple offset, no rotation of offset)
-  // The rotation will be applied later using editor.rotateShapesBy()
-  const finalCenterX = centerX + offsetX
-  const finalCenterY = centerY + offsetY
-  
-  // Convert center coordinates to top-left coordinates
-  const shapeWidth = pageBounds.width
-  const shapeHeight = pageBounds.height
-  const finalX = finalCenterX - shapeWidth / 2
-  const finalY = finalCenterY - shapeHeight / 2
-  
-  return {
-    x: finalX,
-    y: finalY,
-    rotation,
-    scaleX: scale,
-    scaleY: scale
-  }
-}
-
-function calculateCircularPositionWithTLDrawTransforms(
-  _originalShape: TLShape,
-  x: number,
-  y: number,
-  rotation: number,
-  _editor: Editor
-): Position {
-  // For circular positioning, we already have the final coordinates calculated
-  // TLDraw's transform system will handle the rotation properly when the shape is created
-  return {
-    x,
-    y,
-    rotation,
-    scaleX: 1,
-    scaleY: 1
-  }
-}
-
-function calculateGridPositionWithTLDrawTransforms(
-  _originalShape: TLShape,
-  x: number,
-  y: number,
-  _editor: Editor
-): Position {
-  // Grid positioning is straightforward - just return the calculated coordinates
-  return {
-    x,
-    y,
-    rotation: 0,
-    scaleX: 1,
-    scaleY: 1
-  }
-}
-
-/**
- * Enhanced position calculation with proper coordinate space handling
- */
-export function calculatePositionInPageSpace(
-  shape: TLShape,
-  offset: { x: number; y: number },
-  editor: Editor
-): { x: number; y: number } {
-  const pageBounds = editor.getShapePageBounds(shape.id)
-  if (!pageBounds) {
-    return { x: shape.x + offset.x, y: shape.y + offset.y }
-  }
-  
-  return {
-    x: pageBounds.minX + offset.x,
-    y: pageBounds.minY + offset.y
-  }
-}
-
-/**
- * Convert local shape coordinates to page coordinates
- */
-export function localToPageSpace(
-  shape: TLShape,
-  localPoint: { x: number; y: number },
-  editor: Editor
-): { x: number; y: number } {
-  const pageBounds = editor.getShapePageBounds(shape.id)
-  if (!pageBounds) {
-    return { x: shape.x + localPoint.x, y: shape.y + localPoint.y }
-  }
-  
-  return {
-    x: pageBounds.minX + localPoint.x,
-    y: pageBounds.minY + localPoint.y
-  }
-}
-
-/**
- * Get shape center in page coordinates
- */
-export function getShapeCenterInPageSpace(
-  shape: TLShape,
-  editor: Editor
-): { x: number; y: number } {
-  const pageBounds = editor.getShapePageBounds(shape.id)
-  if (!pageBounds) {
-    const { width, height } = getShapeDimensions(shape)
-    return { x: shape.x + width / 2, y: shape.y + height / 2 }
-  }
-  
-  return { x: pageBounds.center.x, y: pageBounds.center.y }
-}

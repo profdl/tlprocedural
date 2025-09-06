@@ -21,14 +21,9 @@ export const GridArrayProcessor: ModifierProcessor = {
     
     // For each existing instance, create the grid array
     input.instances.forEach(inputInstance => {
-      // Create grid positions
+      // Create grid positions including (0,0) which replaces the original
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < columns; col++) {
-          // Skip the original position (0,0) - we'll add it first
-          if (row === 0 && col === 0) {
-            newInstances.push(inputInstance)
-            continue
-          }
           
           const newTransform: Transform = {
             x: inputInstance.transform.x + (offsetX || 0) + (col * spacingX),
@@ -55,6 +50,8 @@ export const GridArrayProcessor: ModifierProcessor = {
       }
     })
     
+    console.log(`GridArrayProcessor: Created ${newInstances.length} instances for ${rows}x${columns} grid`)
+    
     return {
       ...input,
       instances: newInstances
@@ -80,10 +77,6 @@ function processGroupGridArray(
     // Create grid positions
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < columns; col++) {
-        // Skip the original position (0,0) - we'll add it first
-        if (row === 0 && col === 0) {
-          continue
-        }
         
         // Calculate the offset from the group's top-left corner
         const offsetFromTopLeftX = (offsetX || 0) + (col * spacingX)
@@ -104,10 +97,6 @@ function processGroupGridArray(
         
         // Apply the group's current transform to make clones move with the group
         if (groupTransform) {
-          // Calculate this cloned group's center (each clone scales around its own center)
-          const clonedGroupCenterX = newGroupTopLeftX + (groupBounds.width / 2)
-          const clonedGroupCenterY = newGroupTopLeftY + (groupBounds.height / 2)
-          
           // Calculate the clone's offset from the source group's center
           const sourceGroupCenterX = groupTopLeft.x + (groupBounds.width / 2)
           const sourceGroupCenterY = groupTopLeft.y + (groupBounds.height / 2)
@@ -164,6 +153,8 @@ function processGroupGridArray(
       }
     }
   })
+  
+  console.log(`GridArrayProcessor (Group): Created ${newInstances.length} instances for ${rows}x${columns} grid`)
   
   return {
     ...input,

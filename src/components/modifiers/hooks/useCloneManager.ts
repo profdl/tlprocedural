@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useEditor, type TLShape, type TLShapePartial, type Editor } from 'tldraw'
 import { ModifierStack, extractShapesFromState } from '../../../store/modifiers'
 import type { TLModifier } from '../../../types/modifiers'
@@ -27,54 +27,59 @@ export function useCloneManager({
   modifiersKey 
 }: UseCloneManagerProps) {
   const editor = useEditor()
+  
+  // Memoize processedShapes count to avoid dependency issues
+  const processedShapesCount = useMemo(() => processedShapes.length, [processedShapes.length])
 
   // Create and manage shape clones
   useEffect(() => {
     if (!editor) return
 
     logShapeOperation('useCloneManager Effect', shape.id, {
-      processedShapes: processedShapes.length
+      processedShapes: processedShapesCount
     })
 
     // Clean up existing clones for this shape
     cleanupExistingClones(editor, shape)
 
     // For group modifiers, also clean up clones of all shapes in the group
-    if (shape.type === 'group' && processedShapes.length > 0) {
+    if (shape.type === 'group' && processedShapesCount > 0) {
       cleanupGroupClones(editor, shape)
     }
 
-    // Hide the original shape when we have modifiers active by making it transparent
-    // This prevents the "extra clone" that doesn't rotate/scale
-    const hasActiveModifiers = modifiers.some(m => m.enabled)
-    editor.run(() => {
-      editor.updateShape({
-        id: shape.id,
-        type: shape.type,
-        opacity: hasActiveModifiers ? 0 : 1
-      })
-    }, { history: 'ignore' })
+    // Keep original shape visible - don't hide it
 
     // Create new clones if we have processed shapes
-    if (processedShapes.length > 0) {
+    if (processedShapesCount > 0) {
       logShapeOperation('useCloneManager Create', shape.id, {
         newClones: processedShapes.length
       })
       
       editor.run(() => {
-        // Create shapes with rotation set to 0, then rotate them properly
+        // Try a different approach: create shapes at ORIGINAL position, then move and rotate
         const shapesToCreate = processedShapes.map(s => ({
           ...s,
+          x: shape.x,  // Create at original position
+          y: shape.y,  // Create at original position  
           rotation: 0
         }))
         
-        
         editor.createShapes(shapesToCreate)
         
-        // Now rotate each shape around its center using TLDraw's API
+        // Now move and rotate each shape using TLDraw's transform methods
         processedShapes.forEach((processedShape, index) => {
+          const shapeId = shapesToCreate[index].id
+          
+          // Move the shape to its target position
+          const deltaX = (processedShape.x || 0) - shape.x
+          const deltaY = (processedShape.y || 0) - shape.y
+          if (deltaX !== 0 || deltaY !== 0) {
+            editor.nudgeShapes([shapeId], { x: deltaX, y: deltaY })
+          }
+          
+          // Rotate the shape around its center
           if (processedShape.rotation && processedShape.rotation !== 0) {
-            editor.rotateShapesBy([shapesToCreate[index].id], processedShape.rotation)
+            editor.rotateShapesBy([shapeId], processedShape.rotation)
           }
         })
       }, { history: 'ignore' })
@@ -95,25 +100,16 @@ export function useCloneManager({
         }, { ignoreShapeLock: true, history: 'ignore' })
       }
 
-      // Restore original shape visibility when cleaning up
-      editor.run(() => {
-        editor.updateShape({
-          id: shape.id,
-          type: shape.type,
-          opacity: 1
-        })
-      }, { history: 'ignore' })
-
       // For group modifiers, also clean up clones of all shapes in the group during cleanup
       if (shape.type === 'group') {
         cleanupGroupClones(editor, shape)
       }
     }
-  }, [editor, shapeKey, processedShapes.length])
+  }, [editor, shapeKey, processedShapesCount])
 
   // Update existing clones when original shape changes (second effect for live updates)
   useEffect(() => {
-    if (!editor || !processedShapes.length) return
+    if (!editor || !processedShapesCount) return
     
 
     const existingClones = editor.getCurrentPageShapes().filter((s: TLShape) => {
@@ -125,7 +121,12 @@ export function useCloneManager({
       updateExistingClones(editor, shape, modifiers, existingClones)
     }
   }, [editor, shapeKey, modifiersKey])
+
+  // TODO: Implement transform synchronization from clone back to original
+  // This would allow users to transform clones and have changes reflect in the original
+  // Commented out for now to avoid circular dependency issues
 }
+
 
 /**
  * Clean up existing clones for a shape
@@ -173,41 +174,6 @@ function cleanupGroupClones(editor: Editor, shape: TLShape) {
   }
 }
 
-/**
- * Move the original shape to the first array position
- */
-function moveOriginalShapeToFirstPosition(editor: Editor, shape: TLShape, processedShapes: TLShapePartial[]) {
-  // Find the first clone to get its position
-  const firstClone = processedShapes.find(s => s.meta?.isFirstClone)
-  if (firstClone) {
-    editor.run(() => {
-      // Move the original shape to the first array position
-      const targetRotation = firstClone.rotation || 0
-      const currentRotation = shape.rotation || 0
-      const rotationDelta = targetRotation - currentRotation
-      
-      // Update position first
-      editor.updateShape({
-        id: shape.id,
-        type: shape.type,
-        x: firstClone.x,
-        y: firstClone.y
-      })
-      
-      // Then rotate around center if needed
-      if (rotationDelta !== 0) {
-        editor.rotateShapesBy([shape.id], rotationDelta)
-      }
-      
-      // Make the first clone transparent since it's now redundant
-      editor.updateShape({
-        id: firstClone.id,
-        type: firstClone.type,
-        opacity: 0
-      })
-    }, { history: 'ignore' })
-  }
-}
 
 /**
  * Update existing clones with new positions and properties

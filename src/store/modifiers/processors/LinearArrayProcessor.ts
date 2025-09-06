@@ -76,7 +76,7 @@ function processGroupArray(
   groupContext: GroupContext
 ): ShapeState {
   const { count, offsetX, offsetY, rotation, scaleStep } = settings
-  const { groupTopLeft, groupBounds, groupShapes, groupTransform } = groupContext
+  const { groupTopLeft, groupBounds, groupTransform } = groupContext
   
   
   // Start with empty instances (we'll generate new ones)
@@ -130,9 +130,6 @@ function processGroupArray(
       let finalRotation = inputInstance.transform.rotation + relativePosition.rotation
       const finalScale = relativePosition.scaleX
       
-      // For logging compatibility, create dummy rotated relative values
-      const rotatedRelativeX = shapeRelativeX
-      const rotatedRelativeY = shapeRelativeY
       
       // Apply the group's current transform to make clones move with the group
       if (groupTransform) {
