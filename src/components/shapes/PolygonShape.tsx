@@ -42,14 +42,13 @@ export class PolygonShapeUtil extends FlippableShapeUtil<PolygonShape> {
     // Get flip transform from the FlippableShapeUtil
     const flipTransform = this.getFlipTransform(shape)
     
-    // Calculate polygon points
+    // Calculate polygon points to completely fill the bounding box
     const centerX = w / 2
     const centerY = h / 2
     const radiusX = w / 2
     const radiusY = h / 2
     
     const points: string[] = []
-    
     for (let i = 0; i < sides; i++) {
       const angle = (i * 2 * Math.PI) / sides - Math.PI / 2 // Start from top
       const x = centerX + radiusX * Math.cos(angle)
@@ -83,30 +82,46 @@ export class PolygonShapeUtil extends FlippableShapeUtil<PolygonShape> {
   }
 
   override indicator(shape: PolygonShape) {
-    return (
-      <rect 
-        width={shape.props.w} 
-        height={shape.props.h} 
-        fill="none" 
-        stroke="var(--color-selection-stroke)" 
-        strokeWidth={1}
-      />
-    )
+    return null
   }
 
   getBounds(shape: PolygonShape) {
+    // Calculate actual bounds based on polygon vertices
+    const { w, h, sides } = shape.props
+    const centerX = w / 2
+    const centerY = h / 2
+    const radiusX = w / 2
+    const radiusY = h / 2
+    
+    let minX = Infinity
+    let maxX = -Infinity
+    let minY = Infinity
+    let maxY = -Infinity
+    
+    for (let i = 0; i < sides; i++) {
+      const angle = (i * 2 * Math.PI) / sides - Math.PI / 2
+      const x = centerX + radiusX * Math.cos(angle)
+      const y = centerY + radiusY * Math.sin(angle)
+      
+      minX = Math.min(minX, x)
+      maxX = Math.max(maxX, x)
+      minY = Math.min(minY, y)
+      maxY = Math.max(maxY, y)
+    }
+    
     return {
-      x: 0,
-      y: 0,
-      w: shape.props.w,
-      h: shape.props.h,
+      x: minX,
+      y: minY,
+      w: maxX - minX,
+      h: maxY - minY,
     }
   }
 
   getCenter(shape: PolygonShape) {
+    const bounds = this.getBounds(shape)
     return {
-      x: shape.props.w / 2,
-      y: shape.props.h / 2,
+      x: bounds.x + bounds.w / 2,
+      y: bounds.y + bounds.h / 2,
     }
   }
 

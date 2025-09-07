@@ -14,8 +14,10 @@ import {
 import { ModifierControls } from './modifiers/ModifierControls'
 import { SineWaveControls } from './shapes/SineWaveControls'
 import { TriangleControls } from './shapes/TriangleControls'
+import { PolygonControls } from './shapes/PolygonControls'
 import type { SineWaveShape } from './shapes/SineWaveShape'
 import type { TriangleShape } from './shapes/TriangleShape'
+import type { PolygonShape } from './shapes/PolygonShape'
 
 type TabType = 'styles' | 'modifiers'
 
@@ -92,6 +94,15 @@ export const CustomStylePanel = (props: TLUiStylePanelProps) => {
               return triangleShapes.length > 0 ? (
                 <div className="tlui-style-panel__section">
                   <TriangleControls shapes={triangleShapes} />
+                </div>
+              ) : null
+            })()}
+            {/* Show polygon controls if any selected shapes are polygons */}
+            {(() => {
+              const polygonShapes = selectedShapes.filter(shape => shape.type === 'polygon') as PolygonShape[]
+              return polygonShapes.length > 0 ? (
+                <div className="tlui-style-panel__section">
+                  <PolygonControls shapes={polygonShapes} />
                 </div>
               ) : null
             })()}
