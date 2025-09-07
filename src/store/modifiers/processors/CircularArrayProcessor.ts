@@ -26,7 +26,10 @@ export const CircularArrayProcessor: ModifierProcessor = {
       for (let i = 0; i < count; i++) {
         // Calculate the angle for this position on the circle
         const totalAngle = endAngle - startAngle
-        const angleStep = count > 1 ? totalAngle / (count - 1) : 0
+        // For full circles (360 degrees), distribute evenly without overlap
+        // For partial arcs, use the original logic to include both endpoints
+        const isFullCircle = Math.abs(totalAngle) >= 360
+        const angleStep = count > 1 ? (isFullCircle ? totalAngle / count : totalAngle / (count - 1)) : 0
         const angle = (startAngle + (angleStep * i)) * Math.PI / 180
         
         // Calculate circular offset from center (this is an offset, not absolute position)
