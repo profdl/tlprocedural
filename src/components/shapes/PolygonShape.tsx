@@ -42,20 +42,9 @@ export class PolygonShapeUtil extends FlippableShapeUtil<PolygonShape> {
     // Get flip transform from the FlippableShapeUtil
     const flipTransform = this.getFlipTransform(shape)
     
-    // Calculate polygon points to completely fill the bounding box
-    const centerX = w / 2
-    const centerY = h / 2
-    const radiusX = w / 2
-    const radiusY = h / 2
-    
-    const points: string[] = []
-    for (let i = 0; i < sides; i++) {
-      const angle = (i * 2 * Math.PI) / sides - Math.PI / 2 // Start from top
-      const x = centerX + radiusX * Math.cos(angle)
-      const y = centerY + radiusY * Math.sin(angle)
-      points.push(`${x},${y}`)
-    }
-    
+    // Use the same scaling logic as getOutline to ensure visual consistency
+    const outline = this.getOutline(shape)
+    const points = outline.map(p => `${p.x},${p.y}`)
     const pathData = `M ${points.join(' L ')} Z`
     
     return (
@@ -86,34 +75,11 @@ export class PolygonShapeUtil extends FlippableShapeUtil<PolygonShape> {
   }
 
   getBounds(shape: PolygonShape) {
-    // Calculate actual bounds based on polygon vertices
-    const { w, h, sides } = shape.props
-    const centerX = w / 2
-    const centerY = h / 2
-    const radiusX = w / 2
-    const radiusY = h / 2
-    
-    let minX = Infinity
-    let maxX = -Infinity
-    let minY = Infinity
-    let maxY = -Infinity
-    
-    for (let i = 0; i < sides; i++) {
-      const angle = (i * 2 * Math.PI) / sides - Math.PI / 2
-      const x = centerX + radiusX * Math.cos(angle)
-      const y = centerY + radiusY * Math.sin(angle)
-      
-      minX = Math.min(minX, x)
-      maxX = Math.max(maxX, x)
-      minY = Math.min(minY, y)
-      maxY = Math.max(maxY, y)
-    }
-    
     return {
-      x: minX,
-      y: minY,
-      w: maxX - minX,
-      h: maxY - minY,
+      x: 0,
+      y: 0,
+      w: shape.props.w,
+      h: shape.props.h,
     }
   }
 
@@ -132,15 +98,32 @@ export class PolygonShapeUtil extends FlippableShapeUtil<PolygonShape> {
     const radiusX = w / 2
     const radiusY = h / 2
     
-    const points = []
+    // Calculate polygon vertices
+    const vertices = []
     for (let i = 0; i < sides; i++) {
       const angle = (i * 2 * Math.PI) / sides - Math.PI / 2
       const x = centerX + radiusX * Math.cos(angle)
       const y = centerY + radiusY * Math.sin(angle)
-      points.push({ x, y })
+      vertices.push({ x, y })
     }
     
-    return points
+    // Calculate actual bounds of the vertices
+    const minX = Math.min(...vertices.map(p => p.x))
+    const maxX = Math.max(...vertices.map(p => p.x))
+    const minY = Math.min(...vertices.map(p => p.y))
+    const maxY = Math.max(...vertices.map(p => p.y))
+    
+    const actualW = maxX - minX
+    const actualH = maxY - minY
+    
+    // Scale vertices to fill the entire w x h bounds
+    const scaleX = w / actualW
+    const scaleY = h / actualH
+    
+    return vertices.map(vertex => ({
+      x: (vertex.x - minX) * scaleX,
+      y: (vertex.y - minY) * scaleY
+    }))
   }
 
   // Custom behavior for polygon-specific properties
