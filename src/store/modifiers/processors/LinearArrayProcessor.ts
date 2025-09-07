@@ -6,7 +6,7 @@ import type {
   LinearArraySettings,
   GroupContext
 } from '../../../types/modifiers'
-import { calculateLinearPosition } from '../../../components/modifiers/utils'
+import { calculateLinearPosition, getShapeDimensions, degreesToRadians } from '../../../components/modifiers/utils'
 
 // Linear Array Processor implementation  
 export const LinearArrayProcessor: ModifierProcessor = {
@@ -25,24 +25,25 @@ export const LinearArrayProcessor: ModifierProcessor = {
     input.instances.forEach(inputInstance => {
       // Create all array positions including the first one (i=0) which replaces the original
       for (let i = 0; i < count; i++) {
-        // Use the new calculateLinearPosition function with proper transform handling
-        const position = calculateLinearPosition(
-          inputInstance.shape,
-          i,
-          offsetX,
-          offsetY,
-          rotation,
-          scaleStep,
-          count,
-          editor
-        )
+        // Get shape dimensions for offset calculation
+        const { width: shapeWidth, height: shapeHeight } = getShapeDimensions(inputInstance.shape)
         
+        // Convert percentage offsets to pixel values
+        const pixelOffsetX = (offsetX / 100) * shapeWidth * i
+        const pixelOffsetY = (offsetY / 100) * shapeHeight * i
+        
+        // Calculate rotation and scale for this index
+        const rotationRadians = degreesToRadians(rotation * i)
+        const progress = count > 1 ? i / (count - 1) : 0
+        const interpolatedScale = 1 + (scaleStep - 1) * progress
+        
+        // Apply offsets to the already-transformed instance position (like GridArray does)
         const newTransform: Transform = {
-          x: position.x,
-          y: position.y,
-          rotation: inputInstance.transform.rotation + position.rotation,
-          scaleX: inputInstance.transform.scaleX * position.scaleX,
-          scaleY: inputInstance.transform.scaleY * position.scaleY
+          x: inputInstance.transform.x + pixelOffsetX,
+          y: inputInstance.transform.y + pixelOffsetY,
+          rotation: inputInstance.transform.rotation + rotationRadians,
+          scaleX: inputInstance.transform.scaleX * interpolatedScale,
+          scaleY: inputInstance.transform.scaleY * interpolatedScale
         }
         
         const newInstance: ShapeInstance = {
@@ -51,8 +52,9 @@ export const LinearArrayProcessor: ModifierProcessor = {
           index: newInstances.length,
           metadata: {
             ...inputInstance.metadata,
-            arrayIndex: i,
-            sourceInstance: inputInstance.index
+            arrayIndex: newInstances.length, // Use sequential index for clone mapping
+            sourceInstance: inputInstance.index,
+            linearArrayIndex: i // Store linear-specific index separately
           }
         }
         
@@ -180,8 +182,9 @@ function processGroupArray(
         index: newInstances.length,
         metadata: {
           ...inputInstance.metadata,
-          arrayIndex: i,
+          arrayIndex: newInstances.length, // Use sequential index for clone mapping
           sourceInstance: inputInstance.index,
+          linearArrayIndex: i, // Store linear-specific index separately
           isGroupClone: true
         }
       }

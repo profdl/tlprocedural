@@ -107,7 +107,7 @@ export const MirrorProcessor: ModifierProcessor = {
         index: newInstances.length,
         metadata: {
           ...inputInstance.metadata,
-          arrayIndex: 0,
+          arrayIndex: newInstances.length, // Use sequential index for clone mapping
           isMirrored: true,
           mirrorAxis: axis,
           mirrorOffset: offset,
