@@ -72,7 +72,7 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.offsetX.min,
         max: INPUT_CONSTRAINTS.offsetX.max,
         step: INPUT_CONSTRAINTS.offsetX.step,
-        precision: 1,
+        precision: 0,
         unit: '%'
       },
       {
@@ -82,7 +82,7 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.offsetY.min,
         max: INPUT_CONSTRAINTS.offsetY.max,
         step: INPUT_CONSTRAINTS.offsetY.step,
-        precision: 1,
+        precision: 0,
         unit: '%'
       },
       {
@@ -92,7 +92,7 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.rotation.min,
         max: INPUT_CONSTRAINTS.rotation.max,
         step: INPUT_CONSTRAINTS.rotation.step,
-        precision: 2,
+        precision: 0,
         unit: '°'
       },
       {
@@ -102,7 +102,8 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.scaleStep.min,
         max: INPUT_CONSTRAINTS.scaleStep.max,
         step: INPUT_CONSTRAINTS.scaleStep.step,
-        precision: INPUT_CONSTRAINTS.scaleStep.precision
+        precision: 0,
+        unit: '%'
       }
     ]
   },

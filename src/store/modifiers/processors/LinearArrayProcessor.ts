@@ -35,7 +35,9 @@ export const LinearArrayProcessor: ModifierProcessor = {
         // Calculate rotation and scale for this index
         const rotationRadians = degreesToRadians(rotation * i)
         const progress = count > 1 ? i / (count - 1) : 0
-        const interpolatedScale = 1 + (scaleStep - 1) * progress
+        // Convert percentage scaleStep to decimal (50% -> 0.5, 100% -> 1.0)
+        const scaleStepDecimal = scaleStep / 100
+        const interpolatedScale = 1 + (scaleStepDecimal - 1) * progress
         
         // When source shape is rotated, we need to calculate from its center
         // not from the top-left corner which moves when rotated

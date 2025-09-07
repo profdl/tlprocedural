@@ -82,7 +82,9 @@ export function calculateLinearPosition(
       
       // Calculate scale using linear interpolation
       const progress = count > 1 ? index / (count - 1) : 0
-      const interpolatedScale = 1 + (scaleStep - 1) * progress
+      // Convert percentage scaleStep to decimal (50% -> 0.5, 100% -> 1.0)
+      const scaleStepDecimal = scaleStep / 100
+      const interpolatedScale = 1 + (scaleStepDecimal - 1) * progress
       
       return {
         x: finalX,
@@ -103,7 +105,9 @@ export function calculateLinearPosition(
   
   // Calculate scale using linear interpolation
   const progress = count > 1 ? index / (count - 1) : 0
-  const interpolatedScale = 1 + (scaleStep - 1) * progress
+  // Convert percentage scaleStep to decimal (50% -> 0.5, 100% -> 1.0)
+  const scaleStepDecimal = scaleStep / 100
+  const interpolatedScale = 1 + (scaleStepDecimal - 1) * progress
   
   return {
     x: finalX,
