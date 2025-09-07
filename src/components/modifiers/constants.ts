@@ -60,19 +60,19 @@ export const INPUT_CONSTRAINTS = {
   offsetY: { min: -200, max: 200, step: 1 },
   rotation: { min: -30, max: 30, step: 1 },
   scaleStep: { min: 1, max: 200, step: 1, precision: 0 },
-  radius: { min: 10, max: 1000, step: 0.01 },
-  startAngle: { min: 0, max: 360, step: 0.01 },
-  endAngle: { min: 0, max: 360, step: 0.01 },
-  centerX: { min: -500, max: 500, step: 0.01 },
-  centerY: { min: -500, max: 500, step: 0.01 },
-  rotateEach: { min: -360, max: 360, step: 0.01 },
-  rotateAll: { min: -360, max: 360, step: 0.01 },
-  rows: { min: 1, max: 20, step: 0.01 },
-  columns: { min: 1, max: 20, step: 0.01 },
-  spacingX: { min: 10, max: 500, step: 0.01 },
-  spacingY: { min: 10, max: 500, step: 0.01 },
-  offset: { min: -200, max: 200, step: 0.01 },
-  mergeThreshold: { min: 0, max: 50, step: 0.01 }
+  radius: { min: 10, max: 1000, step: 1 },
+  startAngle: { min: 0, max: 360, step: 1 },
+  endAngle: { min: 0, max: 360, step: 1 },
+  centerX: { min: -500, max: 500, step: 1 },
+  centerY: { min: -500, max: 500, step: 1 },
+  rotateEach: { min: -360, max: 360, step: 1 },
+  rotateAll: { min: -360, max: 360, step: 1 },
+  rows: { min: 1, max: 20, step: 1 },
+  columns: { min: 1, max: 20, step: 1 },
+  spacingX: { min: 10, max: 500, step: 1 },
+  spacingY: { min: 10, max: 500, step: 1 },
+  offset: { min: -200, max: 200, step: 1 },
+  mergeThreshold: { min: 0, max: 50, step: 1 }
 } as const
 
 // Modifier type display names

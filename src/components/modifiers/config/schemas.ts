@@ -63,7 +63,8 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.count.min,
         max: INPUT_CONSTRAINTS.count.max,
         step: INPUT_CONSTRAINTS.count.step,
-        precision: 0
+        precision: 0,
+        unit: '#'
       },
       {
         type: 'number',
@@ -117,7 +118,8 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.count.min,
         max: INPUT_CONSTRAINTS.count.max,
         step: INPUT_CONSTRAINTS.count.step,
-        precision: 0
+        precision: 0,
+        unit: '#'
       },
       {
         type: 'number',
@@ -126,7 +128,8 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.radius.min,
         max: INPUT_CONSTRAINTS.radius.max,
         step: INPUT_CONSTRAINTS.radius.step,
-        precision: 1
+        precision: 0,
+        unit: 'px'
       },
       {
         type: 'number',
@@ -135,7 +138,7 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.startAngle.min,
         max: INPUT_CONSTRAINTS.startAngle.max,
         step: INPUT_CONSTRAINTS.startAngle.step,
-        precision: 1,
+        precision: 0,
         unit: '°'
       },
       {
@@ -145,7 +148,7 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.endAngle.min,
         max: INPUT_CONSTRAINTS.endAngle.max,
         step: INPUT_CONSTRAINTS.endAngle.step,
-        precision: 1,
+        precision: 0,
         unit: '°'
       },
       {
@@ -155,7 +158,8 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.centerX.min,
         max: INPUT_CONSTRAINTS.centerX.max,
         step: INPUT_CONSTRAINTS.centerX.step,
-        precision: 1
+        precision: 0,
+        unit: 'px'
       },
       {
         type: 'number',
@@ -164,7 +168,8 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.centerY.min,
         max: INPUT_CONSTRAINTS.centerY.max,
         step: INPUT_CONSTRAINTS.centerY.step,
-        precision: 1
+        precision: 0,
+        unit: 'px'
       },
       {
         type: 'number',
@@ -173,7 +178,7 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.rotateEach.min,
         max: INPUT_CONSTRAINTS.rotateEach.max,
         step: INPUT_CONSTRAINTS.rotateEach.step,
-        precision: 1,
+        precision: 0,
         unit: '°'
       },
       {
@@ -183,7 +188,7 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.rotateAll.min,
         max: INPUT_CONSTRAINTS.rotateAll.max,
         step: INPUT_CONSTRAINTS.rotateAll.step,
-        precision: 1,
+        precision: 0,
         unit: '°'
       },
       {
@@ -204,7 +209,8 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.rows.min,
         max: INPUT_CONSTRAINTS.rows.max,
         step: INPUT_CONSTRAINTS.rows.step,
-        precision: 0
+        precision: 0,
+        unit: '#'
       },
       {
         type: 'number',
@@ -213,7 +219,8 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.columns.min,
         max: INPUT_CONSTRAINTS.columns.max,
         step: INPUT_CONSTRAINTS.columns.step,
-        precision: 0
+        precision: 0,
+        unit: '#'
       },
       {
         type: 'number',
@@ -222,7 +229,8 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.spacingX.min,
         max: INPUT_CONSTRAINTS.spacingX.max,
         step: INPUT_CONSTRAINTS.spacingX.step,
-        precision: 1
+        precision: 0,
+        unit: 'px'
       },
       {
         type: 'number',
@@ -231,7 +239,8 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.spacingY.min,
         max: INPUT_CONSTRAINTS.spacingY.max,
         step: INPUT_CONSTRAINTS.spacingY.step,
-        precision: 1
+        precision: 0,
+        unit: 'px'
       },
       {
         type: 'number',
@@ -240,7 +249,8 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.offsetX.min,
         max: INPUT_CONSTRAINTS.offsetX.max,
         step: INPUT_CONSTRAINTS.offsetX.step,
-        precision: 1
+        precision: 0,
+        unit: 'px'
       },
       {
         type: 'number',
@@ -249,7 +259,8 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.offsetY.min,
         max: INPUT_CONSTRAINTS.offsetY.max,
         step: INPUT_CONSTRAINTS.offsetY.step,
-        precision: 1
+        precision: 0,
+        unit: 'px'
       }
     ]
   },
@@ -273,7 +284,8 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.offset.min,
         max: INPUT_CONSTRAINTS.offset.max,
         step: INPUT_CONSTRAINTS.offset.step,
-        precision: 1
+        precision: 0,
+        unit: 'px'
       },
       {
         type: 'number',
@@ -282,7 +294,8 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: INPUT_CONSTRAINTS.mergeThreshold.min,
         max: INPUT_CONSTRAINTS.mergeThreshold.max,
         step: INPUT_CONSTRAINTS.mergeThreshold.step,
-        precision: 1
+        precision: 0,
+        unit: 'px'
       }
     ]
   },
@@ -298,7 +311,8 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: 1,
         max: 10,
         step: 1,
-        precision: 0
+        precision: 0,
+        unit: '#'
       },
       {
         type: 'number',
@@ -327,7 +341,8 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: 0.1,
         max: 2,
         step: 0.01,
-        precision: 2
+        precision: 2,
+        unit: '×'
       },
       {
         type: 'number',
@@ -336,7 +351,8 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         min: 0.1,
         max: 2,
         step: 0.01,
-        precision: 2
+        precision: 2,
+        unit: '×'
       }
     ]
   }
