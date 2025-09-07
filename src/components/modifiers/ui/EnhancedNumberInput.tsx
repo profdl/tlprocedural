@@ -103,6 +103,7 @@ export function EnhancedNumberInput({
     
     e.preventDefault()
     setIsDragging(true)
+    setIsEditing(false) // Exit editing mode when starting drag
     setDragStartY(e.clientY)
     setDragStartValue(value)
     
@@ -120,7 +121,9 @@ export function EnhancedNumberInput({
     
     const newValue = clampValue(dragStartValue + deltaValue)
     onChange(newValue)
-  }, [isDragging, dragStartY, dragStartValue, step, clampValue, onChange])
+    // Update input display immediately when dragging
+    setInputValue(newValue.toFixed(precision))
+  }, [isDragging, dragStartY, dragStartValue, step, clampValue, onChange, precision])
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false)
