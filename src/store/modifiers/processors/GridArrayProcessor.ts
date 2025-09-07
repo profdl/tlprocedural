@@ -36,8 +36,11 @@ export const GridArrayProcessor: ModifierProcessor = {
           // not from the top-left corner which moves when rotated
           let baseX = inputInstance.transform.x
           let baseY = inputInstance.transform.y
+          let positionCorrected = inputInstance.metadata?.positionCorrected === true
           
-          if (editor && inputInstance.transform.rotation !== 0) {
+          // Only correct for rotation if this is the original shape
+          // not an already-transformed instance from a previous modifier
+          if (editor && inputInstance.transform.rotation !== 0 && !positionCorrected) {
             // Get the visual center of the rotated shape
             const bounds = editor.getShapePageBounds(inputInstance.shape.id)
             if (bounds) {
@@ -46,6 +49,7 @@ export const GridArrayProcessor: ModifierProcessor = {
               const centerY = bounds.y + bounds.height / 2
               baseX = centerX - shapeWidth / 2
               baseY = centerY - shapeHeight / 2
+              positionCorrected = true
             }
           }
           
@@ -67,7 +71,8 @@ export const GridArrayProcessor: ModifierProcessor = {
               arrayIndex: newInstances.length, // Use the sequential index for clone mapping
               sourceInstance: inputInstance.index,
               gridPosition: { row, col },
-              gridArrayIndex: row * columns + col // Store grid-specific index separately
+              gridArrayIndex: row * columns + col, // Store grid-specific index separately
+              positionCorrected: positionCorrected // Mark if position was corrected for rotation
             }
           }
           
