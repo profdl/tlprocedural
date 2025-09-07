@@ -6,6 +6,7 @@ import type {
   GridArraySettings,
   GroupContext
 } from '../../../types/modifiers'
+import { getShapeDimensions } from '../../../components/modifiers/utils'
 
 // Grid Array Processor implementation
 export const GridArrayProcessor: ModifierProcessor = {
@@ -21,6 +22,9 @@ export const GridArrayProcessor: ModifierProcessor = {
     
     // For each existing instance, create the grid array
     input.instances.forEach((inputInstance, instanceIndex) => {
+      // Get shape dimensions for center calculation
+      const { width: shapeWidth, height: shapeHeight } = getShapeDimensions(inputInstance.shape)
+      
       // Create grid positions including (0,0) which replaces the original
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < columns; col++) {
@@ -28,10 +32,27 @@ export const GridArrayProcessor: ModifierProcessor = {
           const gridOffsetX = (offsetX || 0) + (col * spacingX)
           const gridOffsetY = (offsetY || 0) + (row * spacingY)
           
-          // Apply grid offset to the already-transformed instance position
+          // When source shape is rotated, we need to calculate from its center
+          // not from the top-left corner which moves when rotated
+          let baseX = inputInstance.transform.x
+          let baseY = inputInstance.transform.y
+          
+          if (editor && inputInstance.transform.rotation !== 0) {
+            // Get the visual center of the rotated shape
+            const bounds = editor.getShapePageBounds(inputInstance.shape.id)
+            if (bounds) {
+              // Calculate from center, then convert back to top-left for positioning
+              const centerX = bounds.x + bounds.width / 2
+              const centerY = bounds.y + bounds.height / 2
+              baseX = centerX - shapeWidth / 2
+              baseY = centerY - shapeHeight / 2
+            }
+          }
+          
+          // Apply grid offset to the corrected base position
           const newTransform: Transform = {
-            x: inputInstance.transform.x + gridOffsetX,
-            y: inputInstance.transform.y + gridOffsetY,
+            x: baseX + gridOffsetX,
+            y: baseY + gridOffsetY,
             rotation: inputInstance.transform.rotation, // Preserve rotation from Linear Array
             scaleX: inputInstance.transform.scaleX,
             scaleY: inputInstance.transform.scaleY
