@@ -3,13 +3,15 @@ export { ModifierControls } from './ModifierControls'
 export { StackedModifier } from './StackedModifier'
 
 // Control components
-export { ModifierPropertyInput } from './controls/ModifierPropertyInput'
-export { ModifierSlider } from './controls/ModifierSlider'
-export { NumberInput } from './controls/NumberInput'
-export { LinearArrayControls } from './controls/LinearArrayControls'
-export { CircularArrayControls } from './controls/CircularArrayControls'
-export { GridArrayControls } from './controls/GridArrayControls'
-export { MirrorControls } from './controls/MirrorControls'
+export { ModifierControlPanel } from './controls/ModifierControlPanel'
+
+// UI components
+export { EnhancedNumberInput } from './ui/EnhancedNumberInput'
+export { ModifierCheckboxInput } from './ui/ModifierCheckboxInput'
+export { ModifierSelectInput } from './ui/ModifierSelectInput'
+
+// Configuration
+export * from './config/schemas'
 
 // Utilities
 export * from './utils'

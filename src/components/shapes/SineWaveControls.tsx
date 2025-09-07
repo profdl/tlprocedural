@@ -1,6 +1,6 @@
 import { useEditor, useValue, type TLShape } from 'tldraw'
 import type { SineWaveShape } from './SineWaveShape'
-import { EnhancedNumberInput } from '../ui/EnhancedNumberInput'
+import { EnhancedNumberInput } from '../modifiers/ui/EnhancedNumberInput'
 
 interface SineWaveControlsProps {
   shapes: SineWaveShape[]

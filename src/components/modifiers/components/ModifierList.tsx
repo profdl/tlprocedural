@@ -1,11 +1,7 @@
 import React, { useState, useCallback } from 'react'
 import { TldrawUiButton, TldrawUiButtonIcon } from 'tldraw'
 import { MODIFIER_DISPLAY_NAMES } from '../constants'
-import { LinearArrayControls } from '../controls/LinearArrayControls'
-import { CircularArrayControls } from '../controls/CircularArrayControls'
-import { GridArrayControls } from '../controls/GridArrayControls'
-import { MirrorControls } from '../controls/MirrorControls'
-import { LSystemControls } from '../controls/LSystemControls'
+import { ModifierControlPanel } from '../controls/ModifierControlPanel'
 import type { 
   TLModifier, 
   TLModifierId,
@@ -151,36 +147,11 @@ function ModifierItem({
       {/* Modifier details UI */}
       {!isCollapsed && (
         <div className="modifier-controls__item-details">
-          {modifier.type === 'linear-array' && (
-            <LinearArrayControls
-              settings={modifier.props}
-              onChange={onUpdateSettings}
-            />
-          )}
-          {modifier.type === 'circular-array' && (
-            <CircularArrayControls
-              settings={modifier.props}
-              onChange={onUpdateSettings}
-            />
-          )}
-          {modifier.type === 'grid-array' && (
-            <GridArrayControls
-              settings={modifier.props}
-              onChange={onUpdateSettings}
-            />
-          )}
-          {modifier.type === 'mirror' && (
-            <MirrorControls
-              settings={modifier.props}
-              onChange={onUpdateSettings}
-            />
-          )}
-          {modifier.type === 'lsystem' && (
-            <LSystemControls
-              settings={modifier.props}
-              onChange={onUpdateSettings}
-            />
-          )}
+          <ModifierControlPanel
+            modifierType={modifier.type as any}
+            settings={modifier.props}
+            onChange={onUpdateSettings}
+          />
         </div>
       )}
     </div>

@@ -226,6 +226,9 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .enhanced-number-input__label {
@@ -247,7 +250,9 @@
   border-radius: 4px;
   transition: all 0.1s ease;
   cursor: ns-resize;
-  width: fit-content;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
@@ -271,7 +276,8 @@
 }
 
 .enhanced-number-input__input {
-  width: 40px; /* Fixed width for 4 digits */
+  flex: 1;
+  min-width: 0;
   padding: 6px 8px;
   background: transparent;
   border: none;
@@ -353,6 +359,52 @@
 
 .enhanced-number-input--dragging .enhanced-number-input__input {
   background: var(--color-muted-1);
+}
+
+/* Select Input Component */
+.modifier-select-input {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.modifier-select-input__label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  user-select: none;
+}
+
+.modifier-select-input__select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-panel-contrast);
+  border-color: var(--color-divider);
+  border-radius: 4px;
+  color: var(--color-text-1);
+  font-size: 11px;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.modifier-select-input__select:hover {
+  border-color: var(--color-text-2);
+}
+
+.modifier-select-input__select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
 }
 
 /* Dark mode overrides */

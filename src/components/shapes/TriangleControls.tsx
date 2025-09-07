@@ -1,6 +1,6 @@
 import { useEditor, track, type TLShape } from 'tldraw'
 import type { TriangleShape } from './TriangleShape'
-import { EnhancedNumberInput } from '../ui/EnhancedNumberInput'
+import { EnhancedNumberInput } from '../modifiers/ui/EnhancedNumberInput'
 
 interface TriangleControlsProps {
   shapes: TriangleShape[]

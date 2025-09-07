@@ -26,13 +26,16 @@ export function EnhancedNumberInput({
   const [isDragging, setIsDragging] = useState(false)
   const [dragStartY, setDragStartY] = useState(0)
   const [dragStartValue, setDragStartValue] = useState(0)
+  const [isEditing, setIsEditing] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   
-  // Update input value when prop value changes
+  // Update input value when prop value changes (but not while editing)
   useEffect(() => {
-    setInputValue(value.toFixed(precision))
-  }, [value, precision])
+    if (!isEditing) {
+      setInputValue(value.toFixed(precision))
+    }
+  }, [value, precision, isEditing])
 
   // Clamp and round value to step
   const clampValue = useCallback((val: number) => {
@@ -51,39 +54,42 @@ export function EnhancedNumberInput({
     onChange(newValue)
   }, [value, step, clampValue, onChange])
 
-  // Handle direct input changes
+  // Handle direct input changes - defer onChange until blur
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newInputValue = e.target.value
     setInputValue(newInputValue)
-    
-    const numValue = Number(newInputValue)
-    if (!isNaN(numValue)) {
-      const clampedValue = clampValue(numValue)
-      onChange(clampedValue)
-    }
-  }, [clampValue, onChange])
+    setIsEditing(true)
+  }, [])
 
   // Handle input blur (validate and format)
   const handleInputBlur = useCallback(() => {
+    setIsEditing(false)
     const numValue = Number(inputValue)
     if (isNaN(numValue)) {
+      // Invalid input - restore previous value
       setInputValue(value.toFixed(precision))
     } else {
+      // Valid input - clamp, format, and call onChange
       const clampedValue = clampValue(numValue)
       setInputValue(clampedValue.toFixed(precision))
-      if (clampedValue !== value) {
-        onChange(clampedValue)
-      }
+      onChange(clampedValue)
     }
   }, [inputValue, value, precision, clampValue, onChange])
+
+  // Handle input focus
+  const handleInputFocus = useCallback(() => {
+    setIsEditing(true)
+  }, [])
 
   // Handle keyboard navigation
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowUp') {
       e.preventDefault()
+      setIsEditing(false)
       handleIncrement()
     } else if (e.key === 'ArrowDown') {
       e.preventDefault()
+      setIsEditing(false)
       handleDecrement()
     } else if (e.key === 'Enter') {
       e.currentTarget.blur()
@@ -152,6 +158,7 @@ export function EnhancedNumberInput({
           type="text"
           value={inputValue}
           onChange={handleInputChange}
+          onFocus={handleInputFocus}
           onBlur={handleInputBlur}
           onKeyDown={handleKeyDown}
           onPointerDown={stopEventPropagation}

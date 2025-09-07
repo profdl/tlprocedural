@@ -252,10 +252,17 @@
 }
 
 .modifier-controls__grid {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  align-items: stretch;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px 12px;
+  align-items: start;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Full width items that should span both columns */
+.modifier-controls__grid > .modifier-input--full-width {
+  grid-column: 1 / -1;
 }
 
 .modifier-controls__square-button {

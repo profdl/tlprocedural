@@ -1,6 +1,6 @@
 import { useEditor } from 'tldraw'
 import type { PolygonShape } from './PolygonShape'
-import { EnhancedNumberInput } from '../ui/EnhancedNumberInput'
+import { EnhancedNumberInput } from '../modifiers/ui/EnhancedNumberInput'
 
 interface PolygonControlsProps {
   shapes: PolygonShape[]
