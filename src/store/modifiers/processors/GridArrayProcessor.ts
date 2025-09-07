@@ -6,7 +6,6 @@ import type {
   GridArraySettings,
   GroupContext
 } from '../../../types/modifiers'
-import { calculateGridPosition } from '../../../components/modifiers/utils'
 
 // Grid Array Processor implementation
 export const GridArrayProcessor: ModifierProcessor = {
@@ -21,28 +20,21 @@ export const GridArrayProcessor: ModifierProcessor = {
     const newInstances: ShapeInstance[] = []
     
     // For each existing instance, create the grid array
-    input.instances.forEach(inputInstance => {
+    input.instances.forEach((inputInstance, instanceIndex) => {
       // Create grid positions including (0,0) which replaces the original
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < columns; col++) {
-          // Use calculateGridPosition to properly handle rotated shapes
-          const position = calculateGridPosition(
-            inputInstance.shape,
-            row,
-            col,
-            offsetX || 0,
-            offsetY || 0,
-            spacingX,
-            spacingY,
-            editor
-          )
+          // Calculate grid position offset
+          const gridOffsetX = (offsetX || 0) + (col * spacingX)
+          const gridOffsetY = (offsetY || 0) + (row * spacingY)
           
+          // Apply grid offset to the already-transformed instance position
           const newTransform: Transform = {
-            x: position.x,
-            y: position.y,
-            rotation: inputInstance.transform.rotation + position.rotation,
-            scaleX: inputInstance.transform.scaleX * position.scaleX,
-            scaleY: inputInstance.transform.scaleY * position.scaleY
+            x: inputInstance.transform.x + gridOffsetX,
+            y: inputInstance.transform.y + gridOffsetY,
+            rotation: inputInstance.transform.rotation, // Preserve rotation from Linear Array
+            scaleX: inputInstance.transform.scaleX,
+            scaleY: inputInstance.transform.scaleY
           }
           
           const newInstance: ShapeInstance = {
@@ -51,9 +43,10 @@ export const GridArrayProcessor: ModifierProcessor = {
             index: newInstances.length,
             metadata: {
               ...inputInstance.metadata,
-              arrayIndex: row * columns + col,
+              arrayIndex: newInstances.length, // Use the sequential index for clone mapping
               sourceInstance: inputInstance.index,
-              gridPosition: { row, col }
+              gridPosition: { row, col },
+              gridArrayIndex: row * columns + col // Store grid-specific index separately
             }
           }
           
