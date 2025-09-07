@@ -6,7 +6,7 @@ import { useEditor } from 'tldraw'
 import type { TLShape } from 'tldraw'
 import type { TLModifier, TLModifierId } from '../../../types/modifiers'
 
-type ModifierType = 'linear' | 'circular' | 'grid' | 'mirror' | 'lsystem'
+type ModifierType = 'linear' | 'circular' | 'grid' | 'mirror' | 'lsystem' | 'subdivide' | 'noise-offset' | 'smooth' | 'simplify'
 
 interface UseModifierManagerProps {
   selectedShapes: TLShape[]
@@ -45,15 +45,19 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
   const addModifier = useCallback((type: ModifierType) => {
     if (!selectedShape) return
     // Map UI type to store type
-    const typeMap: Record<ModifierType, 'linear-array' | 'circular-array' | 'grid-array' | 'mirror' | 'lsystem'> = {
+    const typeMap: Record<ModifierType, 'linear-array' | 'circular-array' | 'grid-array' | 'mirror' | 'lsystem' | 'subdivide' | 'noise-offset' | 'smooth' | 'simplify'> = {
       linear: 'linear-array',
       circular: 'circular-array',
       grid: 'grid-array',
       mirror: 'mirror',
-      lsystem: 'lsystem'
+      lsystem: 'lsystem',
+      subdivide: 'subdivide',
+      'noise-offset': 'noise-offset',
+      smooth: 'smooth',
+      simplify: 'simplify'
     }
     const storeType = typeMap[type]
-    const settings = DEFAULT_SETTINGS[storeType] || {}
+    const settings = (DEFAULT_SETTINGS as any)[storeType] || {}
     store.createModifier(selectedShape.id, storeType, settings)
   }, [selectedShape, store])
 

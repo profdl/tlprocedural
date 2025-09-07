@@ -14,6 +14,10 @@ import {
   MirrorProcessor,
   LSystemProcessor
 } from '../processors'
+import { SubdivideProcessor } from '../processors/SubdivideProcessor'
+import { NoiseOffsetProcessor } from '../processors/NoiseOffsetProcessor'
+import { SmoothProcessor } from '../processors/SmoothProcessor'
+import { SimplifyProcessor } from '../processors/SimplifyProcessor'
 import { findTopLevelGroup, getGroupPageBounds, getGroupChildShapes } from '../../../components/modifiers/utils'
 
 /**
@@ -154,6 +158,15 @@ export class ModifierStack {
         return MirrorProcessor
       case 'lsystem':
         return LSystemProcessor
+      // Path modifiers
+      case 'subdivide':
+        return SubdivideProcessor
+      case 'noise-offset':
+        return NoiseOffsetProcessor
+      case 'smooth':
+        return SmoothProcessor
+      case 'simplify':
+        return SimplifyProcessor
       default:
         console.error(`❌ Unknown modifier type: ${type}`)
         return null

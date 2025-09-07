@@ -4,7 +4,11 @@ export const MODIFIER_TYPES = {
   CIRCULAR_ARRAY: 'circular-array',
   GRID_ARRAY: 'grid-array',
   MIRROR: 'mirror',
-  L_SYSTEM: 'lsystem'
+  L_SYSTEM: 'lsystem',
+  SUBDIVIDE: 'subdivide',
+  NOISE_OFFSET: 'noise-offset',
+  SMOOTH: 'smooth',
+  SIMPLIFY: 'simplify'
 } as const
 
 export type ModifierType = typeof MODIFIER_TYPES[keyof typeof MODIFIER_TYPES]
@@ -50,6 +54,29 @@ export const DEFAULT_SETTINGS = {
     stepPercent: 100,
     lengthDecay: 1.0,
     scalePerIteration: 1.0
+  },
+  [MODIFIER_TYPES.SUBDIVIDE]: {
+    iterations: 1,
+    factor: 0.5,
+    smooth: false
+  },
+  [MODIFIER_TYPES.NOISE_OFFSET]: {
+    amplitude: 10,
+    frequency: 0.1,
+    octaves: 3,
+    seed: 123,
+    direction: 'both' as const
+  },
+  [MODIFIER_TYPES.SMOOTH]: {
+    iterations: 1,
+    factor: 0.5,
+    preserveCorners: true,
+    cornerThreshold: 90
+  },
+  [MODIFIER_TYPES.SIMPLIFY]: {
+    tolerance: 5,
+    preserveCorners: true,
+    minPoints: 3
   }
 } as const
 
@@ -81,7 +108,11 @@ export const MODIFIER_DISPLAY_NAMES = {
   [MODIFIER_TYPES.CIRCULAR_ARRAY]: 'Circular Array',
   [MODIFIER_TYPES.GRID_ARRAY]: 'Grid Array',
   [MODIFIER_TYPES.MIRROR]: 'Mirror',
-  [MODIFIER_TYPES.L_SYSTEM]: 'L-System'
+  [MODIFIER_TYPES.L_SYSTEM]: 'L-System',
+  [MODIFIER_TYPES.SUBDIVIDE]: 'Subdivide',
+  [MODIFIER_TYPES.NOISE_OFFSET]: 'Noise Offset',
+  [MODIFIER_TYPES.SMOOTH]: 'Smooth',
+  [MODIFIER_TYPES.SIMPLIFY]: 'Simplify'
 } as const
 
 // L-System presets (examples)

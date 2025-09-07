@@ -32,7 +32,7 @@ interface ModifierStoreState {
    */
   createModifier: (
     targetShapeId: TLShapeId,
-    type: 'linear-array' | 'circular-array' | 'grid-array' | 'mirror' | 'lsystem',
+    type: 'linear-array' | 'circular-array' | 'grid-array' | 'mirror' | 'lsystem' | 'subdivide' | 'noise-offset' | 'smooth' | 'simplify',
     settings?: object
   ) => TLModifier
 
@@ -77,7 +77,7 @@ export const useModifierStore = create<ModifierStoreState>()(
     },
     
     // Create a new generic modifier
-    createModifier: (targetShapeId: TLShapeId, type: 'linear-array' | 'circular-array' | 'grid-array' | 'mirror' | 'lsystem', settings: object = {}) => {
+    createModifier: (targetShapeId: TLShapeId, type: 'linear-array' | 'circular-array' | 'grid-array' | 'mirror' | 'lsystem' | 'subdivide' | 'noise-offset' | 'smooth' | 'simplify', settings: object = {}) => {
       const { getModifiersForShape } = get()
       const id = createModifierId()
       let modifier: TLModifier
@@ -168,6 +168,69 @@ export const useModifierStore = create<ModifierStoreState>()(
             stepPercent: 100,
             lengthDecay: 1.0,
             scalePerIteration: 1.0,
+            ...settings
+          }
+        } as any
+      } else if (type === 'subdivide') {
+        modifier = {
+          id,
+          typeName: 'modifier',
+          type: 'subdivide',
+          targetShapeId,
+          enabled: true,
+          order: getModifiersForShape(targetShapeId).length,
+          props: {
+            iterations: 1,
+            factor: 0.5,
+            smooth: false,
+            ...settings
+          }
+        } as any
+      } else if (type === 'noise-offset') {
+        modifier = {
+          id,
+          typeName: 'modifier',
+          type: 'noise-offset',
+          targetShapeId,
+          enabled: true,
+          order: getModifiersForShape(targetShapeId).length,
+          props: {
+            amplitude: 10,
+            frequency: 0.1,
+            octaves: 3,
+            seed: 123,
+            direction: 'both',
+            ...settings
+          }
+        } as any
+      } else if (type === 'smooth') {
+        modifier = {
+          id,
+          typeName: 'modifier',
+          type: 'smooth',
+          targetShapeId,
+          enabled: true,
+          order: getModifiersForShape(targetShapeId).length,
+          props: {
+            iterations: 1,
+            factor: 0.5,
+            preserveCorners: true,
+            cornerThreshold: 90,
+            ...settings
+          }
+        } as any
+      } else if (type === 'simplify') {
+        modifier = {
+          id,
+          typeName: 'modifier',
+          type: 'simplify',
+          targetShapeId,
+          enabled: true,
+          order: getModifiersForShape(targetShapeId).length,
+          props: {
+            tolerance: 5,
+            preserveCorners: true,
+            minPoints: 3,
             ...settings
           }
         } as any

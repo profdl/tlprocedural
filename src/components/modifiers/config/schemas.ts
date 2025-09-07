@@ -5,6 +5,12 @@ import type {
   MirrorSettings, 
   LSystemSettings 
 } from '../../../types/modifiers'
+import type {
+  SubdivideSettings,
+  NoiseOffsetSettings, 
+  SmoothSettings,
+  SimplifySettings
+} from '../../../types/pathTypes'
 import { INPUT_CONSTRAINTS, MIRROR_AXIS_OPTIONS } from '../constants'
 
 // Input configuration types
@@ -50,6 +56,10 @@ export interface ModifierSchemas {
   'grid-array': ModifierSchema<GridArraySettings>
   'mirror': ModifierSchema<MirrorSettings>
   'lsystem': ModifierSchema<LSystemSettings>
+  'subdivide': ModifierSchema<SubdivideSettings>
+  'noise-offset': ModifierSchema<NoiseOffsetSettings>
+  'smooth': ModifierSchema<SmoothSettings>
+  'simplify': ModifierSchema<SimplifySettings>
 }
 
 // Modifier UI schemas configuration
@@ -353,6 +363,165 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         step: 0.01,
         precision: 2,
         unit: '×'
+      }
+    ]
+  },
+
+  'subdivide': {
+    inputs: [
+      {
+        type: 'number',
+        label: 'Iterations',
+        field: 'iterations',
+        min: 1,
+        max: 5,
+        step: 1,
+        precision: 0,
+        unit: '#'
+      },
+      {
+        type: 'number',
+        label: 'Factor',
+        field: 'factor',
+        min: 0.1,
+        max: 0.9,
+        step: 0.1,
+        precision: 1,
+        unit: ''
+      },
+      {
+        type: 'checkbox',
+        label: 'Smooth',
+        field: 'smooth',
+        fullWidth: true
+      }
+    ]
+  },
+
+  'noise-offset': {
+    inputs: [
+      {
+        type: 'number',
+        label: 'Amplitude',
+        field: 'amplitude',
+        min: 0,
+        max: 100,
+        step: 1,
+        precision: 0,
+        unit: 'px'
+      },
+      {
+        type: 'number',
+        label: 'Frequency',
+        field: 'frequency',
+        min: 0.01,
+        max: 1,
+        step: 0.01,
+        precision: 2,
+        unit: ''
+      },
+      {
+        type: 'number',
+        label: 'Octaves',
+        field: 'octaves',
+        min: 1,
+        max: 8,
+        step: 1,
+        precision: 0,
+        unit: '#'
+      },
+      {
+        type: 'number',
+        label: 'Seed',
+        field: 'seed',
+        min: 0,
+        max: 999,
+        step: 1,
+        precision: 0,
+        unit: ''
+      },
+      {
+        type: 'select',
+        label: 'Direction',
+        field: 'direction',
+        options: [
+          { value: 'both', label: 'Both' },
+          { value: 'normal', label: 'Normal' },
+          { value: 'tangent', label: 'Tangent' }
+        ],
+        fullWidth: true
+      }
+    ]
+  },
+
+  'smooth': {
+    inputs: [
+      {
+        type: 'number',
+        label: 'Iterations',
+        field: 'iterations',
+        min: 1,
+        max: 10,
+        step: 1,
+        precision: 0,
+        unit: '#'
+      },
+      {
+        type: 'number',
+        label: 'Factor',
+        field: 'factor',
+        min: 0.1,
+        max: 1,
+        step: 0.1,
+        precision: 1,
+        unit: ''
+      },
+      {
+        type: 'checkbox',
+        label: 'Preserve Corners',
+        field: 'preserveCorners',
+        fullWidth: true
+      },
+      {
+        type: 'number',
+        label: 'Corner Threshold',
+        field: 'cornerThreshold',
+        min: 30,
+        max: 150,
+        step: 10,
+        precision: 0,
+        unit: '°'
+      }
+    ]
+  },
+
+  'simplify': {
+    inputs: [
+      {
+        type: 'number',
+        label: 'Tolerance',
+        field: 'tolerance',
+        min: 1,
+        max: 50,
+        step: 1,
+        precision: 0,
+        unit: 'px'
+      },
+      {
+        type: 'checkbox',
+        label: 'Preserve Corners',
+        field: 'preserveCorners',
+        fullWidth: true
+      },
+      {
+        type: 'number',
+        label: 'Min Points',
+        field: 'minPoints',
+        min: 2,
+        max: 20,
+        step: 1,
+        precision: 0,
+        unit: '#'
       }
     ]
   }

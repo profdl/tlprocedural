@@ -16,42 +16,49 @@ npm run lint         # Run ESLint
 
 ## Project Architecture
 
-This is a **TLDraw-based procedural shape manipulation app** built with React + TypeScript + Vite + Zustand.
+This is a **TLDraw-based procedural shape manipulation app** built with React + TypeScript + Vite + Zustand. It is inspired by cuttle.xyz's shape-component and modifier system.
 
 ### Core Architecture
 
 **State Management**: Uses **Zustand** with subscriptions for all modifier state
+
 - `useModifierStore` - Central store for all modifier data and operations
 - Store includes CRUD operations, reordering, import/export functionality
 
 **Modifier System**: Advanced shape transformation pipeline
+
 - **ModifierStack** - Processes multiple modifiers in sequence on shapes
 - **Processors** - Individual modifier implementations (LinearArray, CircularArray, GridArray, Mirror, LSystem)
 - **ShapeState** - Immutable state passed between processors containing shape instances and transforms
 - **GroupContext** - Special processing context for grouped shapes
 
 **Shape Processing Flow**:
+
 1. Original shape → ShapeState (with single instance)
-2. Each enabled modifier processes ShapeState sequentially
-3. Each processor creates new instances (e.g., LinearArray creates `count` instances including index 0)
-4. Final ShapeState contains all transformed instances for rendering
-5. useCloneManager hides original shape (opacity=0) and creates visible clones
-6. Clones are created with rotation=0, then rotated using `editor.rotateShapesBy()`
+2. Each enabled modifier processes ShapeState sequentially, treating all instances from previous modifier as a collective entity
+3. Each processor creates new instances from ALL existing instances (e.g., if input has 3 instances, LinearArray with count=4 creates 12 total instances)
+4. Modifiers compound multiplicatively - LinearArray (count=3) + CircularArray (count=4) = 12 total clones
+5. Final ShapeState contains all transformed instances for rendering
+6. useCloneManager hides original shape (opacity=0) and creates visible clones
+7. Clones are created with rotation=0, then rotated using `editor.rotateShapesBy()`
 
 ### Key Files
 
 **State Management**:
+
 - `src/store/modifierStore.ts` - Zustand store with all modifier operations
 - `src/types/modifiers.ts` - Complete type definitions for all modifier types
 
 **Core Processing**:
+
 - `src/store/modifiers/core/ModifierStack.ts` - Main processing orchestrator
 - `src/store/modifiers/processors/` - Individual modifier processors
 - `src/store/modifiers/core/ShapeStateManager.ts` - Shape state utilities
 
 **UI Components**:
+
 - `src/components/TldrawCanvas.tsx` - Main tldraw integration
-- `src/components/ModifierRenderer.tsx` - Renders modifier effects 
+- `src/components/ModifierRenderer.tsx` - Renders modifier effects
 - `src/components/modifiers/ModifierControls.tsx` - Main modifier UI
 - `src/components/CustomStylePanel.tsx` - Right sidebar with modifiers tab
 - `src/components/modifiers/hooks/useCloneManager.ts` - Manages clone creation/cleanup and original shape hiding
@@ -68,6 +75,7 @@ This is a **TLDraw-based procedural shape manipulation app** built with React + 
 ### Group Processing
 
 The system has special handling for grouped shapes:
+
 - Detects when shapes are part of a group using `findTopLevelGroup()`
 - Processes all shapes in the group together with shared context
 - Uses `GroupContext` to maintain group bounds and positioning
@@ -75,18 +83,18 @@ The system has special handling for grouped shapes:
 
 ### Important Implementation Notes
 
-- Modifiers process **ShapeState** objects, not raw TLDraw shapes
-- Multiple modifiers compound - each processes the output of the previous
-- Group modifiers work on all shapes in a group simultaneously
-- The system uses coordinate transforms rather than direct shape manipulation
-- All processors are stateless and functional
-- **Original Shape Hiding**: When modifiers are active, the original shape is hidden (opacity=0) to prevent "double" rendering
-- **Clone Management**: useCloneManager creates/destroys clones and manages original shape visibility
-- **Rotation Handling**: All rotations use `editor.rotateShapesBy()` for center-based rotation, never direct rotation property assignment
+- **Shape Processing**: Modifiers process **ShapeState** objects (not raw TLDraw shapes) sequentially, with each treating previous outputs as collective entities
+- **Compounding Behavior**: Multiple modifiers multiply their effects - LinearArray (3) + CircularArray (4) = 12 total clones
+- **Group Processing**: Group modifiers process all shapes in a group simultaneously using shared `GroupContext`
+- **Coordinate System**: Uses coordinate transforms rather than direct shape manipulation for consistent positioning
+- **Stateless Design**: All processors are stateless and functional for predictable behavior
+- **Clone Management**: `useCloneManager` handles original shape hiding (opacity=0) and visible clone creation/cleanup
+- **Rotation System**: All rotations use `editor.rotateShapesBy()` for center-based rotation (details in TLDraw section below)
 
 ## TLDraw Integration
 
 Uses TLDraw 3.x with:
+
 - Custom shape tools and rendering
 - Programmatic shape creation and manipulation
 - Custom UI panel integration
@@ -95,7 +103,9 @@ Uses TLDraw 3.x with:
 ### TLDraw Documentation References
 
 For TLDraw-specific development, reference these included documentation files:
+
 - `@tldraw-sdk.txt` - Complete TLDraw SDK documentation including:
+
   - Editor API and methods (`Editor.createShapes`, `Editor.updateShapes`, etc.)
   - Shape utilities and custom shape creation
   - Tools and state chart system
@@ -113,6 +123,7 @@ For TLDraw-specific development, reference these included documentation files:
   - UI customization and overrides
 
 **Key TLDraw Concepts**:
+
 - **Editor** - Main god object for canvas control (`editor.createShapes()`, `editor.select()`, etc.)
 - **ShapeUtils** - Classes that define shape behavior and rendering
 - **Tools** - State nodes that handle user interactions
@@ -120,6 +131,7 @@ For TLDraw-specific development, reference these included documentation files:
 - **Components** - Customizable UI elements and canvas components
 
 **Common TLDraw Patterns in this project**:
+
 - Use `editor.createShapes()` for programmatic shape creation
 - Access shape data via `editor.getShape()` and `editor.getSelectedShapes()`
 - Custom tools extend `StateNode` for interaction handling
@@ -130,6 +142,7 @@ For TLDraw-specific development, reference these included documentation files:
 ⚠️ **This project is actively under development** - The modifier system and custom shapes are experimental and contain numerous bugs and incomplete features.
 
 ### Current State
+
 - **Modifier System**: Core architecture is functional but has stability issues
 - **Custom Shapes**: Several custom shape tools are implemented but may not work reliably
 - **Group Processing**: Group modifier support is partially implemented with edge cases
@@ -137,6 +150,7 @@ For TLDraw-specific development, reference these included documentation files:
 - **Performance**: Complex modifier stacks may cause performance issues
 
 ### Known Issue Areas
+
 - **Shape State Synchronization**: Modifiers may not always sync correctly with TLDraw's store
 - **Group Bounds Calculation**: Group processing sometimes calculates incorrect bounds
 - **Modifier Ordering**: Reordering modifiers can cause unexpected results
@@ -145,13 +159,15 @@ For TLDraw-specific development, reference these included documentation files:
 - **Error Handling**: Limited error handling in modifier processing pipeline
 
 ### Recent Fixes
+
 - **Linear Array Extra Clone**: Fixed issue where LinearArrayProcessor created extra untransformed clones by properly hiding original shape when modifiers are active
 - **Clone Rotation**: Ensured all clones use `editor.rotateShapesBy()` for proper center-based rotation
 - **Rotated Shape Positioning**: Fixed clone positioning when original shape is rotated by calculating from visual center using `editor.getShapePageBounds()` instead of top-left corner
 
 ### Development Priorities
+
 1. **Stabilize Core Modifier System** - Fix shape state synchronization issues
-2. **Improve Group Processing** - Resolve group bounds and context issues  
+2. **Improve Group Processing** - Resolve group bounds and context issues
 3. **Enhanced Error Handling** - Add comprehensive error boundaries and logging
 4. **Performance Optimization** - Optimize modifier processing for complex stacks
 5. **UI Polish** - Improve modifier controls and user experience
@@ -166,12 +182,14 @@ Understanding TLDraw's coordinate system and shape transforms is **critical** fo
 ### Key TLDraw Shape Properties
 
 **Base Transform Properties** (every shape has these):
+
 - `x, y` - Shape position in parent space (NOT screen coordinates)
-- `rotation` - Rotation in radians around shape's origin point  
+- `rotation` - Rotation in radians around shape's origin point
 - `opacity` - Shape transparency (0-1)
 - Shape dimensions in `props` (e.g., `w`, `h` for width/height)
 
 **Shape Origins & Positioning**:
+
 - Shapes are positioned by their **top-left corner** by default
 - The `x, y` coordinates are in "parent space" (page coordinates for top-level shapes)
 - Shape rotation happens around the shape's geometric center, not the x,y position
@@ -179,27 +197,29 @@ Understanding TLDraw's coordinate system and shape transforms is **critical** fo
 ### Critical TLDraw Methods for Modifier System
 
 **Getting Shape Geometry & Transforms**:
+
 ```typescript
 // Get shape's geometry bounds in local coordinates
-editor.getShapeGeometry(shape).bounds  // Rectangle2d bounds
+editor.getShapeGeometry(shape).bounds; // Rectangle2d bounds
 
-// Get shape's page-space bounding box  
-editor.getShapePageBounds(shapeId)     // Box in page coordinates
+// Get shape's page-space bounding box
+editor.getShapePageBounds(shapeId); // Box in page coordinates
 
 // Get shape's complete page transform matrix
-editor.getShapePageTransform(shapeId)  // Matrix transform
+editor.getShapePageTransform(shapeId); // Matrix transform
 ```
 
 **Coordinate Space Conversions**:
+
 ```typescript
 // Convert point from shape's local space to page space
-editor.getShapePageTransform(shapeId).applyToPoint(localPoint)
+editor.getShapePageTransform(shapeId).applyToPoint(localPoint);
 
-// Convert point from page space to shape's local space  
-editor.getPointInShapeSpace(shapeId, pagePoint)
+// Convert point from page space to shape's local space
+editor.getPointInShapeSpace(shapeId, pagePoint);
 
 // Convert between parent space and shape space
-editor.getPointInParentSpace(shapeId, pointInShapeSpace)
+editor.getPointInParentSpace(shapeId, pointInShapeSpace);
 ```
 
 ### TLDraw Coordinate Spaces
@@ -212,9 +232,10 @@ editor.getPointInParentSpace(shapeId, pointInShapeSpace)
 ### Transform Matrix Application
 
 TLDraw uses 2D transformation matrices for all shape positioning:
+
 ```typescript
 // Getting and applying transforms
-const transform = editor.getShapePageTransform(shapeId)
+const transform = editor.getShapePageTransform(shapeId);
 // Matrix contains: translation, rotation, and scale in one transform
 // Use transform.applyToPoint(point) to transform coordinates
 ```
@@ -227,27 +248,30 @@ const transform = editor.getShapePageTransform(shapeId)
 2. **`editor.rotateShapesBy()` method**: Rotates around shape's center (like transform handles) - **THIS IS THE ONLY METHOD WE USE**
 
 **The Problem with Manual Rotation**:
+
 ```typescript
 // ❌ NEVER DO THIS - rotates around top-left corner (not what users expect)
-const shape = { ...originalShape, rotation: Math.PI / 4 }
-editor.updateShape(shape)
+const shape = { ...originalShape, rotation: Math.PI / 4 };
+editor.updateShape(shape);
 
 // ✅ ALWAYS DO THIS - rotates around center (matches UI behavior)
-editor.rotateShapesBy([shapeId], Math.PI / 4)
+editor.rotateShapesBy([shapeId], Math.PI / 4);
 ```
 
 **Our Rotation Approach**:
+
 ```typescript
 // Create shapes without rotation
-const shapes = [{ ...shapeData, rotation: 0 }]
-editor.createShapes(shapes)
+const shapes = [{ ...shapeData, rotation: 0 }];
+editor.createShapes(shapes);
 
 // Then rotate around center using TLDraw's API
-const shapeIds = shapes.map(s => s.id)
-editor.rotateShapesBy(shapeIds, rotationInRadians)
+const shapeIds = shapes.map((s) => s.id);
+editor.rotateShapesBy(shapeIds, rotationInRadians);
 ```
 
 **Implementation in Modifiers**:
+
 - All modifier processors store rotation values in their transforms
 - The `useCloneManager` hook creates shapes with `rotation: 0`
 - After creation, it applies the stored rotation using `editor.rotateShapesBy()`
@@ -255,12 +279,14 @@ editor.rotateShapesBy(shapeIds, rotationInRadians)
 
 ### Important TLDraw Shape Constraints
 
-**No Negative Scaling**: 
+**No Negative Scaling**:
+
 - TLDraw does not support negative scale values
 - Flipping is handled through separate flip operations, not negative scale
 - Use `editor.flipShapes()` for shape flipping operations
 
 **Shape Bounds vs Geometry**:
+
 - `getShapePageBounds()` - Axis-aligned bounding box in page space
 - `getShapeGeometry().bounds` - Local geometry bounds (may be rotated)
 - Always use appropriate method for your coordinate space needs
@@ -268,25 +294,27 @@ editor.rotateShapesBy(shapeIds, rotationInRadians)
 ### Critical Pattern: Handling Rotated Shapes in Modifiers
 
 **When calculating positions for clones of rotated shapes**:
+
 ```typescript
 // ✅ CORRECT - Calculate from visual center for rotated shapes
-const shapeRotation = originalShape.rotation || 0
+const shapeRotation = originalShape.rotation || 0;
 if (editor && shapeRotation !== 0) {
-  const bounds = editor.getShapePageBounds(originalShape.id)
+  const bounds = editor.getShapePageBounds(originalShape.id);
   if (bounds) {
     // Use the center of the rotated shape
-    const centerX = bounds.x + bounds.width / 2
-    const centerY = bounds.y + bounds.height / 2
+    const centerX = bounds.x + bounds.width / 2;
+    const centerY = bounds.y + bounds.height / 2;
     // Calculate clone positions from this center
     // Then convert back to top-left for positioning
   }
 }
 
 // ❌ WRONG - Using top-left corner directly
-const x = originalShape.x + offset // This moves when shape rotates!
+const x = originalShape.x + offset; // This moves when shape rotates!
 ```
 
 **This pattern is critical because**:
+
 - When a shape rotates, its `x, y` (top-left corner) position changes
 - Calculating clone positions from the moving top-left causes incorrect positioning
 - Using the visual center (from `getShapePageBounds`) provides stable reference point
@@ -295,6 +323,7 @@ const x = originalShape.x + offset // This moves when shape rotates!
 ### Modifier System Implications
 
 **Critical for modifier processors**:
+
 1. **Coordinate Consistency**: Modifiers must maintain correct coordinate spaces
 2. **Transform Composition**: Multiple modifiers create compound transforms
 3. **Group Bounds**: Group shapes have special bounds calculation rules
@@ -302,12 +331,14 @@ const x = originalShape.x + offset // This moves when shape rotates!
 5. **Rotated Shape Handling**: Always calculate from visual center for rotated shapes
 
 **Common Pitfalls**:
+
 - Mixing coordinate spaces (e.g., applying page coordinates as local coordinates)
-- Not accounting for shape rotation when calculating positions  
+- Not accounting for shape rotation when calculating positions
 - Using screen coordinates instead of page coordinates for shape manipulation
 - Attempting negative scaling (use flipping operations instead)
 
 **Best Practices for Modifier Development**:
+
 - Always work in consistent coordinate space (preferably page space)
 - Use TLDraw's transform methods rather than manual coordinate calculations
 - **For rotation**: ALWAYS use `editor.rotateShapesBy()` for center-based rotation

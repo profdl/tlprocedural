@@ -7,7 +7,7 @@ function stopEventPropagation(e: React.SyntheticEvent | Event) {
   e.stopPropagation()
 }
 
-type ModifierType = 'linear' | 'circular' | 'grid' | 'mirror' | 'lsystem'
+type ModifierType = 'linear' | 'circular' | 'grid' | 'mirror' | 'lsystem' | 'subdivide' | 'noise-offset' | 'smooth' | 'simplify'
 
 interface ModifierActionButtonsProps {
   selectedShape: boolean
@@ -32,7 +32,11 @@ export function ModifierActionButtons({
       'circular': 'circular',
       'grid': 'grid',
       'mirror': 'mirror',
-      'lsystem': 'lsystem'
+      'lsystem': 'lsystem',
+      'subdivide': 'subdivide',
+      'noise-offset': 'noise-offset',
+      'smooth': 'smooth',
+      'simplify': 'simplify'
     }
     const type = typeMap[optionId]
     if (type) {
@@ -42,6 +46,7 @@ export function ModifierActionButtons({
 
   // Define modifier options for the AddButton
   const modifierOptions: AddButtonOption[] = [
+    // Transform/Array Modifiers
     {
       id: 'linear',
       label: 'Linear Array',
@@ -66,6 +71,27 @@ export function ModifierActionButtons({
       id: 'lsystem',
       label: 'L-System',
       icon: 'code'
+    },
+    // Path Modifiers
+    {
+      id: 'subdivide',
+      label: 'Subdivide',
+      icon: 'edit'
+    },
+    {
+      id: 'noise-offset',
+      label: 'Noise Offset',
+      icon: 'tool'
+    },
+    {
+      id: 'smooth',
+      label: 'Smooth',
+      icon: 'curve'
+    },
+    {
+      id: 'simplify',
+      label: 'Simplify',
+      icon: 'minimize'
     }
   ]
 

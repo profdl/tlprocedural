@@ -8,9 +8,9 @@ import type {
   LinearArraySettings,
   CircularArraySettings,
   GridArraySettings,
-  MirrorSettings
+  MirrorSettings,
+  LSystemSettings
 } from '../../../types/modifiers'
-import type { LSystemSettings } from '../../../types/modifiers'
 import { useModifierStore } from '../../../store/modifierStore'
 
 // Local stopEventPropagation implementation

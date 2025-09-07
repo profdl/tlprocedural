@@ -1,4 +1,11 @@
 import type { BaseRecord, TLShapeId, RecordId, TLShape, Editor } from 'tldraw'
+import type { 
+  PathData, 
+  SubdivideSettings, 
+  NoiseOffsetSettings, 
+  SmoothSettings, 
+  SimplifySettings 
+} from './pathTypes'
 
 // Modifier ID type
 export type TLModifierId = RecordId<TLModifierRecord>
@@ -31,6 +38,7 @@ export interface ShapeInstance {
 export interface ShapeState {
   originalShape: TLShape
   instances: ShapeInstance[]
+  pathData?: PathData // Optional path data for path-based modifiers
   metadata?: Record<string, unknown>
 }
 
@@ -49,7 +57,7 @@ export interface GroupContext {
 }
 
 // NEW: Interface that all modifiers must implement for stacking
-export interface ModifierProcessor<T = LinearArraySettings | CircularArraySettings | GridArraySettings | MirrorSettings | LSystemSettings> {
+export interface ModifierProcessor<T = LinearArraySettings | CircularArraySettings | GridArraySettings | MirrorSettings | LSystemSettings | SubdivideSettings | NoiseOffsetSettings | SmoothSettings | SimplifySettings> {
   process(input: ShapeState, settings: T, groupContext?: GroupContext, editor?: Editor): ShapeState
 }
 
@@ -114,6 +122,10 @@ export type TLModifier =
   | TLGridArrayModifier
   | TLMirrorModifier
   | TLLSystemModifier
+  | TLSubdivideModifier
+  | TLNoiseOffsetModifier
+  | TLSmoothModifier
+  | TLSimplifyModifier
 
 // Specific modifier types
 export interface TLLinearArrayModifier extends TLModifierRecord {
@@ -139,6 +151,27 @@ export interface TLMirrorModifier extends TLModifierRecord {
 export interface TLLSystemModifier extends TLModifierRecord {
   type: 'lsystem'
   props: LSystemSettings
+}
+
+// Path modifier types
+export interface TLSubdivideModifier extends TLModifierRecord {
+  type: 'subdivide'
+  props: SubdivideSettings
+}
+
+export interface TLNoiseOffsetModifier extends TLModifierRecord {
+  type: 'noise-offset'
+  props: NoiseOffsetSettings
+}
+
+export interface TLSmoothModifier extends TLModifierRecord {
+  type: 'smooth'
+  props: SmoothSettings
+}
+
+export interface TLSimplifyModifier extends TLModifierRecord {
+  type: 'simplify'
+  props: SimplifySettings
 }
 
 // Utility types
