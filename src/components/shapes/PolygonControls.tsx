@@ -1,5 +1,6 @@
 import { useEditor } from 'tldraw'
 import type { PolygonShape } from './PolygonShape'
+import { EnhancedNumberInput } from '../ui/EnhancedNumberInput'
 
 interface PolygonControlsProps {
   shapes: PolygonShape[]
@@ -11,7 +12,6 @@ export const PolygonControls = ({ shapes }: PolygonControlsProps) => {
   if (shapes.length === 0) return null
 
   const currentSides = shapes[0].props.sides
-  const allSameValue = shapes.every(shape => shape.props.sides === currentSides)
 
   const handleSidesChange = (value: number) => {
     const updatedShapes = shapes.map(shape => ({
@@ -29,20 +29,15 @@ export const PolygonControls = ({ shapes }: PolygonControlsProps) => {
         Polygon Properties
       </div>
       
-      <div>
-        <label style={{ display: 'block', fontSize: '11px', marginBottom: '4px', color: '#666' }}>
-          Sides: {allSameValue ? currentSides : 'Mixed'}
-        </label>
-        <input
-          type="range"
-          min="3"
-          max="12"
-          step="1"
-          value={currentSides}
-          onChange={(e) => handleSidesChange(parseInt(e.target.value))}
-          style={{ width: '100%' }}
-        />
-      </div>
+      <EnhancedNumberInput
+        label="Sides"
+        value={currentSides}
+        min={3}
+        max={12}
+        step={1}
+        precision={0}
+        onChange={handleSidesChange}
+      />
     </div>
   )
 }

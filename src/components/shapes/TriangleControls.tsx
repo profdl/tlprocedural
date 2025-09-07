@@ -1,5 +1,6 @@
 import { useEditor, track, type TLShape } from 'tldraw'
 import type { TriangleShape } from './TriangleShape'
+import { EnhancedNumberInput } from '../ui/EnhancedNumberInput'
 
 interface TriangleControlsProps {
   shapes: TriangleShape[]
@@ -139,51 +140,39 @@ export const TriangleControls = track(({ shapes }: TriangleControlsProps) => {
         </button>
       </div>
       
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {/* Width Control */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <label style={{ minWidth: '60px', fontSize: '12px' }}>Width:</label>
-          <input
-            type="range"
-            min="20"
-            max="400"
-            step="5"
-            value={w}
-            onChange={(e) => updateShapes({ w: parseInt(e.target.value) })}
-            style={{ flex: 1 }}
-          />
-          <span style={{ minWidth: '40px', fontSize: '12px' }}>{w}px</span>
-        </div>
-
-        {/* Height Control */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <label style={{ minWidth: '60px', fontSize: '12px' }}>Height:</label>
-          <input
-            type="range"
-            min="20"
-            max="400"
-            step="5"
-            value={h}
-            onChange={(e) => updateShapes({ h: parseInt(e.target.value) })}
-            style={{ flex: 1 }}
-          />
-          <span style={{ minWidth: '40px', fontSize: '12px' }}>{h}px</span>
-        </div>
-
-        {/* Stroke Width Control */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <label style={{ minWidth: '60px', fontSize: '12px' }}>Stroke:</label>
-          <input
-            type="range"
-            min="0.5"
-            max="10"
-            step="0.5"
-            value={strokeWidth}
-            onChange={(e) => updateShapes({ strokeWidth: parseFloat(e.target.value) })}
-            style={{ flex: 1 }}
-          />
-          <span style={{ minWidth: '40px', fontSize: '12px' }}>{strokeWidth}px</span>
-        </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <EnhancedNumberInput
+          label="Width"
+          value={w}
+          min={20}
+          max={400}
+          step={5}
+          precision={0}
+          onChange={(value) => updateShapes({ w: value })}
+          unit="px"
+        />
+        
+        <EnhancedNumberInput
+          label="Height"
+          value={h}
+          min={20}
+          max={400}
+          step={5}
+          precision={0}
+          onChange={(value) => updateShapes({ h: value })}
+          unit="px"
+        />
+        
+        <EnhancedNumberInput
+          label="Stroke"
+          value={strokeWidth}
+          min={0.5}
+          max={10}
+          step={0.5}
+          precision={1}
+          onChange={(value) => updateShapes({ strokeWidth: value })}
+          unit="px"
+        />
 
         {/* Color Control */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

@@ -1,5 +1,6 @@
 import { useEditor, useValue, type TLShape } from 'tldraw'
 import type { SineWaveShape } from './SineWaveShape'
+import { EnhancedNumberInput } from '../ui/EnhancedNumberInput'
 
 interface SineWaveControlsProps {
   shapes: SineWaveShape[]
@@ -131,69 +132,46 @@ export function SineWaveControls({ shapes }: SineWaveControlsProps) {
       </div>
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {/* Length */}
-        <div>
-          <label style={{ display: 'block', fontSize: '11px', marginBottom: '4px', color: '#666' }}>
-            Length: {commonValues.length ?? 'Mixed'}
-          </label>
-          <input
-            type="range"
-            min="50"
-            max="2000"
-            step="5"
-            value={commonValues.length ?? 200}
-            onChange={(e) => updateShapes({ length: parseInt(e.target.value) })}
-            style={{ width: '100%' }}
-          />
-        </div>
-
-        {/* Amplitude */}
-        <div>
-          <label style={{ display: 'block', fontSize: '11px', marginBottom: '4px', color: '#666' }}>
-            Amplitude: {commonValues.amplitude ?? 'Mixed'}
-          </label>
-          <input
-            type="range"
-            min="2"
-            max="500"
-            step="1"
-            value={commonValues.amplitude ?? 40}
-            onChange={(e) => updateShapes({ amplitude: parseInt(e.target.value) })}
-            style={{ width: '100%' }}
-          />
-        </div>
-
-        {/* Frequency */}
-        <div>
-          <label style={{ display: 'block', fontSize: '11px', marginBottom: '4px', color: '#666' }}>
-            Frequency: {commonValues.frequency ?? 'Mixed'}
-          </label>
-          <input
-            type="range"
-            min="0.1"
-            max="20"
-            step="0.1"
-            value={commonValues.frequency ?? 1}
-            onChange={(e) => updateShapes({ frequency: parseFloat(e.target.value) })}
-            style={{ width: '100%' }}
-          />
-        </div>
-
-        {/* Phase */}
-        <div>
-          <label style={{ display: 'block', fontSize: '11px', marginBottom: '4px', color: '#666' }}>
-            Phase: {commonValues.phase ?? 'Mixed'}°
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="360"
-            step="15"
-            value={commonValues.phase ?? 0}
-            onChange={(e) => updateShapes({ phase: parseInt(e.target.value) })}
-            style={{ width: '100%' }}
-          />
-        </div>
+        <EnhancedNumberInput
+          label="Length"
+          value={commonValues.length ?? 200}
+          min={50}
+          max={2000}
+          step={5}
+          precision={0}
+          onChange={(value) => updateShapes({ length: value })}
+        />
+        
+        <EnhancedNumberInput
+          label="Amplitude"
+          value={commonValues.amplitude ?? 40}
+          min={2}
+          max={500}
+          step={1}
+          precision={0}
+          onChange={(value) => updateShapes({ amplitude: value })}
+        />
+        
+        <EnhancedNumberInput
+          label="Frequency"
+          value={commonValues.frequency ?? 1}
+          min={0.1}
+          max={20}
+          step={0.1}
+          precision={1}
+          onChange={(value) => updateShapes({ frequency: value })}
+        />
+        
+        <EnhancedNumberInput
+          label="Phase"
+          value={commonValues.phase ?? 0}
+          min={0}
+          max={360}
+          step={15}
+          precision={0}
+          onChange={(value) => updateShapes({ phase: value })}
+          unit="°"
+        />
       </div>
     </div>
   )

@@ -221,6 +221,140 @@
   font-weight: 500;
 }
 
+/* Enhanced Number Input Component */
+.enhanced-number-input {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.enhanced-number-input__label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  user-select: none;
+}
+
+.enhanced-number-input__container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--color-panel);
+  border: 1px solid var(--color-panel-contrast);
+  border-color: var(--color-divider);
+  border-radius: 4px;
+  transition: all 0.1s ease;
+  cursor: ns-resize;
+  width: fit-content;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.enhanced-number-input__container:hover .enhanced-number-input__input {
+  cursor: text !important;
+}
+
+.enhanced-number-input__container:hover {
+  border-color: var(--color-text-2);
+}
+
+.enhanced-number-input__container:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.enhanced-number-input--dragging .enhanced-number-input__container {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+  background: var(--color-muted-1);
+}
+
+.enhanced-number-input__input {
+  width: 40px; /* Fixed width for 4 digits */
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-1);
+  font-size: 11px;
+  font-weight: 500;
+  outline: none;
+  cursor: ns-resize;
+  text-align: center;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+.enhanced-number-input__input:hover {
+  cursor: text;
+}
+
+.enhanced-number-input__input:focus {
+  cursor: text;
+}
+
+.enhanced-number-input__unit {
+  padding-right: 6px;
+  font-size: 10px;
+  color: var(--color-text-2);
+  user-select: none;
+  pointer-events: none;
+}
+
+.enhanced-number-input__arrows {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--color-panel-contrast);
+}
+
+.enhanced-number-input__arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 12px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-2);
+  cursor: pointer !important; /* Ensure arrow cursor on buttons */
+  font-size: 8px;
+  line-height: 1;
+  transition: all 0.1s ease;
+  user-select: none;
+}
+
+.enhanced-number-input__arrow:hover:not(:disabled) {
+  background: var(--color-muted-1);
+  color: var(--color-text-1);
+}
+
+.enhanced-number-input__arrow:active:not(:disabled) {
+  background: var(--color-primary);
+  color: white;
+}
+
+.enhanced-number-input__arrow:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.enhanced-number-input__arrow--up {
+  border-radius: 0 3px 0 0;
+  border-bottom: 1px solid var(--color-panel-contrast);
+}
+
+.enhanced-number-input__arrow--down {
+  border-radius: 0 0 3px 0;
+}
+
+/* Dragging state styling */
+.enhanced-number-input--dragging {
+  user-select: none;
+}
+
+.enhanced-number-input--dragging .enhanced-number-input__input {
+  background: var(--color-muted-1);
+}
+
 /* Dark mode overrides */
 @media (prefers-color-scheme: dark) {
   .modifier-slider__input::-webkit-slider-thumb {
