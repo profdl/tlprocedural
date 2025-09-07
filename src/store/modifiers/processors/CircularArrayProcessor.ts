@@ -24,28 +24,34 @@ export const CircularArrayProcessor: ModifierProcessor = {
     input.instances.forEach(inputInstance => {
       // Create all array positions including the first one (i=0) which replaces the original
       for (let i = 0; i < count; i++) {
-        // Use calculateCircularPosition directly with the actual shape (like LinearArrayProcessor)
-        const position = calculateCircularPosition(
-          inputInstance.shape,
-          i,
-          centerX || 0,
-          centerY || 0,
-          radius,
-          startAngle,
-          endAngle,
-          rotateEach || 0,
-          rotateAll || 0,
-          alignToTangent || false,
-          count,
-          editor
-        )
+        // Calculate the angle for this position on the circle
+        const totalAngle = endAngle - startAngle
+        const angleStep = count > 1 ? totalAngle / (count - 1) : 0
+        const angle = (startAngle + (angleStep * i)) * Math.PI / 180
         
+        // Calculate circular offset from center (this is an offset, not absolute position)
+        const circularOffsetX = (centerX || 0) + Math.cos(angle) * radius
+        const circularOffsetY = (centerY || 0) + Math.sin(angle) * radius
+        
+        // Calculate rotation components
+        let circularRotation = 0
+        if (alignToTangent) {
+          circularRotation += angle + Math.PI / 2
+        }
+        if (rotateAll) {
+          circularRotation += (rotateAll * Math.PI / 180)
+        }
+        if (rotateEach) {
+          circularRotation += (rotateEach * i * Math.PI / 180)
+        }
+        
+        // Apply the circular offset to the already-transformed instance position (like GridArray does)
         const newTransform: Transform = {
-          x: position.x,
-          y: position.y,
-          rotation: inputInstance.transform.rotation + position.rotation,
-          scaleX: inputInstance.transform.scaleX * position.scaleX,
-          scaleY: inputInstance.transform.scaleY * position.scaleY
+          x: inputInstance.transform.x + circularOffsetX,
+          y: inputInstance.transform.y + circularOffsetY,
+          rotation: inputInstance.transform.rotation + circularRotation, // Preserve + add circular rotation
+          scaleX: inputInstance.transform.scaleX,
+          scaleY: inputInstance.transform.scaleY
         }
         
         const newInstance: ShapeInstance = {
@@ -54,8 +60,9 @@ export const CircularArrayProcessor: ModifierProcessor = {
           index: newInstances.length,
           metadata: {
             ...inputInstance.metadata,
-            arrayIndex: i,
-            sourceInstance: inputInstance.index
+            arrayIndex: newInstances.length, // Use sequential index for clone mapping (like GridArray)
+            sourceInstance: inputInstance.index,
+            circularArrayIndex: i // Store circular-specific index separately
           }
         }
         
@@ -131,8 +138,9 @@ function processGroupCircularArray(
         index: newInstances.length,
         metadata: {
           ...inputInstance.metadata,
-          arrayIndex: i,
+          arrayIndex: newInstances.length, // Use sequential index for clone mapping (like GridArray)
           sourceInstance: inputInstance.index,
+          circularArrayIndex: i, // Store circular-specific index separately
           isGroupClone: true
         }
       }
