@@ -37,10 +37,27 @@ export const LinearArrayProcessor: ModifierProcessor = {
         const progress = count > 1 ? i / (count - 1) : 0
         const interpolatedScale = 1 + (scaleStep - 1) * progress
         
-        // Apply offsets to the already-transformed instance position (like GridArray does)
+        // When source shape is rotated, we need to calculate from its center
+        // not from the top-left corner which moves when rotated
+        let baseX = inputInstance.transform.x
+        let baseY = inputInstance.transform.y
+        
+        if (editor && inputInstance.transform.rotation !== 0) {
+          // Get the visual center of the rotated shape
+          const bounds = editor.getShapePageBounds(inputInstance.shape.id)
+          if (bounds) {
+            // Calculate from center, then convert back to top-left for positioning
+            const centerX = bounds.x + bounds.width / 2
+            const centerY = bounds.y + bounds.height / 2
+            baseX = centerX - shapeWidth / 2
+            baseY = centerY - shapeHeight / 2
+          }
+        }
+        
+        // Apply offsets to the corrected base position
         const newTransform: Transform = {
-          x: inputInstance.transform.x + pixelOffsetX,
-          y: inputInstance.transform.y + pixelOffsetY,
+          x: baseX + pixelOffsetX,
+          y: baseY + pixelOffsetY,
           rotation: inputInstance.transform.rotation + rotationRadians,
           scaleX: inputInstance.transform.scaleX * interpolatedScale,
           scaleY: inputInstance.transform.scaleY * interpolatedScale

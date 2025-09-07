@@ -219,7 +219,7 @@ function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModif
         const currentShape = editor.getShape(update.id)
         if (!currentShape) return
         
-        // Update position and props (but NOT rotation)
+        // Update position and props (but NOT rotation directly)
         editor.updateShape(shapeUpdate)
         
         // Calculate rotation delta and apply it
