@@ -1,5 +1,6 @@
 import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, useEditor, type Editor, type TLResizeInfo, type TLRotationSnapshot } from 'tldraw'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
+import { getAccurateBounds } from './utils/bezierUtils'
 
 export interface BezierPoint {
   x: number
@@ -277,34 +278,16 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   }
 
   getBounds(shape: BezierShape) {
-    // Calculate bounds from actual path points, not static w/h
-    const { points } = shape.props
-    
-    if (points.length === 0) {
-      return { x: 0, y: 0, w: 1, h: 1 }
-    }
-    
-    // Include all points and control points
-    const allPoints = points.flatMap(p => [
-      { x: p.x, y: p.y },
-      ...(p.cp1 ? [p.cp1] : []),
-      ...(p.cp2 ? [p.cp2] : [])
-    ])
-    
-    const xs = allPoints.map(p => p.x)
-    const ys = allPoints.map(p => p.y)
-    const minX = Math.min(...xs)
-    const minY = Math.min(...ys)
-    const maxX = Math.max(...xs)
-    const maxY = Math.max(...ys)
+    // Use bezier.js for accurate bounds calculation that accounts for curve extremes
+    const bounds = getAccurateBounds(shape.props.points, shape.props.isClosed)
     
     // TLDraw expects bounds to start at (0,0) with points normalized within
     // The shape's x,y position handles the offset
     return {
       x: 0,
       y: 0, 
-      w: Math.max(1, maxX - minX),
-      h: Math.max(1, maxY - minY)
+      w: Math.max(1, bounds.maxX - bounds.minX),
+      h: Math.max(1, bounds.maxY - bounds.minY)
     }
   }
 
@@ -527,35 +510,24 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   }
   
   private recalculateBounds(shape: BezierShape, points: BezierPoint[]): BezierShape {
-    // Calculate bounds from all points including control points
-    const allPoints = points.flatMap(p => [
-      { x: p.x, y: p.y },
-      ...(p.cp1 ? [p.cp1] : []),
-      ...(p.cp2 ? [p.cp2] : [])
-    ])
+    // Use bezier.js for accurate bounds calculation
+    const bounds = getAccurateBounds(points, shape.props.isClosed)
 
-    const xs = allPoints.map(p => p.x)
-    const ys = allPoints.map(p => p.y)
-    const minX = Math.min(...xs)
-    const minY = Math.min(...ys)
-    const maxX = Math.max(...xs)
-    const maxY = Math.max(...ys)
-
-    const w = Math.max(1, maxX - minX)
-    const h = Math.max(1, maxY - minY)
+    const w = Math.max(1, bounds.maxX - bounds.minX)
+    const h = Math.max(1, bounds.maxY - bounds.minY)
 
     // Normalize points to new bounds
     const normalizedPoints = points.map(p => ({
-      x: p.x - minX,
-      y: p.y - minY,
-      cp1: p.cp1 ? { x: p.cp1.x - minX, y: p.cp1.y - minY } : undefined,
-      cp2: p.cp2 ? { x: p.cp2.x - minX, y: p.cp2.y - minY } : undefined,
+      x: p.x - bounds.minX,
+      y: p.y - bounds.minY,
+      cp1: p.cp1 ? { x: p.cp1.x - bounds.minX, y: p.cp1.y - bounds.minY } : undefined,
+      cp2: p.cp2 ? { x: p.cp2.x - bounds.minX, y: p.cp2.y - bounds.minY } : undefined,
     }))
 
     return {
       ...shape,
-      x: shape.x + minX,
-      y: shape.y + minY,
+      x: shape.x + bounds.minX,
+      y: shape.y + bounds.minY,
       props: {
         ...shape.props,
         w,
@@ -571,38 +543,27 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   static addPoint(shape: BezierShape, point: BezierPoint): BezierShape {
     const newPoints = [...shape.props.points, point]
     
-    // Update bounds to include new point and control points
-    const allPoints = newPoints.flatMap(p => [
-      { x: p.x, y: p.y },
-      ...(p.cp1 ? [p.cp1] : []),
-      ...(p.cp2 ? [p.cp2] : [])
-    ])
-    
-    const allX = allPoints.map(p => p.x)
-    const allY = allPoints.map(p => p.y)
-    const minX = Math.min(...allX)
-    const minY = Math.min(...allY)
-    const maxX = Math.max(...allX)
-    const maxY = Math.max(...allY)
+    // Use bezier.js for accurate bounds calculation
+    const bounds = getAccurateBounds(newPoints, shape.props.isClosed)
     
     // Normalize points relative to the new bounds
     const normalizedPoints = newPoints.map(p => ({
-      x: p.x - minX,
-      y: p.y - minY,
-      cp1: p.cp1 ? { x: p.cp1.x - minX, y: p.cp1.y - minY } : undefined,
-      cp2: p.cp2 ? { x: p.cp2.x - minX, y: p.cp2.y - minY } : undefined,
+      x: p.x - bounds.minX,
+      y: p.y - bounds.minY,
+      cp1: p.cp1 ? { x: p.cp1.x - bounds.minX, y: p.cp1.y - bounds.minY } : undefined,
+      cp2: p.cp2 ? { x: p.cp2.x - bounds.minX, y: p.cp2.y - bounds.minY } : undefined,
     }))
     
     return {
       ...shape,
       props: {
         ...shape.props,
-        w: Math.max(1, maxX - minX),
-        h: Math.max(1, maxY - minY),
+        w: Math.max(1, bounds.maxX - bounds.minX),
+        h: Math.max(1, bounds.maxY - bounds.minY),
         points: normalizedPoints,
       },
-      x: shape.x + minX,
-      y: shape.y + minY,
+      x: shape.x + bounds.minX,
+      y: shape.y + bounds.minY,
     }
   }
 

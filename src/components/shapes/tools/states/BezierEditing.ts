@@ -5,6 +5,7 @@ import {
   type TLKeyboardEventInfo,
 } from '@tldraw/editor'
 import { type BezierShape, type BezierPoint } from '../../BezierShape'
+import { getClosestPointOnSegment, splitSegmentAtT, getAllSegments, getAccurateBounds } from '../../utils/bezierUtils'
 
 export class BezierEditing extends StateNode {
   static override id = 'editing'
@@ -55,7 +56,7 @@ export class BezierEditing extends StateNode {
     // Check if clicking on a path segment to add a point
     const segmentInfo = this.getSegmentAtPosition(shape, localPoint)
     if (segmentInfo) {
-      this.addPointToSegment(shape, segmentInfo.segmentIndex, localPoint)
+      this.addPointToSegment(shape, segmentInfo, localPoint)
     }
   }
 
@@ -111,19 +112,19 @@ export class BezierEditing extends StateNode {
     return -1
   }
 
-  private getSegmentAtPosition(shape: BezierShape, localPoint: { x: number; y: number }): { segmentIndex: number } | null {
-    const threshold = 5 / this.editor.getZoomLevel()
+  private getSegmentAtPosition(shape: BezierShape, localPoint: { x: number; y: number }): { segmentIndex: number; t: number } | null {
+    const threshold = 8 / this.editor.getZoomLevel() // Increased threshold for better usability
     const points = shape.props.points
 
+    // Check each segment using precise bezier curve distance
     for (let i = 0; i < points.length - 1; i++) {
       const p1 = points[i]
       const p2 = points[i + 1]
       
-      // Simple line distance check (could be enhanced for bezier curves)
-      const distToSegment = this.distanceToLineSegment(localPoint, p1, p2)
+      const result = getClosestPointOnSegment(p1, p2, localPoint)
       
-      if (distToSegment < threshold) {
-        return { segmentIndex: i }
+      if (result.distance < threshold) {
+        return { segmentIndex: i, t: result.t }
       }
     }
 
@@ -131,10 +132,10 @@ export class BezierEditing extends StateNode {
     if (shape.props.isClosed && points.length > 2) {
       const p1 = points[points.length - 1]
       const p2 = points[0]
-      const distToSegment = this.distanceToLineSegment(localPoint, p1, p2)
+      const result = getClosestPointOnSegment(p1, p2, localPoint)
       
-      if (distToSegment < threshold) {
-        return { segmentIndex: points.length - 1 }
+      if (result.distance < threshold) {
+        return { segmentIndex: points.length - 1, t: result.t }
       }
     }
 
@@ -168,16 +169,30 @@ export class BezierEditing extends StateNode {
     )
   }
 
-  private addPointToSegment(shape: BezierShape, segmentIndex: number, localPoint: { x: number; y: number }) {
+  private addPointToSegment(shape: BezierShape, segmentInfo: { segmentIndex: number; t: number }, localPoint: { x: number; y: number }) {
+    const { segmentIndex, t } = segmentInfo
     const newPoints = [...shape.props.points]
-    const newPoint: BezierPoint = {
-      x: localPoint.x,
-      y: localPoint.y
-      // TODO: Calculate appropriate control points for smooth insertion
-    }
+    const p1 = newPoints[segmentIndex]
+    const p2 = segmentIndex === newPoints.length - 1 && shape.props.isClosed 
+      ? newPoints[0] 
+      : newPoints[segmentIndex + 1]
 
-    // Insert the new point after the segment start
-    newPoints.splice(segmentIndex + 1, 0, newPoint)
+    // Use bezier.js to split the segment at the precise t value for smooth insertion
+    const splitResult = splitSegmentAtT(p1, p2, t)
+    
+    // Update the original points with new control points
+    newPoints[segmentIndex] = splitResult.leftSegment.p1
+    
+    // Insert the new point with calculated control points
+    const insertIndex = segmentIndex + 1
+    if (segmentIndex === newPoints.length - 1 && shape.props.isClosed) {
+      // Inserting in closing segment - update first point instead
+      newPoints[0] = splitResult.rightSegment.p2
+      newPoints.push(splitResult.splitPoint)
+    } else {
+      newPoints[insertIndex] = splitResult.rightSegment.p2
+      newPoints.splice(insertIndex, 0, splitResult.splitPoint)
+    }
     
     const updatedShape = this.recalculateBounds(shape, newPoints)
     this.editor.updateShape(updatedShape)
@@ -194,35 +209,24 @@ export class BezierEditing extends StateNode {
   }
 
   private recalculateBounds(shape: BezierShape, points: BezierPoint[]): BezierShape {
-    // Calculate bounds from all points including control points
-    const allPoints = points.flatMap(p => [
-      { x: p.x, y: p.y },
-      ...(p.cp1 ? [p.cp1] : []),
-      ...(p.cp2 ? [p.cp2] : [])
-    ])
-
-    const xs = allPoints.map(p => p.x)
-    const ys = allPoints.map(p => p.y)
-    const minX = Math.min(...xs)
-    const minY = Math.min(...ys)
-    const maxX = Math.max(...xs)
-    const maxY = Math.max(...ys)
-
-    const w = Math.max(1, maxX - minX)
-    const h = Math.max(1, maxY - minY)
+    // Use bezier.js for accurate bounds calculation
+    const bounds = getAccurateBounds(points, shape.props.isClosed)
+    
+    const w = Math.max(1, bounds.maxX - bounds.minX)
+    const h = Math.max(1, bounds.maxY - bounds.minY)
 
     // Normalize points to new bounds
     const normalizedPoints = points.map(p => ({
-      x: p.x - minX,
-      y: p.y - minY,
-      cp1: p.cp1 ? { x: p.cp1.x - minX, y: p.cp1.y - minY } : undefined,
-      cp2: p.cp2 ? { x: p.cp2.x - minX, y: p.cp2.y - minY } : undefined,
+      x: p.x - bounds.minX,
+      y: p.y - bounds.minY,
+      cp1: p.cp1 ? { x: p.cp1.x - bounds.minX, y: p.cp1.y - bounds.minY } : undefined,
+      cp2: p.cp2 ? { x: p.cp2.x - bounds.minX, y: p.cp2.y - bounds.minY } : undefined,
     }))
 
     return {
       ...shape,
-      x: shape.x + minX,
-      y: shape.y + minY,
+      x: shape.x + bounds.minX,
+      y: shape.y + bounds.minY,
       props: {
         ...shape.props,
         w,
