@@ -132,6 +132,7 @@ export class LineShapeUtil extends FlippableShapeUtil<LineShape> {
         index: 'a1' as any,
         x: startX,
         y: startY,
+        canSnap: true,
       },
       {
         id: 'end',
@@ -139,12 +140,13 @@ export class LineShapeUtil extends FlippableShapeUtil<LineShape> {
         index: 'a2' as any,
         x: endX,
         y: endY,
+        canSnap: true,
       },
     ]
   }
 
   // Handle updates when handles are moved
-  onHandleChange = (shape: LineShape, { handle }: { handle: TLHandle }) => {
+  override onHandleDrag = (shape: LineShape, { handle }: { handle: TLHandle }) => {
     const { startX, startY, endX, endY } = shape.props
     
     let newStartX = startX

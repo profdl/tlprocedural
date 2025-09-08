@@ -1,4 +1,4 @@
-import { HTMLContainer, T, type TLBaseShape, type RecordProps } from 'tldraw'
+import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle } from 'tldraw'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 
 export type DrawShape = TLBaseShape<
@@ -15,6 +15,7 @@ export type DrawShape = TLBaseShape<
     }>
     isClosed: boolean
     smoothing: number
+    editMode?: boolean
   }
 >
 
@@ -33,6 +34,7 @@ export class DrawShapeUtil extends FlippableShapeUtil<DrawShape> {
     })),
     isClosed: T.boolean,
     smoothing: T.number,
+    editMode: T.optional(T.boolean),
   }
 
   override getDefaultProps(): DrawShape['props'] {
@@ -48,7 +50,7 @@ export class DrawShapeUtil extends FlippableShapeUtil<DrawShape> {
   }
 
   override component(shape: DrawShape) {
-    const { segments, color, strokeWidth, smoothing, isClosed } = shape.props
+    const { segments, color, strokeWidth, smoothing, isClosed, editMode } = shape.props
     
     if (segments.length < 2) {
       return <HTMLContainer><svg width={shape.props.w} height={shape.props.h}></svg></HTMLContainer>
@@ -58,7 +60,7 @@ export class DrawShapeUtil extends FlippableShapeUtil<DrawShape> {
     const pathData = this.segmentsToPath(segments, smoothing, isClosed)
 
     return (
-      <HTMLContainer>
+      <HTMLContainer style={{ cursor: editMode ? 'crosshair' : 'default' }}>
         <svg 
           width={shape.props.w} 
           height={shape.props.h} 
@@ -71,7 +73,26 @@ export class DrawShapeUtil extends FlippableShapeUtil<DrawShape> {
             strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeLinejoin="round"
+            strokeDasharray={editMode ? '5 3' : undefined}
+            opacity={editMode ? 0.8 : 1}
           />
+          
+          {/* Show points when in edit mode */}
+          {editMode && (
+            <g opacity={0.8}>
+              {segments.map((segment, i) => (
+                <circle
+                  key={i}
+                  cx={segment.x}
+                  cy={segment.y}
+                  r={4}
+                  fill="white"
+                  stroke="#0066ff"
+                  strokeWidth={2}
+                />
+              ))}
+            </g>
+          )}
         </svg>
       </HTMLContainer>
     )
@@ -181,6 +202,80 @@ export class DrawShapeUtil extends FlippableShapeUtil<DrawShape> {
       },
       x: shape.x + minX,
       y: shape.y + minY,
+    }
+  }
+
+  // Handle management for interactive path editing
+  override getHandles(shape: DrawShape): TLHandle[] {
+    const handles: TLHandle[] = []
+    
+    shape.props.segments.forEach((segment, i) => {
+      handles.push({
+        id: `point-${i}`,
+        type: 'vertex',
+        index: `a${i}` as any,
+        x: segment.x,
+        y: segment.y,
+        canSnap: true,
+      })
+    })
+    
+    return handles
+  }
+
+  // Handle updates when handles are moved
+  override onHandleDrag = (shape: DrawShape, { handle }: { handle: TLHandle }) => {
+    const newSegments = [...shape.props.segments]
+    
+    // Parse handle ID to get segment index
+    const match = handle.id.match(/point-(\d+)/)
+    if (!match) return shape
+    
+    const segmentIndex = parseInt(match[1])
+    if (segmentIndex >= 0 && segmentIndex < newSegments.length) {
+      newSegments[segmentIndex] = {
+        ...newSegments[segmentIndex],
+        x: handle.x,
+        y: handle.y,
+      }
+    }
+    
+    // Recalculate bounds
+    const xs = newSegments.map(s => s.x)
+    const ys = newSegments.map(s => s.y)
+    const minX = Math.min(...xs)
+    const minY = Math.min(...ys)
+    const maxX = Math.max(...xs)
+    const maxY = Math.max(...ys)
+    
+    // Normalize segments to local coordinates
+    const normalizedSegments = newSegments.map(s => ({
+      ...s,
+      x: s.x - minX,
+      y: s.y - minY,
+    }))
+    
+    return {
+      ...shape,
+      props: {
+        ...shape.props,
+        w: Math.max(1, maxX - minX),
+        h: Math.max(1, maxY - minY),
+        segments: normalizedSegments,
+      },
+      x: shape.x + minX,
+      y: shape.y + minY,
+    }
+  }
+
+  // Double-click to enter/exit edit mode
+  override onDoubleClick = (shape: DrawShape) => {
+    return {
+      ...shape,
+      props: {
+        ...shape.props,
+        editMode: !shape.props.editMode,
+      }
     }
   }
 

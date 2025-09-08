@@ -1,4 +1,4 @@
-import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle } from 'tldraw'
+import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, useEditor } from 'tldraw'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 
 export interface BezierPoint {
@@ -18,6 +18,7 @@ export type BezierShape = TLBaseShape<
     fill: boolean
     points: BezierPoint[]
     isClosed: boolean
+    editMode?: boolean
   }
 >
 
@@ -43,6 +44,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
       })),
     })),
     isClosed: T.boolean,
+    editMode: T.optional(T.boolean),
   }
 
   override getDefaultProps(): BezierShape['props'] {
@@ -58,7 +60,8 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   }
 
   override component(shape: BezierShape) {
-    const { points, color, strokeWidth, fill, isClosed } = shape.props
+    const { points, color, strokeWidth, fill, isClosed, editMode } = shape.props
+    const editor = useEditor()
     
     // Get flip transform from the FlippableShapeUtil
     const flipTransform = this.getFlipTransform(shape)
@@ -71,7 +74,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     const pathData = this.pointsToPath(points, isClosed)
 
     return (
-      <HTMLContainer>
+      <HTMLContainer style={{ cursor: editMode ? 'crosshair' : 'default' }}>
         <svg 
           width={shape.props.w} 
           height={shape.props.h} 
@@ -87,14 +90,16 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
             strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeLinejoin="round"
+            strokeDasharray={editMode ? '5 3' : undefined}
+            opacity={editMode ? 0.7 : 1}
           />
           
-          {/* Show control points when selected (optional visual aid) */}
-          {false && (
-            <g opacity={0.6}>
+          {/* Show control points and connection lines when in edit mode or when selected */}
+          {(editMode || editor.getOnlySelectedShapeId() === shape.id) && (
+            <g opacity={0.8}>
               {points.map((point, i) => (
                 <g key={i}>
-                  {/* Control point lines */}
+                  {/* Control point lines - draw these first so they appear behind the circles */}
                   {point.cp1 && (
                     <line
                       x1={point.x}
@@ -102,8 +107,9 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
                       x2={point.cp1.x}
                       y2={point.cp1.y}
                       stroke="#0066ff"
-                      strokeWidth={1}
-                      strokeDasharray="3 3"
+                      strokeWidth={1.5}
+                      strokeDasharray="2 2"
+                      opacity={0.5}
                     />
                   )}
                   {point.cp2 && (
@@ -113,8 +119,9 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
                       x2={point.cp2.x}
                       y2={point.cp2.y}
                       stroke="#0066ff"
-                      strokeWidth={1}
-                      strokeDasharray="3 3"
+                      strokeWidth={1.5}
+                      strokeDasharray="2 2"
+                      opacity={0.5}
                     />
                   )}
                   
@@ -123,28 +130,28 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
                     <circle
                       cx={point.cp1.x}
                       cy={point.cp1.y}
-                      r={3}
+                      r={4}
                       fill="#0066ff"
                       stroke="white"
-                      strokeWidth={1}
+                      strokeWidth={1.5}
                     />
                   )}
                   {point.cp2 && (
                     <circle
                       cx={point.cp2.x}
                       cy={point.cp2.y}
-                      r={3}
+                      r={4}
                       fill="#0066ff"
                       stroke="white"
-                      strokeWidth={1}
+                      strokeWidth={1.5}
                     />
                   )}
                   
-                  {/* Anchor points */}
+                  {/* Anchor points - draw these last so they appear on top */}
                   <circle
                     cx={point.x}
                     cy={point.y}
-                    r={4}
+                    r={5}
                     fill="white"
                     stroke="#0066ff"
                     strokeWidth={2}
@@ -243,6 +250,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
         index: `a${i}` as any,
         x: point.x,
         y: point.y,
+        canSnap: true,
       })
       
       // Control point handles
@@ -253,6 +261,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
           index: `cp1-${i}` as any,
           x: point.cp1.x,
           y: point.cp1.y,
+          canSnap: true,
         })
       }
       
@@ -263,11 +272,79 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
           index: `cp2-${i}` as any,
           x: point.cp2.x,
           y: point.cp2.y,
+          canSnap: true,
         })
       }
     })
     
     return handles
+  }
+
+  // Handle updates when handles are moved
+  override onHandleDrag = (shape: BezierShape, { handle }: { handle: TLHandle }) => {
+    const newPoints = [...shape.props.points]
+    
+    // Parse handle ID to determine what we're updating
+    if (handle.id.startsWith('anchor-')) {
+      const pointIndex = parseInt(handle.id.split('-')[1])
+      if (pointIndex >= 0 && pointIndex < newPoints.length) {
+        newPoints[pointIndex] = {
+          ...newPoints[pointIndex],
+          x: handle.x,
+          y: handle.y,
+        }
+      }
+    } else if (handle.id.startsWith('cp1-')) {
+      const pointIndex = parseInt(handle.id.split('-')[1])
+      if (pointIndex >= 0 && pointIndex < newPoints.length) {
+        newPoints[pointIndex] = {
+          ...newPoints[pointIndex],
+          cp1: { x: handle.x, y: handle.y },
+        }
+      }
+    } else if (handle.id.startsWith('cp2-')) {
+      const pointIndex = parseInt(handle.id.split('-')[1])
+      if (pointIndex >= 0 && pointIndex < newPoints.length) {
+        newPoints[pointIndex] = {
+          ...newPoints[pointIndex],
+          cp2: { x: handle.x, y: handle.y },
+        }
+      }
+    }
+    
+    // Recalculate bounds
+    const allPoints = newPoints.flatMap(p => [
+      { x: p.x, y: p.y },
+      ...(p.cp1 ? [p.cp1] : []),
+      ...(p.cp2 ? [p.cp2] : [])
+    ])
+    
+    const allX = allPoints.map(p => p.x)
+    const allY = allPoints.map(p => p.y)
+    const minX = Math.min(...allX)
+    const minY = Math.min(...allY)
+    const maxX = Math.max(...allX)
+    const maxY = Math.max(...allY)
+    
+    // Normalize points relative to the new bounds
+    const normalizedPoints = newPoints.map(p => ({
+      x: p.x - minX,
+      y: p.y - minY,
+      cp1: p.cp1 ? { x: p.cp1.x - minX, y: p.cp1.y - minY } : undefined,
+      cp2: p.cp2 ? { x: p.cp2.x - minX, y: p.cp2.y - minY } : undefined,
+    }))
+    
+    return {
+      ...shape,
+      props: {
+        ...shape.props,
+        w: Math.max(1, maxX - minX),
+        h: Math.max(1, maxY - minY),
+        points: normalizedPoints,
+      },
+      x: shape.x + minX,
+      y: shape.y + minY,
+    }
   }
 
   // Helper method to add a point to the bezier curve
@@ -342,6 +419,17 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
       props: {
         ...shape.props,
         points: flippedPoints
+      }
+    }
+  }
+
+  // Double-click to enter/exit edit mode
+  override onDoubleClick = (shape: BezierShape) => {
+    return {
+      ...shape,
+      props: {
+        ...shape.props,
+        editMode: !shape.props.editMode,
       }
     }
   }
