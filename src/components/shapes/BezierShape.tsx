@@ -1,4 +1,4 @@
-import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, useEditor, type Editor } from 'tldraw'
+import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, useEditor, type Editor, type TLResizeInfo, type TLRotationSnapshot } from 'tldraw'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 
 export interface BezierPoint {
@@ -220,7 +220,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
             pointerEvents: 'none',
             whiteSpace: 'nowrap'
           }}>
-            Click green dots to add points • Shift+click anchors to delete • Alt+drag handles for asymmetric
+            Click path segments to add points • Shift+click anchors to delete • Alt+drag handles for asymmetric
           </div>
         )}
       </HTMLContainer>
@@ -268,30 +268,52 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   }
 
   override indicator(shape: BezierShape) {
-    return (
-      <rect 
-        width={shape.props.w} 
-        height={shape.props.h} 
-        fill="none" 
-        stroke="var(--color-selection-stroke)" 
-        strokeWidth={1}
-      />
-    )
+    // Don't show any selection indicator in edit mode to prevent blue rectangle
+    if (shape.props.editMode) {
+      return null
+    }
+    // Show minimal indicator in normal mode
+    return <rect width={shape.props.w} height={shape.props.h} fill="none" stroke="transparent" />
   }
 
   getBounds(shape: BezierShape) {
+    // Calculate bounds from actual path points, not static w/h
+    const { points } = shape.props
+    
+    if (points.length === 0) {
+      return { x: 0, y: 0, w: 1, h: 1 }
+    }
+    
+    // Include all points and control points
+    const allPoints = points.flatMap(p => [
+      { x: p.x, y: p.y },
+      ...(p.cp1 ? [p.cp1] : []),
+      ...(p.cp2 ? [p.cp2] : [])
+    ])
+    
+    const xs = allPoints.map(p => p.x)
+    const ys = allPoints.map(p => p.y)
+    const minX = Math.min(...xs)
+    const minY = Math.min(...ys)
+    const maxX = Math.max(...xs)
+    const maxY = Math.max(...ys)
+    
+    // TLDraw expects bounds to start at (0,0) with points normalized within
+    // The shape's x,y position handles the offset
     return {
       x: 0,
-      y: 0,
-      w: shape.props.w,
-      h: shape.props.h,
+      y: 0, 
+      w: Math.max(1, maxX - minX),
+      h: Math.max(1, maxY - minY)
     }
   }
 
   getCenter(shape: BezierShape) {
+    // Calculate center from actual bounds, not static w/h
+    const bounds = this.getBounds(shape)
     return {
-      x: shape.props.w / 2,
-      y: shape.props.h / 2,
+      x: bounds.x + bounds.w / 2,
+      y: bounds.y + bounds.h / 2,
     }
   }
 
@@ -624,6 +646,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   // Double-click to enter/exit edit mode
   override onDoubleClick = (shape: BezierShape) => {
     console.log('Double-click detected, current editMode:', shape.props.editMode)
+    const wasInEditMode = shape.props.editMode
     const updatedShape = {
       ...shape,
       props: {
@@ -631,13 +654,120 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
         editMode: !shape.props.editMode,
       }
     }
+    
+    // Update the shape
     this.editor.updateShape(updatedShape)
+    
+    // Handle selection state based on edit mode transition
+    if (!wasInEditMode) {
+      // Entering edit mode: force clear selection and prevent reselection
+      this.editor.setSelectedShapes([])
+      // Force immediate deselection by updating the editor state
+      setTimeout(() => {
+        this.editor.setSelectedShapes([])
+      }, 1)
+    } else {
+      // Exiting edit mode: select the shape to show transform controls
+      this.editor.setSelectedShapes([shape.id])
+      // Force a bounds recalculation to ensure transform controls update correctly
+      setTimeout(() => {
+        const currentShape = this.editor.getShape(shape.id) as BezierShape
+        if (currentShape) {
+          // Force TLDraw to recalculate transforms by briefly deselecting and reselecting
+          this.editor.setSelectedShapes([])
+          setTimeout(() => {
+            this.editor.setSelectedShapes([shape.id])
+            this.editor.updateRenderingBounds()
+          }, 5)
+        }
+      }, 10)
+    }
+    
     return updatedShape
+  }
+
+  // Handle key events for shapes in edit mode
+  override onKeyDown = (shape: BezierShape, info: { key: string; code: string }) => {
+    if (shape.props.editMode) {
+      switch (info.key) {
+        case 'Escape':
+        case 'Enter':
+          // Exit edit mode
+          const updatedShape = {
+            ...shape,
+            props: {
+              ...shape.props,
+              editMode: false,
+            }
+          }
+          this.editor.updateShape(updatedShape)
+          
+          // Force visual refresh by triggering a re-render
+          this.editor.updateShape(updatedShape)
+          
+          // Select the shape to show transform controls
+          this.editor.setSelectedShapes([shape.id])
+          
+          // Force transform controls to update with proper bounds
+          setTimeout(() => {
+            // Get the updated shape to ensure we have latest bounds
+            const currentShape = this.editor.getShape(shape.id) as BezierShape
+            if (currentShape) {
+              // Force bounds recalculation by temporarily clearing and re-adding to selection
+              this.editor.setSelectedShapes([])
+              // Give TLDraw time to process the deselection
+              setTimeout(() => {
+                this.editor.setSelectedShapes([shape.id])
+                // Force editor to recalculate all geometry
+                this.editor.updateRenderingBounds()
+              }, 5)
+            }
+          }, 10)
+          
+          return updatedShape
+      }
+    }
+    return shape
   }
 
 
 
-  // Allow resize for flipping support, but disable handles if needed
-  override canResize = () => true as const
+  // Handle resize operations for transform controls
+  override onResize = (shape: BezierShape, info: TLResizeInfo<BezierShape>) => {
+    // Don't allow resize in edit mode
+    if (shape.props.editMode) return shape
+
+    const { scaleX, scaleY } = info
+    
+    // Scale all points and control points
+    const scaledPoints = shape.props.points.map(p => ({
+      x: p.x * scaleX,
+      y: p.y * scaleY,
+      cp1: p.cp1 ? { x: p.cp1.x * scaleX, y: p.cp1.y * scaleY } : undefined,
+      cp2: p.cp2 ? { x: p.cp2.x * scaleX, y: p.cp2.y * scaleY } : undefined,
+    }))
+
+    // Use FlippableShapeUtil's resize handling for consistent behavior
+    const resizedShape = super.onResize(shape, info) as BezierShape
+    
+    return {
+      ...resizedShape,
+      props: {
+        ...resizedShape.props,
+        points: scaledPoints,
+      }
+    }
+  }
+
+  // Rotation is handled by TLDraw's built-in transform system
+  // No custom onRotate needed - TLDraw applies rotation to the entire shape container
+
+  // Disable transform controls during edit mode but allow basic interaction
+  override canResize = (shape: BezierShape) => !shape.props.editMode as const
+  override canRotate = (shape: BezierShape) => !shape.props.editMode as const
   override canBind = () => true as const
+  
+  // Override hideSelectionBoundsFg to hide selection bounds in edit mode
+  override hideSelectionBoundsFg = (shape: BezierShape) => shape.props.editMode
+  override hideSelectionBoundsBg = (shape: BezierShape) => shape.props.editMode
 }

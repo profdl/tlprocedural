@@ -292,6 +292,12 @@ export class BezierCreating extends StateNode {
     
     this.editor.setCurrentTool('select')
     this.editor.setSelectedShapes([this.shapeId])
+    
+    // Force transform controls to update properly for the closed shape
+    setTimeout(() => {
+      this.editor.setSelectedShapes([])
+      this.editor.setSelectedShapes([this.shapeId])
+    }, 50)
   }
 
   private completeCurve() {
@@ -319,9 +325,15 @@ export class BezierCreating extends StateNode {
     
     this.editor.setCurrentTool('select')
     
-    // Select the created shape
+    // Select the created shape and ensure transform controls are properly initialized
     if (this.points.length >= 2) {
       this.editor.setSelectedShapes([this.shapeId])
+      
+      // Force transform controls to initialize properly for the newly completed shape
+      setTimeout(() => {
+        this.editor.setSelectedShapes([])
+        this.editor.setSelectedShapes([this.shapeId])
+      }, 10)
     }
   }
 

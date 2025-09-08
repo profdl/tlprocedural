@@ -30,10 +30,33 @@ export class BezierEditing extends StateNode {
     }
   }
 
-  override onPointerDown(_info: TLPointerEventInfo) {
-    // Let TLDraw's handle system manage all interactions
-    // The BezierShape's onHandleDrag method will handle adding/removing points
-    return
+  override onPointerDown(info: TLPointerEventInfo) {
+    if (!this.targetShape || !this.targetShapeId) return
+
+    const shape = this.editor.getShape(this.targetShapeId as any) as BezierShape
+    if (!shape || !shape.props.editMode) return
+
+    // Convert page point to local shape coordinates
+    const pagePoint = this.editor.inputs.currentPagePoint.clone()
+    const shapePageBounds = this.editor.getShapePageBounds(shape.id)
+    if (!shapePageBounds) return
+
+    const localPoint = {
+      x: pagePoint.x - shapePageBounds.x,
+      y: pagePoint.y - shapePageBounds.y
+    }
+
+    // Check if clicking on an existing anchor point (do nothing - let handle system manage it)
+    const anchorPointIndex = this.getAnchorPointAt(shape, localPoint)
+    if (anchorPointIndex !== -1) {
+      return // Let TLDraw's handle system manage existing points
+    }
+
+    // Check if clicking on a path segment to add a point
+    const segmentInfo = this.getSegmentAtPosition(shape, localPoint)
+    if (segmentInfo) {
+      this.addPointToSegment(shape, segmentInfo.segmentIndex, localPoint)
+    }
   }
 
   override onDoubleClick(_info: TLClickEventInfo) {
@@ -223,6 +246,15 @@ export class BezierEditing extends StateNode {
           editMode: false,
         },
       })
+
+      // Select the shape to show transform controls after exiting edit mode
+      this.editor.setSelectedShapes([this.targetShapeId as any])
+      
+      // Force transform controls to update by briefly clearing and restoring selection
+      setTimeout(() => {
+        this.editor.setSelectedShapes([])
+        this.editor.setSelectedShapes([this.targetShapeId as any])
+      }, 10)
     }
 
     // Return to select tool

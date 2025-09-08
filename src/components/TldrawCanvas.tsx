@@ -33,7 +33,6 @@ import { DrawShapeUtil as CustomDrawShapeUtil } from './shapes/DrawShape'
 import { DrawTool as CustomDrawTool } from './shapes/tools/DrawTool'
 import { BezierShapeUtil } from './shapes/BezierShape'
 import { BezierTool } from './shapes/tools/BezierTool'
-import { AddPointTool } from './shapes/tools/AddPointTool'
 import { RemovePointTool } from './shapes/tools/RemovePointTool'
 import { CustomArrowShapeUtil } from './shapes/ArrowShape'
 import { CustomArrowTool } from './shapes/ArrowTool'
@@ -184,7 +183,6 @@ const lucideIcons = {
   waves: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>',
   spline: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><path d="M5 17A12 12 0 0 1 17 5"/></svg>',
   arrow: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>',
-  addPoint: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/><circle cx="12" cy="12" r="9"/></svg>',
   removePoint: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><circle cx="12" cy="12" r="9"/></svg>'
 }
 
@@ -260,14 +258,6 @@ const uiOverrides = {
       onSelect: () => editor.setCurrentTool('bezier'),
     } as TLUiToolItem
     
-    newTools['add-point'] = {
-      id: 'add-point',
-      label: 'Add Point',
-      icon: 'tool-add-point',
-      kbd: '+',
-      onSelect: () => editor.setCurrentTool('add-point'),
-    } as TLUiToolItem
-    
     newTools['remove-point'] = {
       id: 'remove-point',
       label: 'Remove Point',
@@ -308,7 +298,6 @@ export function TldrawCanvas() {
       'tool-line': createIconDataUrl(lucideIcons.minus),
       'tool-draw': createIconDataUrl(lucideIcons.pencil),
       'tool-bezier': createIconDataUrl(lucideIcons.penTool),
-      'tool-add-point': createIconDataUrl(lucideIcons.addPoint),
       'tool-remove-point': createIconDataUrl(lucideIcons.removePoint),
       'tool-sine-wave': createIconDataUrl(lucideIcons.waves),
       'tool-arrow': createIconDataUrl(lucideIcons.arrow),
@@ -393,7 +382,6 @@ export function TldrawCanvas() {
           LineTool, 
           CustomDrawTool, 
           BezierTool,
-          AddPointTool,
           RemovePointTool,
           CustomArrowTool
         ]}
