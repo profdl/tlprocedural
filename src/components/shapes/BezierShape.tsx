@@ -100,6 +100,43 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
           {/* Show control points and connection lines when in edit mode only */}
           {editMode && (
             <g opacity={0.8}>
+              {/* Show clickable segment midpoints for adding points */}
+              {points.map((point, i) => {
+                if (i < points.length - 1) {
+                  const nextPoint = points[i + 1]
+                  const midX = (point.x + nextPoint.x) / 2
+                  const midY = (point.y + nextPoint.y) / 2
+                  return (
+                    <circle
+                      key={`seg-${i}`}
+                      cx={midX}
+                      cy={midY}
+                      r={3}
+                      fill="#00ff00"
+                      stroke="white"
+                      strokeWidth={1}
+                      opacity={0.4}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  )
+                }
+                return null
+              })}
+              
+              {/* Show segment midpoint for closed paths */}
+              {isClosed && points.length > 2 && (
+                <circle
+                  cx={(points[points.length - 1].x + points[0].x) / 2}
+                  cy={(points[points.length - 1].y + points[0].y) / 2}
+                  r={3}
+                  fill="#00ff00"
+                  stroke="white"
+                  strokeWidth={1}
+                  opacity={0.4}
+                  style={{ cursor: 'pointer' }}
+                />
+              )}
+              
               {points.map((point, i) => (
                 <g key={i}>
                   {/* Control point lines - draw these first so they appear behind the circles */}
@@ -137,6 +174,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
                       fill="#0066ff"
                       stroke="white"
                       strokeWidth={1.5}
+                      title="Drag to adjust curve. Alt+drag for asymmetric handles"
                     />
                   )}
                   {point.cp2 && (
@@ -147,6 +185,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
                       fill="#0066ff"
                       stroke="white"
                       strokeWidth={1.5}
+                      title="Drag to adjust curve. Alt+drag for asymmetric handles"
                     />
                   )}
                   
@@ -159,12 +198,31 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
                     stroke="#0066ff"
                     strokeWidth={2}
                     style={{ cursor: 'pointer' }}
+                    title="Drag to move. Shift+click to delete"
                   />
                 </g>
               ))}
             </g>
           )}
         </svg>
+        
+        {/* Helper text when in edit mode */}
+        {editMode && (
+          <div style={{
+            position: 'absolute',
+            bottom: -30,
+            left: 0,
+            fontSize: '11px',
+            color: '#666',
+            background: 'rgba(255,255,255,0.9)',
+            padding: '2px 6px',
+            borderRadius: '3px',
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap'
+          }}>
+            Click green dots to add points • Shift+click anchors to delete • Alt+drag handles for asymmetric
+          </div>
+        )}
       </HTMLContainer>
     )
   }
@@ -284,18 +342,99 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
       }
     })
     
+    // Add invisible handles on path segments for adding points
+    for (let i = 0; i < shape.props.points.length - 1; i++) {
+      const p1 = shape.props.points[i]
+      const p2 = shape.props.points[i + 1]
+      
+      // Calculate midpoint of segment
+      const midX = (p1.x + p2.x) / 2
+      const midY = (p1.y + p2.y) / 2
+      
+      handles.push({
+        id: `segment-${i}`,
+        type: 'create',
+        index: `s${i}` as any,
+        x: midX,
+        y: midY,
+        canSnap: false,
+      })
+    }
+    
+    // If closed, add segment handle for last->first connection
+    if (shape.props.isClosed && shape.props.points.length > 2) {
+      const p1 = shape.props.points[shape.props.points.length - 1]
+      const p2 = shape.props.points[0]
+      const midX = (p1.x + p2.x) / 2
+      const midY = (p1.y + p2.y) / 2
+      
+      handles.push({
+        id: `segment-${shape.props.points.length - 1}`,
+        type: 'create',
+        index: `s${shape.props.points.length - 1}` as any,
+        x: midX,
+        y: midY,
+        canSnap: false,
+      })
+    }
+    
     return handles
   }
 
+
+  // Track initial handle positions and deletion state for movement threshold detection
+  private handleDragStart = new Map<string, { x: number; y: number; deleted: boolean }>()
+  
   // Handle updates when handles are moved
   override onHandleDrag = (shape: BezierShape, { handle }: { handle: TLHandle }) => {
     const newPoints = [...shape.props.points]
     const altKey = this.editor.inputs.altKey // Alt key breaks symmetry
+    const shiftKey = this.editor.inputs.shiftKey // Shift key for removing points
+    
+    // Track initial position and deletion state for movement threshold detection
+    const handleKey = `${shape.id}-${handle.id}`
+    if (!this.handleDragStart.has(handleKey)) {
+      this.handleDragStart.set(handleKey, { x: handle.x, y: handle.y, deleted: false })
+    }
     
     // Parse handle ID to determine what we're updating
-    if (handle.id.startsWith('anchor-')) {
+    if (handle.id.startsWith('segment-')) {
+      // Clicking on a segment handle adds a new point
+      const segmentIndex = parseInt(handle.id.split('-')[1])
+      if (segmentIndex >= 0) {
+        const newPoint: BezierPoint = {
+          x: handle.x,
+          y: handle.y,
+        }
+        
+        // Insert the new point after the segment start
+        newPoints.splice(segmentIndex + 1, 0, newPoint)
+        
+        // Recalculate bounds with new points
+        return this.recalculateBounds(shape, newPoints)
+      }
+    } else if (handle.id.startsWith('anchor-')) {
       const pointIndex = parseInt(handle.id.split('-')[1])
       if (pointIndex >= 0 && pointIndex < newPoints.length) {
+        // Check for shift+drag deletion (only once per drag operation)
+        if (shiftKey && newPoints.length > 2) {
+          const dragState = this.handleDragStart.get(handleKey)
+          if (dragState && !dragState.deleted) {
+            // Delete immediately on first drag event when shift is held
+            newPoints.splice(pointIndex, 1)
+            
+            // Mark this point as deleted to prevent further deletions during this drag
+            dragState.deleted = true
+            
+            return this.recalculateBounds(shape, newPoints)
+          }
+          
+          // If already deleted during this drag, skip normal dragging
+          if (dragState?.deleted) {
+            return shape // Don't process further - point is already gone
+          }
+        }
+        
         // Move the anchor point and mirror both control points relative to the new position
         const oldPoint = newPoints[pointIndex]
         const deltaX = handle.x - oldPoint.x
@@ -351,6 +490,9 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
       }
     }
     
+    // Clean up completed drag operations
+    this.handleDragStart.delete(handleKey)
+    
     // Only recalculate bounds when necessary (not on every handle drag)
     // This prevents the exponential movement issue
     return {
@@ -358,6 +500,45 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
       props: {
         ...shape.props,
         points: newPoints,
+      }
+    }
+  }
+  
+  private recalculateBounds(shape: BezierShape, points: BezierPoint[]): BezierShape {
+    // Calculate bounds from all points including control points
+    const allPoints = points.flatMap(p => [
+      { x: p.x, y: p.y },
+      ...(p.cp1 ? [p.cp1] : []),
+      ...(p.cp2 ? [p.cp2] : [])
+    ])
+
+    const xs = allPoints.map(p => p.x)
+    const ys = allPoints.map(p => p.y)
+    const minX = Math.min(...xs)
+    const minY = Math.min(...ys)
+    const maxX = Math.max(...xs)
+    const maxY = Math.max(...ys)
+
+    const w = Math.max(1, maxX - minX)
+    const h = Math.max(1, maxY - minY)
+
+    // Normalize points to new bounds
+    const normalizedPoints = points.map(p => ({
+      x: p.x - minX,
+      y: p.y - minY,
+      cp1: p.cp1 ? { x: p.cp1.x - minX, y: p.cp1.y - minY } : undefined,
+      cp2: p.cp2 ? { x: p.cp2.x - minX, y: p.cp2.y - minY } : undefined,
+    }))
+
+    return {
+      ...shape,
+      x: shape.x + minX,
+      y: shape.y + minY,
+      props: {
+        ...shape.props,
+        w,
+        h,
+        points: normalizedPoints,
       }
     }
   }

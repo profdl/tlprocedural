@@ -84,13 +84,13 @@ export class BezierCreating extends StateNode {
         
         if (isAltPressed) {
           // Alt key: create asymmetric handles - only outgoing handle
-          const controlPoint2 = Vec.Add(startPoint, Vec.Mul(offset, 0.3))
+          const controlPoint2 = Vec.Add(startPoint, offset)
           lastPoint.cp1 = undefined // No incoming handle
           lastPoint.cp2 = { x: controlPoint2.x, y: controlPoint2.y }
         } else {
           // Default: symmetric handles
-          const controlPoint1 = Vec.Add(startPoint, Vec.Mul(offset, -0.3))
-          const controlPoint2 = Vec.Add(startPoint, Vec.Mul(offset, 0.3))
+          const controlPoint1 = Vec.Add(startPoint, Vec.Neg(offset))
+          const controlPoint2 = Vec.Add(startPoint, offset)
           lastPoint.cp1 = { x: controlPoint1.x, y: controlPoint1.y }
           lastPoint.cp2 = { x: controlPoint2.x, y: controlPoint2.y }
         }

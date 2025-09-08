@@ -31,40 +31,9 @@ export class BezierEditing extends StateNode {
   }
 
   override onPointerDown(_info: TLPointerEventInfo) {
-    if (!this.targetShape || !this.targetShapeId) return
-
-    const shape = this.editor.getShape(this.targetShapeId as any) as BezierShape
-    if (!shape || !shape.props.editMode) return
-
-    // Convert page point to local shape coordinates
-    const pagePoint = this.editor.inputs.currentPagePoint.clone()
-    const shapePageBounds = this.editor.getShapePageBounds(shape.id)
-    if (!shapePageBounds) return
-
-    const localPoint = {
-      x: pagePoint.x - shapePageBounds.x,
-      y: pagePoint.y - shapePageBounds.y
-    }
-
-    const isRemoveModifier = this.editor.inputs.altKey || this.editor.inputs.shiftKey
-    
-    // Check if clicking on an anchor point
-    const anchorPointIndex = this.getAnchorPointAt(shape, localPoint)
-    if (anchorPointIndex !== -1) {
-      if (isRemoveModifier && shape.props.points.length > 2) {
-        // Remove the anchor point
-        this.removePoint(shape, anchorPointIndex)
-        return
-      }
-      // If not removing, let normal handle drag behavior take over
-      return
-    }
-
-    // Check if clicking on a path segment to add a point
-    const segmentInfo = this.getSegmentAtPosition(shape, localPoint)
-    if (segmentInfo !== null) {
-      this.addPointToSegment(shape, segmentInfo.segmentIndex, localPoint)
-    }
+    // Let TLDraw's handle system manage all interactions
+    // The BezierShape's onHandleDrag method will handle adding/removing points
+    return
   }
 
   override onDoubleClick(_info: TLClickEventInfo) {
