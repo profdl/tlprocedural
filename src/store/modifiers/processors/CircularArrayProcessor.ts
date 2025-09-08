@@ -57,10 +57,17 @@ export const CircularArrayProcessor: ModifierProcessor = {
         let baseY = inputInstance.transform.y
         let positionCorrected = inputInstance.metadata?.positionCorrected === true
         
-        // Only correct for rotation if this is the original shape
+        // Only correct for rotation if this is the original shape from the canvas,
         // not an already-transformed instance from a previous modifier
-        if (editor && inputInstance.transform.rotation !== 0 && !positionCorrected) {
-          // Get the visual center of the rotated shape
+        // We can detect this by checking if there are no modifier-specific indices
+        const isFromPreviousModifier = inputInstance.metadata?.linearArrayIndex !== undefined || 
+                                      inputInstance.metadata?.circularArrayIndex !== undefined || 
+                                      inputInstance.metadata?.gridArrayIndex !== undefined ||
+                                      inputInstance.metadata?.sourceInstance !== undefined
+        const hasRotation = inputInstance.transform.rotation !== 0
+        
+        if (editor && hasRotation && !positionCorrected && !isFromPreviousModifier) {
+          // Get the visual center of the rotated original shape
           const bounds = editor.getShapePageBounds(inputInstance.shape.id)
           if (bounds) {
             // Calculate from center, then convert back to top-left for positioning
