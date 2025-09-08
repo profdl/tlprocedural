@@ -64,8 +64,6 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     const { points, color, strokeWidth, fill, isClosed, editMode } = shape.props
     const editor = useEditor()
     
-    console.log('BezierShape rendering, editMode:', editMode)
-    
     // Get flip transform from the FlippableShapeUtil
     const flipTransform = this.getFlipTransform(shape)
     
