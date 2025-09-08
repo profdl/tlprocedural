@@ -17,6 +17,8 @@ export class BezierCreating extends StateNode {
   isDragging = false
   startPoint?: Vec
   currentPoint?: Vec
+  dragDistance = 0
+  readonly CORNER_POINT_THRESHOLD = 3 // pixels
 
   override onEnter(info: TLPointerEventInfo) {
     this.info = info
@@ -29,6 +31,7 @@ export class BezierCreating extends StateNode {
     this.addPoint({ x: point.x, y: point.y })
     this.startPoint = point.clone()
     this.currentPoint = point.clone()
+    this.dragDistance = 0
     
     // Create initial shape with just one point
     this.updateShape()
@@ -39,17 +42,44 @@ export class BezierCreating extends StateNode {
     this.currentPoint = currentPoint
     
     if (this.isDragging && this.points.length > 0) {
+      // Calculate drag distance for corner point detection
+      if (this.startPoint) {
+        this.dragDistance = Vec.Dist(currentPoint, this.startPoint) * this.editor.getZoomLevel()
+      }
+      
       // Update control points of the current point being created
       const lastPoint = this.points[this.points.length - 1]
       const startPoint = this.startPoint!
       
-      // Calculate control points for smooth curve
-      const offset = Vec.Sub(currentPoint, startPoint)
-      const controlPoint1 = Vec.Add(startPoint, Vec.Mul(offset, -0.3))
-      const controlPoint2 = Vec.Add(startPoint, Vec.Mul(offset, 0.3))
-      
-      lastPoint.cp1 = { x: controlPoint1.x, y: controlPoint1.y }
-      lastPoint.cp2 = { x: controlPoint2.x, y: controlPoint2.y }
+      // Only create handles if drag distance exceeds threshold
+      if (this.dragDistance > this.CORNER_POINT_THRESHOLD) {
+        // Calculate control points for curve
+        let offset = Vec.Sub(currentPoint, startPoint)
+        const isAltPressed = this.editor.inputs.altKey
+        const isShiftPressed = this.editor.inputs.shiftKey
+        
+        // Apply angle constraint if Shift is pressed
+        if (isShiftPressed) {
+          offset = this.constrainAngle(offset)
+        }
+        
+        if (isAltPressed) {
+          // Alt key: create asymmetric handles - only outgoing handle
+          const controlPoint2 = Vec.Add(startPoint, Vec.Mul(offset, 0.3))
+          lastPoint.cp1 = undefined // No incoming handle
+          lastPoint.cp2 = { x: controlPoint2.x, y: controlPoint2.y }
+        } else {
+          // Default: symmetric handles
+          const controlPoint1 = Vec.Add(startPoint, Vec.Mul(offset, -0.3))
+          const controlPoint2 = Vec.Add(startPoint, Vec.Mul(offset, 0.3))
+          lastPoint.cp1 = { x: controlPoint1.x, y: controlPoint1.y }
+          lastPoint.cp2 = { x: controlPoint2.x, y: controlPoint2.y }
+        }
+      } else {
+        // Small drag distance: create corner point (no handles)
+        lastPoint.cp1 = undefined
+        lastPoint.cp2 = undefined
+      }
       
       this.updateShape()
     } else if (this.points.length > 0) {
@@ -85,6 +115,7 @@ export class BezierCreating extends StateNode {
       this.addPoint({ x: currentPoint.x, y: currentPoint.y })
       this.isDragging = true
       this.startPoint = currentPoint.clone()
+      this.dragDistance = 0
     }
   }
 
@@ -107,6 +138,18 @@ export class BezierCreating extends StateNode {
         }
         break
     }
+  }
+
+  private constrainAngle(offset: Vec): Vec {
+    // Constrain to 45-degree increments (0°, 45°, 90°, 135°, 180°, 225°, 270°, 315°)
+    const angle = Math.atan2(offset.y, offset.x)
+    const constrainedAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4)
+    const magnitude = Vec.Len(offset)
+    
+    return new Vec(
+      Math.cos(constrainedAngle) * magnitude,
+      Math.sin(constrainedAngle) * magnitude
+    )
   }
 
   private addPoint(point: { x: number; y: number }) {

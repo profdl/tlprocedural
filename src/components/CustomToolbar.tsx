@@ -97,6 +97,14 @@ export function CustomToolbar() {
         return <TldrawUiMenuItem key={id} {...item} isSelected={selected} />
       })}
 
+      {/* Path editing tools */}
+      {['add-point', 'remove-point'].map((id) => {
+        const item = tools[id]
+        if (!item) return null
+        const selected = useIsToolSelected(item)
+        return <TldrawUiMenuItem key={id} {...item} isSelected={selected} />
+      })}
+
       {/* Procedural shapes */}
       {(() => {
         const item = tools['sine-wave']

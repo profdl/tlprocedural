@@ -1,4 +1,4 @@
-import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, useEditor } from 'tldraw'
+import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, useEditor, type Editor } from 'tldraw'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 
 export interface BezierPoint {
@@ -21,6 +21,7 @@ export type BezierShape = TLBaseShape<
     editMode?: boolean
   }
 >
+
 
 export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   static override type = 'bezier' as const
@@ -63,8 +64,11 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     const { points, color, strokeWidth, fill, isClosed, editMode } = shape.props
     const editor = useEditor()
     
+    console.log('BezierShape rendering, editMode:', editMode)
+    
     // Get flip transform from the FlippableShapeUtil
     const flipTransform = this.getFlipTransform(shape)
+    
     
     if (points.length < 2) {
       return <HTMLContainer><svg width={shape.props.w} height={shape.props.h}></svg></HTMLContainer>
@@ -92,10 +96,11 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
             strokeLinejoin="round"
             strokeDasharray={editMode ? '5 3' : undefined}
             opacity={editMode ? 0.7 : 1}
+            style={{ cursor: editMode ? 'crosshair' : 'default' }}
           />
           
-          {/* Show control points and connection lines when in edit mode or when selected */}
-          {(editMode || editor.getOnlySelectedShapeId() === shape.id) && (
+          {/* Show control points and connection lines when in edit mode only */}
+          {editMode && (
             <g opacity={0.8}>
               {points.map((point, i) => (
                 <g key={i}>
@@ -155,6 +160,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
                     fill="white"
                     stroke="#0066ff"
                     strokeWidth={2}
+                    style={{ cursor: 'pointer' }}
                   />
                 </g>
               ))}
@@ -240,6 +246,9 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
 
   // Handle management for interactive bezier points
   override getHandles(shape: BezierShape): TLHandle[] {
+    // Only show basic handles for point and control point dragging in edit mode
+    if (!shape.props.editMode) return []
+    
     const handles: TLHandle[] = []
     
     shape.props.points.forEach((point, i) => {
@@ -355,6 +364,8 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     }
   }
 
+
+
   // Helper method to add a point to the bezier curve
   static addPoint(shape: BezierShape, point: BezierPoint): BezierShape {
     const newPoints = [...shape.props.points, point]
@@ -433,14 +444,19 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
 
   // Double-click to enter/exit edit mode
   override onDoubleClick = (shape: BezierShape) => {
-    return {
+    console.log('Double-click detected, current editMode:', shape.props.editMode)
+    const updatedShape = {
       ...shape,
       props: {
         ...shape.props,
         editMode: !shape.props.editMode,
       }
     }
+    this.editor.updateShape(updatedShape)
+    return updatedShape
   }
+
+
 
   // Allow resize for flipping support, but disable handles if needed
   override canResize = () => true as const

@@ -33,6 +33,8 @@ import { DrawShapeUtil as CustomDrawShapeUtil } from './shapes/DrawShape'
 import { DrawTool as CustomDrawTool } from './shapes/tools/DrawTool'
 import { BezierShapeUtil } from './shapes/BezierShape'
 import { BezierTool } from './shapes/tools/BezierTool'
+import { AddPointTool } from './shapes/tools/AddPointTool'
+import { RemovePointTool } from './shapes/tools/RemovePointTool'
 import { CustomArrowShapeUtil } from './shapes/ArrowShape'
 import { CustomArrowTool } from './shapes/ArrowTool'
 
@@ -180,7 +182,9 @@ const lucideIcons = {
   penTool: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.707 21.293a1 1 0 0 1-1.414 0l-1.586-1.586a1 1 0 0 1 0-1.414l5.586-5.586a1 1 0 0 1 1.414 0l1.586 1.586a1 1 0 0 1 0 1.414z"/><path d="m18 13-1.375-6.874a1 1 0 0 0-.746-.776L3.235 2.028a1 1 0 0 0-1.207 1.207L5.35 15.879a1 1 0 0 0 .776.746L13 18"/><path d="m2.3 2.3 7.286 7.286"/><circle cx="11" cy="11" r="2"/></svg>',
   waves: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>',
   spline: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><path d="M5 17A12 12 0 0 1 17 5"/></svg>',
-  arrow: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>'
+  arrow: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>',
+  addPoint: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/><circle cx="12" cy="12" r="9"/></svg>',
+  removePoint: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><circle cx="12" cy="12" r="9"/></svg>'
 }
 
 // Provide UI tool items for custom shapes so they appear in the toolbar
@@ -255,6 +259,22 @@ const uiOverrides = {
       onSelect: () => editor.setCurrentTool('bezier'),
     } as TLUiToolItem
     
+    newTools['add-point'] = {
+      id: 'add-point',
+      label: 'Add Point',
+      icon: 'tool-add-point',
+      kbd: '+',
+      onSelect: () => editor.setCurrentTool('add-point'),
+    } as TLUiToolItem
+    
+    newTools['remove-point'] = {
+      id: 'remove-point',
+      label: 'Remove Point',
+      icon: 'tool-remove-point',
+      kbd: '-',
+      onSelect: () => editor.setCurrentTool('remove-point'),
+    } as TLUiToolItem
+    
     newTools['custom-arrow'] = {
       id: 'custom-arrow',
       label: 'Arrow',
@@ -287,6 +307,8 @@ export function TldrawCanvas() {
       'tool-line': createIconDataUrl(lucideIcons.minus),
       'tool-draw': createIconDataUrl(lucideIcons.penTool),
       'tool-bezier': createIconDataUrl(lucideIcons.spline),
+      'tool-add-point': createIconDataUrl(lucideIcons.addPoint),
+      'tool-remove-point': createIconDataUrl(lucideIcons.removePoint),
       'tool-sine-wave': createIconDataUrl(lucideIcons.waves),
       'tool-arrow': createIconDataUrl(lucideIcons.arrow),
     }
@@ -370,6 +392,8 @@ export function TldrawCanvas() {
           LineTool, 
           CustomDrawTool, 
           BezierTool,
+          AddPointTool,
+          RemovePointTool,
           CustomArrowTool
         ]}
         overrides={uiOverrides}
