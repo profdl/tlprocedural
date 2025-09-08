@@ -283,67 +283,75 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   // Handle updates when handles are moved
   override onHandleDrag = (shape: BezierShape, { handle }: { handle: TLHandle }) => {
     const newPoints = [...shape.props.points]
+    const altKey = this.editor.inputs.altKey // Alt key breaks symmetry
     
     // Parse handle ID to determine what we're updating
     if (handle.id.startsWith('anchor-')) {
       const pointIndex = parseInt(handle.id.split('-')[1])
       if (pointIndex >= 0 && pointIndex < newPoints.length) {
+        // Move the anchor point and mirror both control points relative to the new position
+        const oldPoint = newPoints[pointIndex]
+        const deltaX = handle.x - oldPoint.x
+        const deltaY = handle.y - oldPoint.y
+        
         newPoints[pointIndex] = {
-          ...newPoints[pointIndex],
+          ...oldPoint,
           x: handle.x,
           y: handle.y,
+          cp1: oldPoint.cp1 ? { x: oldPoint.cp1.x + deltaX, y: oldPoint.cp1.y + deltaY } : undefined,
+          cp2: oldPoint.cp2 ? { x: oldPoint.cp2.x + deltaX, y: oldPoint.cp2.y + deltaY } : undefined,
         }
       }
     } else if (handle.id.startsWith('cp1-')) {
       const pointIndex = parseInt(handle.id.split('-')[1])
       if (pointIndex >= 0 && pointIndex < newPoints.length) {
+        const anchorPoint = newPoints[pointIndex]
+        
+        // Update cp1
         newPoints[pointIndex] = {
-          ...newPoints[pointIndex],
+          ...anchorPoint,
           cp1: { x: handle.x, y: handle.y },
+        }
+        
+        // Mirror cp2 if it exists and Alt key is not pressed (Illustrator-style symmetric handles)
+        if (anchorPoint.cp2 && !altKey) {
+          const cp1Vector = { x: handle.x - anchorPoint.x, y: handle.y - anchorPoint.y }
+          newPoints[pointIndex].cp2 = {
+            x: anchorPoint.x - cp1Vector.x,
+            y: anchorPoint.y - cp1Vector.y,
+          }
         }
       }
     } else if (handle.id.startsWith('cp2-')) {
       const pointIndex = parseInt(handle.id.split('-')[1])
       if (pointIndex >= 0 && pointIndex < newPoints.length) {
+        const anchorPoint = newPoints[pointIndex]
+        
+        // Update cp2
         newPoints[pointIndex] = {
-          ...newPoints[pointIndex],
+          ...anchorPoint,
           cp2: { x: handle.x, y: handle.y },
+        }
+        
+        // Mirror cp1 if it exists and Alt key is not pressed (Illustrator-style symmetric handles)
+        if (anchorPoint.cp1 && !altKey) {
+          const cp2Vector = { x: handle.x - anchorPoint.x, y: handle.y - anchorPoint.y }
+          newPoints[pointIndex].cp1 = {
+            x: anchorPoint.x - cp2Vector.x,
+            y: anchorPoint.y - cp2Vector.y,
+          }
         }
       }
     }
     
-    // Recalculate bounds
-    const allPoints = newPoints.flatMap(p => [
-      { x: p.x, y: p.y },
-      ...(p.cp1 ? [p.cp1] : []),
-      ...(p.cp2 ? [p.cp2] : [])
-    ])
-    
-    const allX = allPoints.map(p => p.x)
-    const allY = allPoints.map(p => p.y)
-    const minX = Math.min(...allX)
-    const minY = Math.min(...allY)
-    const maxX = Math.max(...allX)
-    const maxY = Math.max(...allY)
-    
-    // Normalize points relative to the new bounds
-    const normalizedPoints = newPoints.map(p => ({
-      x: p.x - minX,
-      y: p.y - minY,
-      cp1: p.cp1 ? { x: p.cp1.x - minX, y: p.cp1.y - minY } : undefined,
-      cp2: p.cp2 ? { x: p.cp2.x - minX, y: p.cp2.y - minY } : undefined,
-    }))
-    
+    // Only recalculate bounds when necessary (not on every handle drag)
+    // This prevents the exponential movement issue
     return {
       ...shape,
       props: {
         ...shape.props,
-        w: Math.max(1, maxX - minX),
-        h: Math.max(1, maxY - minY),
-        points: normalizedPoints,
-      },
-      x: shape.x + minX,
-      y: shape.y + minY,
+        points: newPoints,
+      }
     }
   }
 
