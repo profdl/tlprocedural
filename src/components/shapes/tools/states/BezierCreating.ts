@@ -23,6 +23,7 @@ export class BezierCreating extends StateNode {
   originalPreviewPoint?: Vec
   isCreatingFirstPoint = false
   initialDragOccurred = false
+  stableOrigin?: Vec // Fixed origin point based on first point placement
   readonly CORNER_POINT_THRESHOLD = 3 // pixels
   readonly SNAP_THRESHOLD = 12 // pixels for entering snap zone
   readonly RELEASE_THRESHOLD = 15 // pixels for exiting snap zone
@@ -37,6 +38,7 @@ export class BezierCreating extends StateNode {
     this.originalPreviewPoint = undefined
     this.isCreatingFirstPoint = false
     this.initialDragOccurred = false
+    this.stableOrigin = undefined
     
     // Set initial cursor
     this.editor.setCursor({ type: 'cross' })
@@ -300,6 +302,11 @@ export class BezierCreating extends StateNode {
   }
 
   private addPoint(point: { x: number; y: number }) {
+    // Set stable origin on first point
+    if (this.points.length === 0) {
+      this.stableOrigin = new Vec(point.x, point.y)
+    }
+    
     this.points.push({
       x: point.x,
       y: point.y,
@@ -342,29 +349,78 @@ export class BezierCreating extends StateNode {
     console.log('updateShapeWithPointsAndClosed: input points.length =', points.length, 'isClosed =', isClosed)
     if (points.length === 0) return
     
-    // Calculate bounds, but handle preview points specially to prevent jumping
-    let allPoints: { x: number; y: number }[]
-    
-    if (this.points.length === 1 && points.length === 2) {
-      // This is a preview with first point + preview point
-      // Only use the first point for bounds to prevent jumping
-      const firstPoint = this.points[0]
-      allPoints = [
-        { x: firstPoint.x, y: firstPoint.y },
-        ...(firstPoint.cp1 ? [firstPoint.cp1] : []),
-        ...(firstPoint.cp2 ? [firstPoint.cp2] : [])
-      ]
-    } else if (this.points.length === 1 && this.isDragging) {
-      // During first point drag, only use the anchor point for bounds calculation
-      allPoints = [{ x: points[0].x, y: points[0].y }]
-    } else {
-      // Normal bounds calculation including all points and control points
-      allPoints = points.flatMap(p => [
-        { x: p.x, y: p.y },
-        ...(p.cp1 ? [p.cp1] : []),
-        ...(p.cp2 ? [p.cp2] : [])
-      ])
+    // Use stable origin positioning to prevent shifting during creation
+    if (!this.stableOrigin && points.length > 0) {
+      this.stableOrigin = new Vec(points[0].x, points[0].y)
     }
+    
+    // For single point or preview scenarios, use minimal bounds
+    if (this.points.length <= 1) {
+      const firstPoint = points[0]
+      const padding = 50
+      
+      // Calculate bounds including any control points from the first point
+      let allPoints = [{ x: firstPoint.x, y: firstPoint.y }]
+      if (firstPoint.cp1) allPoints.push(firstPoint.cp1)
+      if (firstPoint.cp2) allPoints.push(firstPoint.cp2)
+      
+      const xs = allPoints.map(p => p.x)
+      const ys = allPoints.map(p => p.y)
+      const minX = Math.min(...xs)
+      const minY = Math.min(...ys)
+      const maxX = Math.max(...xs)
+      const maxY = Math.max(...ys)
+      
+      // Use actual bounds for single point to prevent jumping
+      const actualMinX = minX - padding
+      const actualMinY = minY - padding
+      const w = Math.max(1, maxX - minX + padding * 2)
+      const h = Math.max(1, maxY - minY + padding * 2)
+      
+      const normalizedPoints = points.map(p => ({
+        x: p.x - actualMinX,
+        y: p.y - actualMinY,
+        cp1: p.cp1 ? { x: p.cp1.x - actualMinX, y: p.cp1.y - actualMinY } : undefined,
+        cp2: p.cp2 ? { x: p.cp2.x - actualMinX, y: p.cp2.y - actualMinY } : undefined,
+      }))
+      
+      console.log('Single point bounds: x =', actualMinX, 'y =', actualMinY, 'w =', w, 'h =', h)
+      console.log('Normalized first point:', `(${normalizedPoints[0].x.toFixed(1)}, ${normalizedPoints[0].y.toFixed(1)})`)
+      
+      const partial: TLShapePartial<BezierShape> = {
+        id: this.shapeId,
+        type: 'bezier',
+        x: actualMinX,
+        y: actualMinY,
+        props: {
+          w,
+          h,
+          points: normalizedPoints,
+          color: this.editor.getStyleForNextShape('color' as any) || '#000000',
+          strokeWidth: 2,
+          fill: false,
+          isClosed: isClosed,
+          editMode: forceEditMode !== undefined ? forceEditMode : !isClosed,
+        },
+      }
+
+      if (this.editor.getShape(this.shapeId)) {
+        this.editor.updateShape(partial)
+      } else {
+        this.editor.createShape(partial)
+      }
+      return
+    }
+    
+    // Multiple points - use normal bounds calculation
+    const shapeX = this.stableOrigin?.x ?? points[0].x
+    const shapeY = this.stableOrigin?.y ?? points[0].y
+    
+    const allPoints = points.flatMap(p => [
+      { x: p.x, y: p.y },
+      ...(p.cp1 ? [p.cp1] : []),
+      ...(p.cp2 ? [p.cp2] : [])
+    ])
     
     const xs = allPoints.map(p => p.x)
     const ys = allPoints.map(p => p.y)
@@ -373,25 +429,31 @@ export class BezierCreating extends StateNode {
     const maxX = Math.max(...xs)
     const maxY = Math.max(...ys)
     
-    const w = Math.max(1, maxX - minX)
-    const h = Math.max(1, maxY - minY)
+    const leftExtent = shapeX - minX
+    const rightExtent = maxX - shapeX
+    const topExtent = shapeY - minY
+    const bottomExtent = maxY - shapeY
     
-    // Normalize points to local coordinates
-    console.log('Before normalization: input points =', points.map(p => `(${p.x.toFixed(1)}, ${p.y.toFixed(1)})`))
+    const actualMinX = shapeX - Math.max(leftExtent, rightExtent) - 10
+    const actualMinY = shapeY - Math.max(topExtent, bottomExtent) - 10
+    const actualMaxX = shapeX + Math.max(leftExtent, rightExtent) + 10
+    const actualMaxY = shapeY + Math.max(topExtent, bottomExtent) + 10
+    
+    const w = Math.max(1, actualMaxX - actualMinX)
+    const h = Math.max(1, actualMaxY - actualMinY)
+    
     const normalizedPoints = points.map(p => ({
-      x: p.x - minX,
-      y: p.y - minY,
-      cp1: p.cp1 ? { x: p.cp1.x - minX, y: p.cp1.y - minY } : undefined,
-      cp2: p.cp2 ? { x: p.cp2.x - minX, y: p.cp2.y - minY } : undefined,
+      x: p.x - actualMinX,
+      y: p.y - actualMinY,
+      cp1: p.cp1 ? { x: p.cp1.x - actualMinX, y: p.cp1.y - actualMinY } : undefined,
+      cp2: p.cp2 ? { x: p.cp2.x - actualMinX, y: p.cp2.y - actualMinY } : undefined,
     }))
-    console.log('After normalization: normalized points =', normalizedPoints.map(p => `(${p.x.toFixed(1)}, ${p.y.toFixed(1)})`))
-    console.log('Final points being set in shape:', normalizedPoints.length)
 
     const partial: TLShapePartial<BezierShape> = {
       id: this.shapeId,
       type: 'bezier',
-      x: minX,
-      y: minY,
+      x: actualMinX,
+      y: actualMinY,
       props: {
         w,
         h,
@@ -400,7 +462,7 @@ export class BezierCreating extends StateNode {
         strokeWidth: 2,
         fill: false,
         isClosed: isClosed,
-        editMode: forceEditMode !== undefined ? forceEditMode : !isClosed, // Show handles during creation, hide when closed
+        editMode: forceEditMode !== undefined ? forceEditMode : !isClosed,
       },
     }
 
