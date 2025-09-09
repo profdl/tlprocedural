@@ -637,7 +637,11 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
 
   // Double-click to enter/exit edit mode
   override onDoubleClick = (shape: BezierShape) => {
-    console.log('Double-click detected, current editMode:', shape.props.editMode)
+    console.log('💆 BezierShape.onDoubleClick detected, current editMode:', {
+      shapeId: shape.id,
+      editMode: shape.props.editMode,
+      currentTool: this.editor.getCurrentToolId()
+    })
     const wasInEditMode = shape.props.editMode
     const updatedShape = {
       ...shape,
@@ -652,13 +656,15 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     
     // Handle selection state based on edit mode transition
     if (!wasInEditMode) {
-      // Entering edit mode: force clear selection and prevent reselection
+      // Entering edit mode: force clear selection and stay on select tool for point editing
+      console.log('🚪 BezierShape: Entering edit mode - clearing selection, staying on select tool')
       this.editor.setSelectedShapes([])
       // Force immediate deselection by updating the editor state
       setTimeout(() => {
         this.editor.setSelectedShapes([])
       }, 1)
     } else {
+      console.log('🚪 BezierShape: Exiting edit mode - selecting shape')
       // Exiting edit mode: select the shape to show transform controls
       this.editor.setSelectedShapes([shape.id])
       // Force a bounds recalculation to ensure transform controls update correctly

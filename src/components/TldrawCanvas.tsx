@@ -354,46 +354,69 @@ export function TldrawCanvas() {
     )
 
     // Handle clicks outside bezier shapes in edit mode to exit edit mode
-    const cleanupBezierEditMode = editor.sideEffects.registerBeforeChangeHandler(
-      'pointer',
-      (prev, next) => {
-        // Only handle pointer down events
-        if (next.type !== 'pointer' || next.name !== 'pointer_down') return next
-        
-        // Find any bezier shape currently in edit mode
-        const allShapes = editor.getCurrentPageShapes()
-        const editingBezierShape = allShapes.find(shape => 
-          shape.type === 'bezier' && 'editMode' in shape.props && shape.props.editMode
-        )
-        
-        if (!editingBezierShape) return next
-        
-        console.log('Found bezier shape in edit mode:', editingBezierShape.id)
-        
-        // Get the current pointer info
-        const pointerInfo = editor.inputs.currentPagePoint
-        console.log('Pointer down at:', pointerInfo)
-        
-        // Check if clicking on the editing shape
-        const shapesAtPointer = editor.getShapesAtPoint(pointerInfo)
-        const clickingOnEditingShape = shapesAtPointer.some(shape => shape.id === editingBezierShape.id)
-        
-        if (!clickingOnEditingShape) {
-          console.log('Clicking outside editing bezier shape - exiting edit mode')
-          // Exit edit mode
-          editor.updateShape({
-            id: editingBezierShape.id,
-            type: 'bezier',
-            props: {
-              ...editingBezierShape.props,
-              editMode: false,
-            },
-          })
-        }
-        
-        return next
+    // Use a proper event listener approach instead of side effects
+    const handlePointerDown = (e: PointerEvent) => {
+      console.log('🔴 TldrawCanvas: handlePointerDown called')
+      
+      // Find any bezier shape currently in edit mode
+      const allShapes = editor.getCurrentPageShapes()
+      const editingBezierShape = allShapes.find(shape => 
+        shape.type === 'bezier' && 'editMode' in shape.props && shape.props.editMode
+      )
+      
+      if (!editingBezierShape) {
+        console.log('🔴 TldrawCanvas: No bezier shape in edit mode')
+        return
       }
-    )
+      
+      console.log('🔴 TldrawCanvas: Found bezier shape in edit mode:', {
+        shapeId: editingBezierShape.id,
+        currentTool: editor.getCurrentToolId()
+      })
+      
+      // Convert screen coordinates to page coordinates
+      const screenPoint = { x: e.clientX, y: e.clientY }
+      const pagePoint = editor.screenToPage(screenPoint)
+      
+      console.log('📍 TldrawCanvas: Pointer down at screen:', screenPoint, 'page:', pagePoint)
+      
+      // Check if clicking on the editing shape
+      const shapesAtPointer = editor.getShapesAtPoint(pagePoint)
+      const clickingOnEditingShape = shapesAtPointer.some(shape => shape.id === editingBezierShape.id)
+      
+      console.log('🔍 TldrawCanvas: Shapes at pointer:', {
+        shapeCount: shapesAtPointer.length,
+        shapeIds: shapesAtPointer.map(s => s.id),
+        clickingOnEditingShape
+      })
+      
+      if (!clickingOnEditingShape) {
+        console.log('🚪 TldrawCanvas: Clicking outside editing bezier shape - exiting edit mode')
+        // Exit edit mode
+        editor.updateShape({
+          id: editingBezierShape.id,
+          type: 'bezier',
+          props: {
+            ...editingBezierShape.props,
+            editMode: false,
+          },
+        })
+        console.log('✅ TldrawCanvas: Edit mode disabled via global handler')
+        
+        // Select the shape to show transform controls
+        editor.setSelectedShapes([editingBezierShape.id])
+      } else {
+        console.log('🎯 TldrawCanvas: Still clicking on editing shape, not exiting edit mode')
+      }
+    }
+    
+    // Add the event listener to the editor's container
+    const container = editor.getContainer()
+    container.addEventListener('pointerdown', handlePointerDown, { capture: true })
+    
+    const cleanupBezierEditMode = () => {
+      container.removeEventListener('pointerdown', handlePointerDown, { capture: true })
+    }
 
     // Return cleanup function
     return () => {
