@@ -40,7 +40,7 @@ import { CustomArrowTool } from './shapes/ArrowTool'
 // Using only custom shapes - no native tldraw shapes
 
 // Custom Grid Component inspired by cuttle.xyz
-const CuttleGrid = ({ size, ...camera }: { size: number } & any) => {
+const CuttleGrid = ({ size, ...camera }: { size: number } & { x: number; y: number; z: number }) => {
   const editor = useEditor()
 
   const screenBounds = useValue('screenBounds', () => editor.getViewportScreenBounds(), [])
@@ -353,10 +353,53 @@ export function TldrawCanvas() {
       }
     )
 
+    // Handle clicks outside bezier shapes in edit mode to exit edit mode
+    const cleanupBezierEditMode = editor.sideEffects.registerBeforeChangeHandler(
+      'pointer',
+      (prev, next) => {
+        // Only handle pointer down events
+        if (next.type !== 'pointer' || next.name !== 'pointer_down') return next
+        
+        // Find any bezier shape currently in edit mode
+        const allShapes = editor.getCurrentPageShapes()
+        const editingBezierShape = allShapes.find(shape => 
+          shape.type === 'bezier' && 'editMode' in shape.props && shape.props.editMode
+        )
+        
+        if (!editingBezierShape) return next
+        
+        console.log('Found bezier shape in edit mode:', editingBezierShape.id)
+        
+        // Get the current pointer info
+        const pointerInfo = editor.inputs.currentPagePoint
+        console.log('Pointer down at:', pointerInfo)
+        
+        // Check if clicking on the editing shape
+        const shapesAtPointer = editor.getShapesAtPoint(pointerInfo)
+        const clickingOnEditingShape = shapesAtPointer.some(shape => shape.id === editingBezierShape.id)
+        
+        if (!clickingOnEditingShape) {
+          console.log('Clicking outside editing bezier shape - exiting edit mode')
+          // Exit edit mode
+          editor.updateShape({
+            id: editingBezierShape.id,
+            type: 'bezier',
+            props: {
+              ...editingBezierShape.props,
+              editMode: false,
+            },
+          })
+        }
+        
+        return next
+      }
+    )
+
     // Return cleanup function
     return () => {
       cleanupKeepArrayClonesLocked()
       cleanupSelection()
+      cleanupBezierEditMode()
     }
   }
 

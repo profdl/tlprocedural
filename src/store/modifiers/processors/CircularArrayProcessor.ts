@@ -149,8 +149,8 @@ function processGroupCircularArray(
       )
       
       // Use the calculated position directly - no manual rotation compensation needed
-      let finalX = basePosition.x
-      let finalY = basePosition.y
+      const finalX = basePosition.x
+      const finalY = basePosition.y
       let finalRotation = inputInstance.transform.rotation + basePosition.rotation
       
       // Apply group transformations if needed

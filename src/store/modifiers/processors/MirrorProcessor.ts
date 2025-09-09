@@ -9,7 +9,7 @@ import type {
 
 // Mirror Processor implementation - Clean slate
 export const MirrorProcessor: ModifierProcessor = {
-  process(input: ShapeState, settings: MirrorSettings, _groupContext?: GroupContext, _editor?: any): ShapeState {
+  process(input: ShapeState, settings: MirrorSettings): ShapeState {
     const { axis, offset } = settings
     
     

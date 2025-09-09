@@ -3,7 +3,7 @@ import {
   type TLPointerEventInfo, 
   type TLClickEventInfo,
   type TLKeyboardEventInfo,
-} from '@tldraw/editor'
+} from 'tldraw'
 import { type BezierShape, type BezierPoint } from '../../BezierShape'
 import { getClosestPointOnSegment, splitSegmentAtT, getAccurateBounds } from '../../utils/bezierUtils'
 
@@ -32,7 +32,16 @@ export class BezierEditing extends StateNode {
   }
 
   override onPointerDown(info: TLPointerEventInfo) {
+    console.log('BezierEditing onPointerDown:', info.target, this.targetShapeId)
+    
     if (!this.targetShape || !this.targetShapeId) return
+
+    // If clicking on canvas (not on shape), exit edit mode
+    if (info.target === 'canvas') {
+      console.log('Clicked on canvas - exiting edit mode')
+      this.exitEditMode()
+      return
+    }
 
     const shape = this.editor.getShape(this.targetShapeId as any) as BezierShape
     if (!shape || !shape.props.editMode) return
@@ -50,13 +59,19 @@ export class BezierEditing extends StateNode {
     // Check if clicking on an existing anchor point (do nothing - let handle system manage it)
     const anchorPointIndex = this.getAnchorPointAt(shape, localPoint)
     if (anchorPointIndex !== -1) {
+      console.log('Clicked on anchor point')
       return // Let TLDraw's handle system manage existing points
     }
 
     // Check if clicking on a path segment to add a point
     const segmentInfo = this.getSegmentAtPosition(shape, localPoint)
     if (segmentInfo) {
+      console.log('Clicked on path segment - adding point')
       this.addPointToSegment(shape, segmentInfo)
+    } else {
+      // Clicked off the path (but still on shape) - exit edit mode
+      console.log('Clicked off path - exiting edit mode')
+      this.exitEditMode()
     }
   }
 
@@ -211,11 +226,13 @@ export class BezierEditing extends StateNode {
   }
 
   private exitEditMode() {
+    console.log('exitEditMode called for shape:', this.targetShapeId)
     if (!this.targetShapeId) return
 
     // Exit edit mode
     const shape = this.editor.getShape(this.targetShapeId as any) as BezierShape
     if (shape) {
+      console.log('Shape found, updating editMode to false')
       this.editor.updateShape({
         id: this.targetShapeId as any,
         type: 'bezier',

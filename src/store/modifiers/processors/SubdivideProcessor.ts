@@ -18,8 +18,8 @@ export const SubdivideProcessor = new class extends PathModifier<SubdivideSettin
   protected modifyPath(
     pathData: PathData,
     settings: SubdivideSettings,
-    shapeIndex: number,
-    editor?: Editor
+    _shapeIndex: number,
+    _editor?: Editor
   ): PathModificationResult {
     
     if (!this.validatePathData(pathData) || !this.validateSettings(settings)) {

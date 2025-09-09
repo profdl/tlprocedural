@@ -18,8 +18,8 @@ export const SmoothProcessor = new class extends PathModifier<SmoothSettings> {
   protected modifyPath(
     pathData: PathData,
     settings: SmoothSettings,
-    shapeIndex: number,
-    editor?: Editor
+    _shapeIndex: number,
+    _editor?: Editor
   ): PathModificationResult {
     
     if (!this.validatePathData(pathData) || !this.validateSettings(settings)) {
@@ -126,7 +126,7 @@ export const SmoothProcessor = new class extends PathModifier<SmoothSettings> {
       const { prev, next } = this.getBezierNeighbors(points, i, pathData.isClosed)
       
       // Smooth the main point
-      let smoothedPoint: BezierPoint = { ...current }
+      const smoothedPoint: BezierPoint = { ...current }
       
       if (prev && next) {
         smoothedPoint.x = current.x * (1 - factor) + (prev.x + next.x) * factor / 2

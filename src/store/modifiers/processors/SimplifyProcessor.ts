@@ -18,8 +18,8 @@ export const SimplifyProcessor = new class extends PathModifier<SimplifySettings
   protected modifyPath(
     pathData: PathData,
     settings: SimplifySettings,
-    shapeIndex: number,
-    editor?: Editor
+    _shapeIndex: number,
+    _editor?: Editor
   ): PathModificationResult {
     
     if (!this.validatePathData(pathData) || !this.validateSettings(settings)) {

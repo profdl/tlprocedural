@@ -18,15 +18,15 @@ export const NoiseOffsetProcessor = new class extends PathModifier<NoiseOffsetSe
   protected modifyPath(
     pathData: PathData,
     settings: NoiseOffsetSettings,
-    shapeIndex: number,
-    editor?: Editor
+    _shapeIndex: number,
+    _editor?: Editor
   ): PathModificationResult {
     
     if (!this.validatePathData(pathData) || !this.validateSettings(settings)) {
       return { pathData, boundsChanged: false }
     }
 
-    const { amplitude, frequency, octaves, seed, direction } = settings
+    const { amplitude, frequency, octaves, seed } = settings
     
     try {
       let modifiedPath = this.clonePathData(pathData)
@@ -110,7 +110,7 @@ export const NoiseOffsetProcessor = new class extends PathModifier<NoiseOffsetSe
           displacementVecLiketor = this.calculateTangent(points, i, pathData.isClosed)
           break
         case 'both':
-        default:
+        default: {
           // Random direction based on noise
           const angle = noiseValue * Math.PI * 2
           displacementVecLiketor = {
@@ -118,6 +118,7 @@ export const NoiseOffsetProcessor = new class extends PathModifier<NoiseOffsetSe
             y: Math.sin(angle)
           }
           break
+        }
       }
       
       // Apply displacement

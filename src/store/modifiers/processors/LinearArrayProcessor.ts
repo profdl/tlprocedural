@@ -143,8 +143,8 @@ function processGroupArray(
       const newGroupTopLeftY = groupTopLeft.y + rotatedOffsetY
       
       // Calculate the relative position of this shape within the group (from top-left)
-      let shapeRelativeX = inputInstance.transform.x - groupTopLeft.x
-      let shapeRelativeY = inputInstance.transform.y - groupTopLeft.y
+      const shapeRelativeX = inputInstance.transform.x - groupTopLeft.x
+      const shapeRelativeY = inputInstance.transform.y - groupTopLeft.y
       
       // Calculate position using improved transform utilities
       const relativePosition = calculateLinearPosition(

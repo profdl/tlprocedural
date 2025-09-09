@@ -21,7 +21,7 @@ export const GridArrayProcessor: ModifierProcessor = {
     const newInstances: ShapeInstance[] = []
     
     // For each existing instance, create the grid array
-    input.instances.forEach((inputInstance, instanceIndex) => {
+    input.instances.forEach((inputInstance) => {
       // Get shape dimensions for center calculation
       const { width: shapeWidth, height: shapeHeight } = getShapeDimensions(inputInstance.shape)
       
@@ -101,8 +101,7 @@ export const GridArrayProcessor: ModifierProcessor = {
 function processGroupGridArray(
   input: ShapeState, 
   settings: GridArraySettings, 
-  groupContext: GroupContext,
-  editor?: any
+  groupContext: GroupContext
 ): ShapeState {
   const { rows, columns, spacingX, spacingY, offsetX, offsetY } = settings
   const { groupTopLeft, groupBounds, groupTransform } = groupContext
