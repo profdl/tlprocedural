@@ -380,17 +380,60 @@ export function TldrawCanvas() {
       
       console.log('📍 TldrawCanvas: Pointer down at screen:', screenPoint, 'page:', pagePoint)
       
-      // Check if clicking on the editing shape
+      // Check if clicking on the editing shape or its handles
       const shapesAtPointer = editor.getShapesAtPoint(pagePoint)
       const clickingOnEditingShape = shapesAtPointer.some(shape => shape.id === editingBezierShape.id)
+      
+      // Also check if clicking near control points or anchor points (for handles outside bounds)
+      let clickingOnHandle = false
+      if (!clickingOnEditingShape && editingBezierShape.type === 'bezier') {
+        const shapePageBounds = editor.getShapePageBounds(editingBezierShape.id)
+        if (shapePageBounds) {
+          // Convert to local coordinates
+          const localPoint = {
+            x: pagePoint.x - shapePageBounds.x,
+            y: pagePoint.y - shapePageBounds.y
+          }
+          
+          const threshold = 8 / editor.getZoomLevel() // 8 pixels at current zoom
+          const points = (editingBezierShape as any).props.points || []
+          
+          // Check anchor points and control points
+          for (const point of points) {
+            // Check anchor point
+            const anchorDist = Math.sqrt(Math.pow(localPoint.x - point.x, 2) + Math.pow(localPoint.y - point.y, 2))
+            if (anchorDist < threshold) {
+              clickingOnHandle = true
+              break
+            }
+            
+            // Check control points
+            if (point.cp1) {
+              const cp1Dist = Math.sqrt(Math.pow(localPoint.x - point.cp1.x, 2) + Math.pow(localPoint.y - point.cp1.y, 2))
+              if (cp1Dist < threshold) {
+                clickingOnHandle = true
+                break
+              }
+            }
+            if (point.cp2) {
+              const cp2Dist = Math.sqrt(Math.pow(localPoint.x - point.cp2.x, 2) + Math.pow(localPoint.y - point.cp2.y, 2))
+              if (cp2Dist < threshold) {
+                clickingOnHandle = true
+                break
+              }
+            }
+          }
+        }
+      }
       
       console.log('🔍 TldrawCanvas: Shapes at pointer:', {
         shapeCount: shapesAtPointer.length,
         shapeIds: shapesAtPointer.map(s => s.id),
-        clickingOnEditingShape
+        clickingOnEditingShape,
+        clickingOnHandle
       })
       
-      if (!clickingOnEditingShape) {
+      if (!clickingOnEditingShape && !clickingOnHandle) {
         console.log('🚪 TldrawCanvas: Clicking outside editing bezier shape - exiting edit mode')
         // Exit edit mode
         editor.updateShape({

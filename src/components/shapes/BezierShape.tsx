@@ -278,8 +278,18 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   }
 
   getBounds(shape: BezierShape) {
-    // Points are already normalized to (0,0) after recalculateBounds
-    // Use the stored width and height like other shapes
+    // In edit mode, always calculate accurate bounds for proper hit detection
+    if (shape.props.editMode) {
+      const bounds = getAccurateBounds(shape.props.points, shape.props.isClosed)
+      return {
+        x: 0,
+        y: 0,
+        w: Math.max(1, bounds.maxX - bounds.minX),
+        h: Math.max(1, bounds.maxY - bounds.minY),
+      }
+    }
+    
+    // Outside edit mode, use the stored width and height (points are normalized)
     return {
       x: 0,
       y: 0,

@@ -44,13 +44,6 @@ export class BezierEditing extends StateNode {
       return
     }
 
-    // If clicking on canvas (not on shape), exit edit mode
-    if (info.target === 'canvas') {
-      console.log('🚪 BezierEditing: Clicked on canvas - exiting edit mode')
-      this.exitEditMode()
-      return
-    }
-
     const shape = this.editor.getShape(this.targetShapeId as any) as BezierShape
     if (!shape || !shape.props.editMode) return
 
@@ -71,13 +64,38 @@ export class BezierEditing extends StateNode {
       return // Let TLDraw's handle system manage existing points
     }
 
+    // Check if clicking on a control point (do nothing - let handle system manage it)
+    const controlPointInfo = this.getControlPointAt(shape, localPoint)
+    if (controlPointInfo) {
+      console.log('🎮 BezierEditing: Clicked on control point', controlPointInfo)
+      return // Let TLDraw's handle system manage control points
+    }
+
     // Check if clicking on a path segment to add a point
     const segmentInfo = this.getSegmentAtPosition(shape, localPoint)
     if (segmentInfo) {
       console.log('➕ BezierEditing: Clicked on path segment - adding point', segmentInfo)
       this.addPointToSegment(shape, segmentInfo)
+      return
+    }
+
+    // If clicking on canvas (not on shape), delay exit to check if it's a handle drag
+    if (info.target === 'canvas') {
+      // Small delay to see if this is the start of a handle drag operation
+      // If it's a real canvas click, we'll still exit after the delay
+      setTimeout(() => {
+        // Check if a handle drag is in progress by seeing if the editor is in a drag state
+        const isDragging = this.editor.inputs.isDragging
+        if (!isDragging) {
+          console.log('🚪 BezierEditing: Confirmed canvas click - exiting edit mode')
+          this.exitEditMode()
+        } else {
+          console.log('🎮 BezierEditing: Handle drag in progress - staying in edit mode')
+        }
+      }, 10) // Very short delay
+      return
     } else {
-      // Clicked off the path (but still on shape) - exit edit mode
+      // Clicked on shape but not on any interactive element - also exit edit mode
       console.log('🚪 BezierEditing: Clicked off path - exiting edit mode')
       this.exitEditMode()
     }
@@ -133,6 +151,38 @@ export class BezierEditing extends StateNode {
     }
     
     return -1
+  }
+
+  private getControlPointAt(shape: BezierShape, localPoint: { x: number; y: number }): { pointIndex: number; type: 'cp1' | 'cp2' } | null {
+    const threshold = 8 / this.editor.getZoomLevel() // 8 pixels at current zoom
+    
+    for (let i = 0; i < shape.props.points.length; i++) {
+      const point = shape.props.points[i]
+      
+      // Check cp1
+      if (point.cp1) {
+        const distance = Math.sqrt(
+          Math.pow(localPoint.x - point.cp1.x, 2) + 
+          Math.pow(localPoint.y - point.cp1.y, 2)
+        )
+        if (distance < threshold) {
+          return { pointIndex: i, type: 'cp1' }
+        }
+      }
+      
+      // Check cp2
+      if (point.cp2) {
+        const distance = Math.sqrt(
+          Math.pow(localPoint.x - point.cp2.x, 2) + 
+          Math.pow(localPoint.y - point.cp2.y, 2)
+        )
+        if (distance < threshold) {
+          return { pointIndex: i, type: 'cp2' }
+        }
+      }
+    }
+    
+    return null
   }
 
   private getSegmentAtPosition(shape: BezierShape, localPoint: { x: number; y: number }): { segmentIndex: number; t: number } | null {
