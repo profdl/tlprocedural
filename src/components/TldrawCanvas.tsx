@@ -615,10 +615,91 @@ export function TldrawCanvas() {
         }
       }
       
-      // Handle clicking on the editing shape but not on handles or anchor points
+      // Check if clicking on hover preview location to add a point
       if (clickingOnEditingShape && !clickingOnHandle && !clickingOnAnchorPoint) {
+        // Check if we have a hover preview and are clicking near it
+        if (editingBezierShape.props.hoverPoint && typeof editingBezierShape.props.hoverSegmentIndex === 'number') {
+          const shapePageBounds = editor.getShapePageBounds(editingBezierShape.id)
+          if (shapePageBounds) {
+            const localPoint = {
+              x: pagePoint.x - shapePageBounds.x,
+              y: pagePoint.y - shapePageBounds.y
+            }
+            
+            // Check if clicking near the hover preview point
+            const hoverPoint = editingBezierShape.props.hoverPoint
+            const distanceToHoverPoint = Math.sqrt(
+              Math.pow(localPoint.x - hoverPoint.x, 2) + 
+              Math.pow(localPoint.y - hoverPoint.y, 2)
+            )
+            
+            const clickThreshold = 12 / editor.getZoomLevel() // 12 pixels at current zoom
+            
+            if (distanceToHoverPoint < clickThreshold) {
+              console.log('➕ POINT_ADD: Clicking on hover preview - adding point')
+              
+              // Add the point using hover preview data
+              const segmentIndex = editingBezierShape.props.hoverSegmentIndex
+              const newPoints = [...editingBezierShape.props.points]
+              
+              // Insert the new point with the hover preview data
+              const insertIndex = segmentIndex + 1
+              if (segmentIndex === newPoints.length - 1 && editingBezierShape.props.isClosed) {
+                // Inserting in closing segment
+                newPoints.push(hoverPoint)
+              } else {
+                newPoints.splice(insertIndex, 0, hoverPoint)
+              }
+              
+              // Simple bounds calculation for the new points
+              const allPoints = newPoints.flatMap(p => [
+                { x: p.x, y: p.y },
+                ...(p.cp1 ? [p.cp1] : []),
+                ...(p.cp2 ? [p.cp2] : [])
+              ])
+              
+              const xs = allPoints.map(p => p.x)
+              const ys = allPoints.map(p => p.y)
+              const minX = Math.min(...xs)
+              const minY = Math.min(...ys)
+              const maxX = Math.max(...xs)
+              const maxY = Math.max(...ys)
+              
+              const newW = Math.max(1, maxX - minX)
+              const newH = Math.max(1, maxY - minY)
+              
+              // Normalize points to new bounds
+              const normalizedPoints = newPoints.map(p => ({
+                x: p.x - minX,
+                y: p.y - minY,
+                cp1: p.cp1 ? { x: p.cp1.x - minX, y: p.cp1.y - minY } : undefined,
+                cp2: p.cp2 ? { x: p.cp2.x - minX, y: p.cp2.y - minY } : undefined,
+              }))
+              
+              // Update the shape with new points, bounds, and clear hover preview
+              editor.updateShape({
+                id: editingBezierShape.id,
+                type: 'bezier',
+                x: editingBezierShape.x + minX,
+                y: editingBezierShape.y + minY,
+                props: {
+                  ...editingBezierShape.props,
+                  w: newW,
+                  h: newH,
+                  points: normalizedPoints,
+                  hoverPoint: undefined,
+                  hoverSegmentIndex: undefined
+                }
+              })
+              
+              console.log('✅ POINT_ADD: Point added successfully')
+              return // Don't clear selection, point was added
+            }
+          }
+        }
+        
+        // If not clicking on hover preview, clear point selection
         console.log('🔵 SELECTION: Clicked on editing shape but not on point - clearing selection')
-        // Clear point selection when clicking on the shape but not on specific points
         const hasSelection = editingBezierShape.props.selectedPointIndices && editingBezierShape.props.selectedPointIndices.length > 0
         if (hasSelection) {
           editor.updateShape({

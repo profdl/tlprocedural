@@ -91,7 +91,7 @@ export function getClosestPointOnSegment(
 
 /**
  * Split a bezier segment at a given t value
- * Returns the control points for the two resulting segments
+ * Returns the control points for the two resulting segments with improved handle calculation
  */
 export function splitSegmentAtT(
   p1: BezierPoint,
@@ -105,10 +105,33 @@ export function splitSegmentAtT(
   const bezier = segmentToBezier(p1, p2)
   const { left, right } = bezier.split(t)
   
-  // Get the split point
+  // Get the split point and its derivative (tangent)
   const splitPoint = bezier.get(t)
+  const derivative = bezier.derivative(t)
   
-  // Convert back to our format
+  // Calculate handle length based on curve properties
+  // Use 1/3 of the distance to neighboring control points for smooth continuity
+  const segmentLength = bezier.length()
+  const baseHandleLength = segmentLength * 0.15 // 15% of segment length for balanced handles
+  
+  // Normalize the derivative to get the tangent direction
+  const tangentLength = Math.sqrt(derivative.x * derivative.x + derivative.y * derivative.y)
+  const normalizedTangent = tangentLength > 0 
+    ? { x: derivative.x / tangentLength, y: derivative.y / tangentLength }
+    : { x: 1, y: 0 } // Fallback direction
+  
+  // Calculate control points based on tangent direction and appropriate lengths
+  const cp1 = {
+    x: splitPoint.x - normalizedTangent.x * baseHandleLength,
+    y: splitPoint.y - normalizedTangent.y * baseHandleLength
+  }
+  
+  const cp2 = {
+    x: splitPoint.x + normalizedTangent.x * baseHandleLength,
+    y: splitPoint.y + normalizedTangent.y * baseHandleLength
+  }
+  
+  // Convert split curves back to our format for the segments
   const leftCP = bezierToSegmentControlPoints(left)
   const rightCP = bezierToSegmentControlPoints(right)
   
@@ -138,8 +161,8 @@ export function splitSegmentAtT(
     splitPoint: {
       x: splitPoint.x,
       y: splitPoint.y,
-      cp1: leftCP.p2cp1,
-      cp2: rightCP.p1cp2
+      cp1: cp1, // Use our calculated control points for preview
+      cp2: cp2
     }
   }
 }

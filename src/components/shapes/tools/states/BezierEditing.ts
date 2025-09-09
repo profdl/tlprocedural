@@ -31,6 +31,7 @@ export class BezierEditing extends StateNode {
     }
   }
 
+
   override onPointerDown(info: TLPointerEventInfo) {
     if (!this.targetShape || !this.targetShapeId) {
       return
@@ -63,12 +64,8 @@ export class BezierEditing extends StateNode {
       return // Let TLDraw's handle system manage control points
     }
 
-    // Check if clicking on a path segment to add a point
-    const segmentInfo = this.getSegmentAtPosition(shape, localPoint)
-    if (segmentInfo) {
-      this.addPointToSegment(shape, segmentInfo)
-      return
-    }
+    // Note: Point addition is now handled by the BezierShape component directly
+    // when using the Select tool, so we don't need to handle it here
 
     // If clicking elsewhere, clear point selection
     this.clearPointSelection(shape)
@@ -437,6 +434,7 @@ export class BezierEditing extends StateNode {
       console.log('🔵 SELECTION: Verified shape selectedPointIndices:', verifyShape?.props?.selectedPointIndices)
     }, 10)
   }
+
 
   private exitEditMode() {
     if (!this.targetShapeId) {

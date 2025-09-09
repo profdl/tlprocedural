@@ -1,4 +1,5 @@
 import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, useEditor, type TLResizeInfo } from 'tldraw'
+import { useEffect } from 'react'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 import { getAccurateBounds, getClosestPointOnSegment, splitSegmentAtT } from './utils/bezierUtils'
 
@@ -21,6 +22,8 @@ export type BezierShape = TLBaseShape<
     isClosed: boolean
     editMode?: boolean
     selectedPointIndices?: number[]
+    hoverPoint?: { x: number; y: number; cp1?: { x: number; y: number }; cp2?: { x: number; y: number } }
+    hoverSegmentIndex?: number
   }
 >
 
@@ -49,6 +52,19 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     isClosed: T.boolean,
     editMode: T.optional(T.boolean),
     selectedPointIndices: T.optional(T.arrayOf(T.number)),
+    hoverPoint: T.optional(T.object({
+      x: T.number,
+      y: T.number,
+      cp1: T.optional(T.object({
+        x: T.number,
+        y: T.number,
+      })),
+      cp2: T.optional(T.object({
+        x: T.number,
+        y: T.number,
+      })),
+    })),
+    hoverSegmentIndex: T.optional(T.number),
   }
 
   override getDefaultProps(): BezierShape['props'] {
@@ -64,13 +80,136 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   }
 
   override component(shape: BezierShape) {
-    const { points, color, strokeWidth, fill, isClosed, editMode, selectedPointIndices = [] } = shape.props
+    const { points, color, strokeWidth, fill, isClosed, editMode, selectedPointIndices = [], hoverPoint } = shape.props
     const editor = useEditor()
     
     // Debug logging for selection state
     if (editMode && selectedPointIndices.length > 0) {
       console.log('🔵 RENDER: BezierShape component rendering with selectedPointIndices:', selectedPointIndices)
     }
+
+    // Helper methods for hover detection (defined before useEffect)
+    const getSegmentAtPosition = (localPoint: { x: number; y: number }): { segmentIndex: number; t: number } | null => {
+      const threshold = 8 / editor.getZoomLevel() // 8 pixels at current zoom
+
+      // Check each segment using precise bezier curve distance
+      for (let i = 0; i < points.length - 1; i++) {
+        const p1 = points[i]
+        const p2 = points[i + 1]
+        
+        const result = getClosestPointOnSegment(p1, p2, localPoint)
+        
+        if (result.distance < threshold) {
+          return { segmentIndex: i, t: result.t }
+        }
+      }
+
+      // Check closing segment if the path is closed
+      if (isClosed && points.length > 2) {
+        const p1 = points[points.length - 1]
+        const p2 = points[0]
+        const result = getClosestPointOnSegment(p1, p2, localPoint)
+        
+        if (result.distance < threshold) {
+          return { segmentIndex: points.length - 1, t: result.t }
+        }
+      }
+
+      return null
+    }
+
+    const updateHoverPreview = (segmentInfo: { segmentIndex: number; t: number }) => {
+      const { segmentIndex, t } = segmentInfo
+      const p1 = points[segmentIndex]
+      const p2 = segmentIndex === points.length - 1 && isClosed 
+        ? points[0] 
+        : points[segmentIndex + 1]
+
+      // Use bezier.js to split the segment and get proper control points
+      const splitResult = splitSegmentAtT(p1, p2, t)
+      const newPoint = splitResult.splitPoint
+
+      editor.updateShape({
+        id: shape.id,
+        type: 'bezier',
+        props: {
+          ...shape.props,
+          hoverPoint: newPoint,
+          hoverSegmentIndex: segmentIndex
+        }
+      })
+    }
+
+    const clearHoverPreview = () => {
+      if (hoverPoint) {
+        editor.updateShape({
+          id: shape.id,
+          type: 'bezier',
+          props: {
+            ...shape.props,
+            hoverPoint: undefined,
+            hoverSegmentIndex: undefined
+          }
+        })
+      }
+    }
+
+    // Track hover state for point preview when in edit mode with Select tool
+    useEffect(() => {
+      if (!editMode || !editor) return
+      
+      // Only show preview when using Select tool, not during path creation with Pen tool
+      const currentTool = editor.getCurrentToolId()
+      if (currentTool !== 'select') {
+        // Clear any existing hover preview if switching tools
+        clearHoverPreview()
+        return
+      }
+
+      let animationId: number
+
+      const updateHoverPreviewOnMove = () => {
+        // Double-check tool is still select during animation loop
+        const currentTool = editor.getCurrentToolId()
+        if (currentTool !== 'select') {
+          clearHoverPreview()
+          return
+        }
+
+        const pagePoint = editor.inputs.currentPagePoint
+        if (!pagePoint) return
+
+        const shapePageBounds = editor.getShapePageBounds(shape.id)
+        if (!shapePageBounds) return
+
+        const localPoint = {
+          x: pagePoint.x - shapePageBounds.x,
+          y: pagePoint.y - shapePageBounds.y
+        }
+
+        // Check if hovering over a path segment
+        const segmentInfo = getSegmentAtPosition(localPoint)
+        if (segmentInfo) {
+          updateHoverPreview(segmentInfo)
+        } else {
+          clearHoverPreview()
+        }
+
+        // Continue tracking if still in edit mode and using select tool
+        if (editMode && currentTool === 'select') {
+          animationId = requestAnimationFrame(updateHoverPreviewOnMove)
+        }
+      }
+
+      // Start the hover tracking loop
+      animationId = requestAnimationFrame(updateHoverPreviewOnMove)
+
+      return () => {
+        cancelAnimationFrame(animationId)
+        clearHoverPreview()
+      }
+    }, [editMode, editor, shape.id, shape.props.points])
+
     
     // Get flip transform from the FlippableShapeUtil
     const flipTransform = this.getFlipTransform(shape)
@@ -107,41 +246,71 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
           {/* Show control points and connection lines when in edit mode only */}
           {editMode && (
             <g opacity={0.8}>
-              {/* Show clickable segment midpoints for adding points */}
-              {points.map((point, i) => {
-                if (i < points.length - 1) {
-                  const nextPoint = points[i + 1]
-                  const midX = (point.x + nextPoint.x) / 2
-                  const midY = (point.y + nextPoint.y) / 2
-                  return (
+              {/* Show hover preview point */}
+              {hoverPoint && (
+                <g key="hover-preview" opacity={0.6}>
+                  {/* Preview control point lines */}
+                  {hoverPoint.cp1 && (
+                    <line
+                      x1={hoverPoint.x}
+                      y1={hoverPoint.y}
+                      x2={hoverPoint.cp1.x}
+                      y2={hoverPoint.cp1.y}
+                      stroke="#ff9900"
+                      strokeWidth={1.5}
+                      strokeDasharray="3 3"
+                      opacity={0.7}
+                    />
+                  )}
+                  {hoverPoint.cp2 && (
+                    <line
+                      x1={hoverPoint.x}
+                      y1={hoverPoint.y}
+                      x2={hoverPoint.cp2.x}
+                      y2={hoverPoint.cp2.y}
+                      stroke="#ff9900"
+                      strokeWidth={1.5}
+                      strokeDasharray="3 3"
+                      opacity={0.7}
+                    />
+                  )}
+                  
+                  {/* Preview control point handles */}
+                  {hoverPoint.cp1 && (
                     <circle
-                      key={`seg-${i}`}
-                      cx={midX}
-                      cy={midY}
+                      cx={hoverPoint.cp1.x}
+                      cy={hoverPoint.cp1.y}
                       r={3}
-                      fill="#00ff00"
+                      fill="#ff9900"
                       stroke="white"
                       strokeWidth={1}
-                      opacity={0.4}
-                      style={{ cursor: 'pointer' }}
+                      opacity={0.8}
                     />
-                  )
-                }
-                return null
-              })}
-              
-              {/* Show segment midpoint for closed paths */}
-              {isClosed && points.length > 2 && (
-                <circle
-                  cx={(points[points.length - 1].x + points[0].x) / 2}
-                  cy={(points[points.length - 1].y + points[0].y) / 2}
-                  r={3}
-                  fill="#00ff00"
-                  stroke="white"
-                  strokeWidth={1}
-                  opacity={0.4}
-                  style={{ cursor: 'pointer' }}
-                />
+                  )}
+                  {hoverPoint.cp2 && (
+                    <circle
+                      cx={hoverPoint.cp2.x}
+                      cy={hoverPoint.cp2.y}
+                      r={3}
+                      fill="#ff9900"
+                      stroke="white"
+                      strokeWidth={1}
+                      opacity={0.8}
+                    />
+                  )}
+                  
+                  {/* Preview anchor point */}
+                  <circle
+                    cx={hoverPoint.x}
+                    cy={hoverPoint.y}
+                    r={6}
+                    fill="#ff9900"
+                    stroke="white"
+                    strokeWidth={2}
+                    opacity={0.8}
+                    style={{ cursor: 'pointer' }}
+                  />
+                </g>
               )}
               
               {points.map((point, i) => (
@@ -342,39 +511,52 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     })
     
     // Add invisible handles on path segments for adding points
-    for (let i = 0; i < shape.props.points.length - 1; i++) {
-      const p1 = shape.props.points[i]
-      const p2 = shape.props.points[i + 1]
-      
-      // Calculate midpoint of segment
-      const midX = (p1.x + p2.x) / 2
-      const midY = (p1.y + p2.y) / 2
-      
+    // If we have a hover preview, position the handle at the preview location
+    if (shape.props.hoverPoint && typeof shape.props.hoverSegmentIndex === 'number') {
       handles.push({
-        id: `segment-${i}`,
+        id: `segment-${shape.props.hoverSegmentIndex}`,
         type: 'create',
-        index: `s${i}` as any,
-        x: midX,
-        y: midY,
+        index: `s${shape.props.hoverSegmentIndex}` as any,
+        x: shape.props.hoverPoint.x,
+        y: shape.props.hoverPoint.y,
         canSnap: false,
       })
-    }
-    
-    // If closed, add segment handle for last->first connection
-    if (shape.props.isClosed && shape.props.points.length > 2) {
-      const p1 = shape.props.points[shape.props.points.length - 1]
-      const p2 = shape.props.points[0]
-      const midX = (p1.x + p2.x) / 2
-      const midY = (p1.y + p2.y) / 2
+    } else {
+      // Default invisible handles at segment midpoints when not hovering
+      for (let i = 0; i < shape.props.points.length - 1; i++) {
+        const p1 = shape.props.points[i]
+        const p2 = shape.props.points[i + 1]
+        
+        // Calculate midpoint of segment for handle position
+        const midX = (p1.x + p2.x) / 2
+        const midY = (p1.y + p2.y) / 2
+        
+        handles.push({
+          id: `segment-${i}`,
+          type: 'create',
+          index: `s${i}` as any,
+          x: midX,
+          y: midY,
+          canSnap: false,
+        })
+      }
       
-      handles.push({
-        id: `segment-${shape.props.points.length - 1}`,
-        type: 'create',
-        index: `s${shape.props.points.length - 1}` as any,
-        x: midX,
-        y: midY,
-        canSnap: false,
-      })
+      // If closed, add segment handle for last->first connection
+      if (shape.props.isClosed && shape.props.points.length > 2) {
+        const p1 = shape.props.points[shape.props.points.length - 1]
+        const p2 = shape.props.points[0]
+        const midX = (p1.x + p2.x) / 2
+        const midY = (p1.y + p2.y) / 2
+        
+        handles.push({
+          id: `segment-${shape.props.points.length - 1}`,
+          type: 'create',
+          index: `s${shape.props.points.length - 1}` as any,
+          x: midX,
+          y: midY,
+          canSnap: false,
+        })
+      }
     }
     
     return handles
@@ -414,18 +596,38 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
         // Mark this segment as having a point added
         this.segmentPointsAdded.add(handleKey)
         
-        // Get the segment points
-        const p1 = newPoints[segmentIndex]
-        const p2 = segmentIndex === newPoints.length - 1 && shape.props.isClosed 
-          ? newPoints[0] 
-          : newPoints[segmentIndex + 1]
+        let splitResult: any
         
-        // Calculate the t value for where the user clicked on the curve
-        const localPoint = { x: handle.x, y: handle.y }
-        const curveResult = getClosestPointOnSegment(p1, p2, localPoint)
-        
-        // Use bezier.js to split the segment at the precise t value for smooth insertion
-        const splitResult = splitSegmentAtT(p1, p2, curveResult.t)
+        // If we have hover preview data, use it directly for more accurate point addition
+        if (shape.props.hoverPoint && shape.props.hoverSegmentIndex === segmentIndex) {
+          // Get the segment points
+          const p1 = newPoints[segmentIndex]
+          const p2 = segmentIndex === newPoints.length - 1 && shape.props.isClosed 
+            ? newPoints[0] 
+            : newPoints[segmentIndex + 1]
+          
+          // Calculate t value based on the hover preview position
+          const curveResult = getClosestPointOnSegment(p1, p2, shape.props.hoverPoint)
+          splitResult = splitSegmentAtT(p1, p2, curveResult.t)
+          
+          // Use the preview point data (which has better handle calculations)
+          splitResult.splitPoint = {
+            x: shape.props.hoverPoint.x,
+            y: shape.props.hoverPoint.y,
+            cp1: shape.props.hoverPoint.cp1,
+            cp2: shape.props.hoverPoint.cp2
+          }
+        } else {
+          // Fallback to handle position calculation
+          const p1 = newPoints[segmentIndex]
+          const p2 = segmentIndex === newPoints.length - 1 && shape.props.isClosed 
+            ? newPoints[0] 
+            : newPoints[segmentIndex + 1]
+          
+          const localPoint = { x: handle.x, y: handle.y }
+          const curveResult = getClosestPointOnSegment(p1, p2, localPoint)
+          splitResult = splitSegmentAtT(p1, p2, curveResult.t)
+        }
         
         // Update the original points with new control points
         newPoints[segmentIndex] = splitResult.leftSegment.p1
@@ -441,8 +643,17 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
           newPoints.splice(insertIndex, 0, splitResult.splitPoint)
         }
         
-        // Recalculate bounds with new points
-        return this.recalculateBounds(shape, newPoints)
+        // Clear hover preview after adding point
+        const updatedShape = this.recalculateBounds(shape, newPoints)
+        // Clear hover preview on the updated shape
+        return {
+          ...updatedShape,
+          props: {
+            ...updatedShape.props,
+            hoverPoint: undefined,
+            hoverSegmentIndex: undefined
+          }
+        }
       }
     } else if (handle.id.startsWith('anchor-')) {
       const pointIndex = parseInt(handle.id.split('-')[1])
@@ -605,6 +816,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     }
   }
   
+
   private recalculateBounds(shape: BezierShape, points: BezierPoint[]): BezierShape {
     // Use bezier.js for accurate bounds calculation
     const bounds = getAccurateBounds(points, shape.props.isClosed)
