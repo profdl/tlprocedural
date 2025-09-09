@@ -353,6 +353,12 @@ export function TldrawCanvas() {
       }
     )
 
+    // Track click timing for double-click detection
+    let lastClickTime = 0
+    let lastClickPosition = { x: 0, y: 0 }
+    const DOUBLE_CLICK_THRESHOLD = 300 // ms
+    const DOUBLE_CLICK_DISTANCE = 5 // pixels
+
     // Handle clicks outside bezier shapes in edit mode to exit edit mode
     // Use a proper event listener approach instead of side effects
     const handlePointerDown = (e: PointerEvent) => {
@@ -384,9 +390,10 @@ export function TldrawCanvas() {
       const shapesAtPointer = editor.getShapesAtPoint(pagePoint)
       const clickingOnEditingShape = shapesAtPointer.some(shape => shape.id === editingBezierShape.id)
       
-      // Also check if clicking near control points or anchor points (for handles outside bounds)
+      // Check if clicking near control points or anchor points
       let clickingOnHandle = false
-      if (!clickingOnEditingShape && editingBezierShape.type === 'bezier') {
+      let clickingOnAnchorPoint = false
+      if (editingBezierShape.type === 'bezier') {
         const shapePageBounds = editor.getShapePageBounds(editingBezierShape.id)
         if (shapePageBounds) {
           // Convert to local coordinates
@@ -404,6 +411,7 @@ export function TldrawCanvas() {
             const anchorDist = Math.sqrt(Math.pow(localPoint.x - point.x, 2) + Math.pow(localPoint.y - point.y, 2))
             if (anchorDist < threshold) {
               clickingOnHandle = true
+              clickingOnAnchorPoint = true
               break
             }
             
@@ -430,8 +438,118 @@ export function TldrawCanvas() {
         shapeCount: shapesAtPointer.length,
         shapeIds: shapesAtPointer.map(s => s.id),
         clickingOnEditingShape,
-        clickingOnHandle
+        clickingOnHandle,
+        clickingOnAnchorPoint
       })
+      
+      // Check for double-click on anchor points in edit mode
+      const currentTime = Date.now()
+      const currentPosition = { x: e.clientX, y: e.clientY }
+      const isDoubleClick = 
+        currentTime - lastClickTime < DOUBLE_CLICK_THRESHOLD &&
+        Math.abs(currentPosition.x - lastClickPosition.x) < DOUBLE_CLICK_DISTANCE &&
+        Math.abs(currentPosition.y - lastClickPosition.y) < DOUBLE_CLICK_DISTANCE
+      
+      lastClickTime = currentTime
+      lastClickPosition = currentPosition
+      
+      if (isDoubleClick && clickingOnAnchorPoint && editingBezierShape.type === 'bezier') {
+        console.log('🔥 TldrawCanvas: Double-click detected on anchor point')
+        
+        // Check if clicking on an anchor point specifically
+        const shapePageBounds = editor.getShapePageBounds(editingBezierShape.id)
+        if (shapePageBounds) {
+          const localPoint = {
+            x: pagePoint.x - shapePageBounds.x,
+            y: pagePoint.y - shapePageBounds.y
+          }
+          
+          const threshold = 8 / editor.getZoomLevel()
+          const points = (editingBezierShape as any).props.points || []
+          
+          // Find which anchor point was clicked
+          for (let i = 0; i < points.length; i++) {
+            const point = points[i]
+            const distance = Math.sqrt(
+              Math.pow(localPoint.x - point.x, 2) + 
+              Math.pow(localPoint.y - point.y, 2)
+            )
+            
+            if (distance < threshold) {
+              console.log('🎯 TldrawCanvas: Toggling point type for point', i)
+              
+              // Toggle point type logic
+              const newPoints = [...points]
+              const targetPoint = newPoints[i]
+              const hasControlPoints = targetPoint.cp1 || targetPoint.cp2
+              
+              if (hasControlPoints) {
+                // Convert smooth to corner (remove control points)
+                newPoints[i] = {
+                  x: targetPoint.x,
+                  y: targetPoint.y,
+                }
+              } else {
+                // Convert corner to smooth (add control points)
+                const controlOffset = 20
+                let cp1: { x: number; y: number } | undefined
+                let cp2: { x: number; y: number } | undefined
+                
+                // Calculate control points based on neighbors
+                const prevIndex = i === 0 ? (editingBezierShape.props.isClosed ? points.length - 1 : -1) : i - 1
+                const nextIndex = i === points.length - 1 ? (editingBezierShape.props.isClosed ? 0 : -1) : i + 1
+                
+                if (prevIndex >= 0 && nextIndex >= 0) {
+                  const prevPoint = points[prevIndex]
+                  const nextPoint = points[nextIndex]
+                  const dirX = nextPoint.x - prevPoint.x
+                  const dirY = nextPoint.y - prevPoint.y
+                  const length = Math.sqrt(dirX * dirX + dirY * dirY)
+                  
+                  if (length > 0) {
+                    const normalizedDirX = (dirX / length) * controlOffset
+                    const normalizedDirY = (dirY / length) * controlOffset
+                    
+                    cp1 = {
+                      x: targetPoint.x - normalizedDirX * 0.3,
+                      y: targetPoint.y - normalizedDirY * 0.3,
+                    }
+                    cp2 = {
+                      x: targetPoint.x + normalizedDirX * 0.3,
+                      y: targetPoint.y + normalizedDirY * 0.3,
+                    }
+                  }
+                }
+                
+                if (!cp1 || !cp2) {
+                  cp1 = { x: targetPoint.x - controlOffset, y: targetPoint.y }
+                  cp2 = { x: targetPoint.x + controlOffset, y: targetPoint.y }
+                }
+                
+                newPoints[i] = {
+                  x: targetPoint.x,
+                  y: targetPoint.y,
+                  cp1,
+                  cp2,
+                }
+              }
+              
+              // Update the shape
+              editor.updateShape({
+                id: editingBezierShape.id,
+                type: 'bezier',
+                props: {
+                  ...editingBezierShape.props,
+                  points: newPoints,
+                },
+              })
+              
+              console.log('✅ TldrawCanvas: Point type toggled successfully')
+              return // Don't continue with exit edit mode logic
+            }
+          }
+        }
+      }
       
       if (!clickingOnEditingShape && !clickingOnHandle) {
         console.log('🚪 TldrawCanvas: Clicking outside editing bezier shape - exiting edit mode')

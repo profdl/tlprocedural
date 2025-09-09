@@ -117,10 +117,10 @@ export class BezierEditing extends StateNode {
       y: pagePoint.y - shapePageBounds.y
     }
 
-    // Check if double-clicking on an anchor point to remove it
+    // Check if double-clicking on an anchor point to toggle its type
     const anchorPointIndex = this.getAnchorPointAt(shape, localPoint)
-    if (anchorPointIndex !== -1 && shape.props.points.length > 2) {
-      this.removePoint(shape, anchorPointIndex)
+    if (anchorPointIndex !== -1) {
+      this.togglePointType(shape, anchorPointIndex)
     }
   }
 
@@ -250,6 +250,115 @@ export class BezierEditing extends StateNode {
 
     const newPoints = [...shape.props.points]
     newPoints.splice(pointIndex, 1)
+    
+    const updatedShape = this.recalculateBounds(shape, newPoints)
+    this.editor.updateShape(updatedShape)
+  }
+
+  private togglePointType(shape: BezierShape, pointIndex: number) {
+    const newPoints = [...shape.props.points]
+    const point = newPoints[pointIndex]
+    
+    // Check if the point currently has control points (smooth) or not (corner)
+    const hasControlPoints = point.cp1 || point.cp2
+    
+    if (hasControlPoints) {
+      // Convert smooth point to corner point (remove control points)
+      newPoints[pointIndex] = {
+        x: point.x,
+        y: point.y,
+      }
+    } else {
+      // Convert corner point to smooth point (add control points)
+      // Calculate default control point positions based on neighboring points
+      const controlOffset = 20 // Default control point distance
+      
+      let cp1: { x: number; y: number } | undefined
+      let cp2: { x: number; y: number } | undefined
+      
+      // Get neighboring points to determine control point directions
+      const prevIndex = pointIndex === 0 ? (shape.props.isClosed ? shape.props.points.length - 1 : -1) : pointIndex - 1
+      const nextIndex = pointIndex === shape.props.points.length - 1 ? (shape.props.isClosed ? 0 : -1) : pointIndex + 1
+      
+      if (prevIndex >= 0 && nextIndex >= 0) {
+        // Point has both neighbors - create symmetric control points
+        const prevPoint = shape.props.points[prevIndex]
+        const nextPoint = shape.props.points[nextIndex]
+        
+        // Calculate direction vector from previous to next point
+        const dirX = nextPoint.x - prevPoint.x
+        const dirY = nextPoint.y - prevPoint.y
+        const length = Math.sqrt(dirX * dirX + dirY * dirY)
+        
+        if (length > 0) {
+          // Normalize and scale the direction vector
+          const normalizedDirX = (dirX / length) * controlOffset
+          const normalizedDirY = (dirY / length) * controlOffset
+          
+          cp1 = {
+            x: point.x - normalizedDirX * 0.3,
+            y: point.y - normalizedDirY * 0.3,
+          }
+          cp2 = {
+            x: point.x + normalizedDirX * 0.3,
+            y: point.y + normalizedDirY * 0.3,
+          }
+        }
+      } else if (prevIndex >= 0) {
+        // Only has previous neighbor
+        const prevPoint = shape.props.points[prevIndex]
+        const dirX = point.x - prevPoint.x
+        const dirY = point.y - prevPoint.y
+        const length = Math.sqrt(dirX * dirX + dirY * dirY)
+        
+        if (length > 0) {
+          const normalizedDirX = (dirX / length) * controlOffset * 0.3
+          const normalizedDirY = (dirY / length) * controlOffset * 0.3
+          
+          cp1 = {
+            x: point.x - normalizedDirX,
+            y: point.y - normalizedDirY,
+          }
+          cp2 = {
+            x: point.x + normalizedDirX,
+            y: point.y + normalizedDirY,
+          }
+        }
+      } else if (nextIndex >= 0) {
+        // Only has next neighbor
+        const nextPoint = shape.props.points[nextIndex]
+        const dirX = nextPoint.x - point.x
+        const dirY = nextPoint.y - point.y
+        const length = Math.sqrt(dirX * dirX + dirY * dirY)
+        
+        if (length > 0) {
+          const normalizedDirX = (dirX / length) * controlOffset * 0.3
+          const normalizedDirY = (dirY / length) * controlOffset * 0.3
+          
+          cp1 = {
+            x: point.x - normalizedDirX,
+            y: point.y - normalizedDirY,
+          }
+          cp2 = {
+            x: point.x + normalizedDirX,
+            y: point.y + normalizedDirY,
+          }
+        }
+      }
+      
+      // If we couldn't calculate based on neighbors, use default horizontal control points
+      if (!cp1 || !cp2) {
+        cp1 = { x: point.x - controlOffset, y: point.y }
+        cp2 = { x: point.x + controlOffset, y: point.y }
+      }
+      
+      newPoints[pointIndex] = {
+        x: point.x,
+        y: point.y,
+        cp1,
+        cp2,
+      }
+    }
     
     const updatedShape = this.recalculateBounds(shape, newPoints)
     this.editor.updateShape(updatedShape)

@@ -199,7 +199,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
                     stroke="#0066ff"
                     strokeWidth={2}
                     style={{ cursor: 'pointer' }}
-                    title="Drag to move. Shift+click to delete"
+                    title="Drag to move. Double-click to toggle corner/smooth"
                   />
                 </g>
               ))}
@@ -221,7 +221,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
             pointerEvents: 'none',
             whiteSpace: 'nowrap'
           }}>
-            Click path segments to add points • Shift+click anchors to delete • Alt+drag handles for asymmetric
+            Click path segments to add points • Double-click anchors to toggle corner/smooth • Alt+drag handles for asymmetric
           </div>
         )}
       </HTMLContainer>
