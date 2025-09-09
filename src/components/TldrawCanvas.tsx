@@ -491,7 +491,7 @@ export function TldrawCanvas() {
                 }
               } else {
                 // Convert corner to smooth (add control points)
-                const controlOffset = 20
+                const controlOffset = 100
                 let cp1: { x: number; y: number } | undefined
                 let cp2: { x: number; y: number } | undefined
                 

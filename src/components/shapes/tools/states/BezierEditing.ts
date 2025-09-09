@@ -271,7 +271,7 @@ export class BezierEditing extends StateNode {
     } else {
       // Convert corner point to smooth point (add control points)
       // Calculate default control point positions based on neighboring points
-      const controlOffset = 20 // Default control point distance
+      const controlOffset = 100 // Default control point distance
       
       let cp1: { x: number; y: number } | undefined
       let cp2: { x: number; y: number } | undefined
