@@ -342,12 +342,29 @@ export class BezierCreating extends StateNode {
     console.log('updateShapeWithPointsAndClosed: input points.length =', points.length, 'isClosed =', isClosed)
     if (points.length === 0) return
     
-    // Calculate bounds
-    const allPoints = points.flatMap(p => [
-      { x: p.x, y: p.y },
-      ...(p.cp1 ? [p.cp1] : []),
-      ...(p.cp2 ? [p.cp2] : [])
-    ])
+    // Calculate bounds, but handle preview points specially to prevent jumping
+    let allPoints: { x: number; y: number }[]
+    
+    if (this.points.length === 1 && points.length === 2) {
+      // This is a preview with first point + preview point
+      // Only use the first point for bounds to prevent jumping
+      const firstPoint = this.points[0]
+      allPoints = [
+        { x: firstPoint.x, y: firstPoint.y },
+        ...(firstPoint.cp1 ? [firstPoint.cp1] : []),
+        ...(firstPoint.cp2 ? [firstPoint.cp2] : [])
+      ]
+    } else if (this.points.length === 1 && this.isDragging) {
+      // During first point drag, only use the anchor point for bounds calculation
+      allPoints = [{ x: points[0].x, y: points[0].y }]
+    } else {
+      // Normal bounds calculation including all points and control points
+      allPoints = points.flatMap(p => [
+        { x: p.x, y: p.y },
+        ...(p.cp1 ? [p.cp1] : []),
+        ...(p.cp2 ? [p.cp2] : [])
+      ])
+    }
     
     const xs = allPoints.map(p => p.x)
     const ys = allPoints.map(p => p.y)
