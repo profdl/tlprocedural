@@ -94,7 +94,7 @@ export function useCloneManager({
         cleanupGroupClones(editor, shape)
       }
     }
-  }, [editor, shapeKey, processedShapesCount, processedShapes, shape])
+  }, [editor, shapeKey, processedShapesCount])
 
   // Update existing clones when original shape changes (second effect for live updates)
   useEffect(() => {
@@ -109,7 +109,7 @@ export function useCloneManager({
     if (existingClones.length > 0) {
       updateExistingClones(editor, shape, modifiers, existingClones)
     }
-  }, [editor, shapeKey, modifiersKey, modifiers, processedShapesCount, shape])
+  }, [editor, shapeKey, modifiersKey])
 
   // TODO: Implement transform synchronization from clone back to original
   // This would allow users to transform clones and have changes reflect in the original

@@ -62,7 +62,7 @@ export function useStackedModifier({ shape, modifiers }: UseStackedModifierProps
     
     console.log(`useStackedModifier: Created ${shapePartials.length} TLShapePartials`)
     return shapePartials
-  }, [shapeKey, modifiersKey, editor, modifiers, shape])
+  }, [shapeKey, modifiersKey, editor])
   
   // Process all modifiers using the stable callback
   const processedShapes = useMemo(() => {
