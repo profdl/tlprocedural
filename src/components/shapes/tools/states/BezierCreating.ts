@@ -358,9 +358,29 @@ export class BezierCreating extends StateNode {
   }
 
   private updateShape() {
-    // Force edit mode when creating/dragging the first point
-    const forceEditMode = this.points.length === 1 && !this.initialDragOccurred
-    this.updateShapeWithPointsAndClosed(this.points, false, forceEditMode)
+    // Force edit mode when creating/dragging the first point or during any drag operation
+    const forceEditMode = (this.points.length === 1 && !this.initialDragOccurred) || this.isDragging
+    
+    // During drag operations, show preview of the curve being formed
+    if (this.isDragging && this.points.length > 0 && this.currentPoint) {
+      // Create preview points that include the current drag position
+      const previewPoints = [...this.points]
+      
+      // Only add preview segment for subsequent points (not the first point)
+      // For first point drag, we just show the single point with its handles (no preview line)
+      if (this.points.length > 1) {
+        // Add a preview point at the current mouse position
+        previewPoints.push({
+          x: this.currentPoint.x,
+          y: this.currentPoint.y,
+        })
+      }
+      
+      this.updateShapeWithPointsAndClosed(previewPoints, false, forceEditMode)
+    } else {
+      // Normal update without preview
+      this.updateShapeWithPointsAndClosed(this.points, false, forceEditMode)
+    }
   }
 
   private updateShapeWithPoints(points: BezierPoint[]) {

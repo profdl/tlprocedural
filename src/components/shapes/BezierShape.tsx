@@ -69,12 +69,8 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     const flipTransform = this.getFlipTransform(shape)
     
     
-    if (points.length < 2) {
-      return <HTMLContainer><svg width={shape.props.w} height={shape.props.h}></svg></HTMLContainer>
-    }
-
-    // Convert points to SVG path
-    const pathData = this.pointsToPath(points, isClosed)
+    // Convert points to SVG path (only if we have 2+ points)
+    const pathData = points.length >= 2 ? this.pointsToPath(points, isClosed) : ''
 
     return (
       <HTMLContainer style={{ cursor: editMode ? 'crosshair' : 'default' }}>
@@ -86,17 +82,20 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
             ...flipTransform
           }}
         >
-          <path
-            d={pathData}
-            fill={isClosed && fill ? color : 'none'}
-            stroke={color}
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeDasharray={editMode ? '5 3' : undefined}
-            opacity={editMode ? 0.7 : 1}
-            style={{ cursor: editMode ? 'crosshair' : 'default' }}
-          />
+          {/* Only render path if we have 2+ points */}
+          {pathData && (
+            <path
+              d={pathData}
+              fill={isClosed && fill ? color : 'none'}
+              stroke={color}
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeDasharray={editMode ? '5 3' : undefined}
+              opacity={editMode ? 0.7 : 1}
+              style={{ cursor: editMode ? 'crosshair' : 'default' }}
+            />
+          )}
           
           {/* Show control points and connection lines when in edit mode only */}
           {editMode && (
