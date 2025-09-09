@@ -5,8 +5,8 @@ export class BezierIdle extends StateNode {
   static override id = 'idle'
 
   override onEnter() {
-    // Temporarily disabled - debug state registration issue
-    // TODO: Re-enable once BezierEditing state is properly registered
+    // Set crosshair cursor when entering pen tool
+    this.editor.setCursor({ type: 'cross' })
   }
 
   override onPointerDown(info: TLPointerEventInfo) {
