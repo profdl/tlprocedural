@@ -5,7 +5,7 @@ import {
   type TLKeyboardEventInfo,
 } from '@tldraw/editor'
 import { type BezierShape, type BezierPoint } from '../../BezierShape'
-import { getClosestPointOnSegment, splitSegmentAtT, getAllSegments, getAccurateBounds } from '../../utils/bezierUtils'
+import { getClosestPointOnSegment, splitSegmentAtT, getAccurateBounds } from '../../utils/bezierUtils'
 
 export class BezierEditing extends StateNode {
   static override id = 'editing'
@@ -56,7 +56,7 @@ export class BezierEditing extends StateNode {
     // Check if clicking on a path segment to add a point
     const segmentInfo = this.getSegmentAtPosition(shape, localPoint)
     if (segmentInfo) {
-      this.addPointToSegment(shape, segmentInfo, localPoint)
+      this.addPointToSegment(shape, segmentInfo)
     }
   }
 
@@ -142,34 +142,8 @@ export class BezierEditing extends StateNode {
     return null
   }
 
-  private distanceToLineSegment(
-    point: { x: number; y: number }, 
-    lineStart: { x: number; y: number }, 
-    lineEnd: { x: number; y: number }
-  ): number {
-    const A = point.x - lineStart.x
-    const B = point.y - lineStart.y
-    const C = lineEnd.x - lineStart.x
-    const D = lineEnd.y - lineStart.y
 
-    const dot = A * C + B * D
-    const lenSq = C * C + D * D
-    
-    if (lenSq === 0) {
-      return Math.sqrt(A * A + B * B)
-    }
-
-    let t = Math.max(0, Math.min(1, dot / lenSq))
-    const projectionX = lineStart.x + t * C
-    const projectionY = lineStart.y + t * D
-    
-    return Math.sqrt(
-      Math.pow(point.x - projectionX, 2) + 
-      Math.pow(point.y - projectionY, 2)
-    )
-  }
-
-  private addPointToSegment(shape: BezierShape, segmentInfo: { segmentIndex: number; t: number }, localPoint: { x: number; y: number }) {
+  private addPointToSegment(shape: BezierShape, segmentInfo: { segmentIndex: number; t: number }) {
     const { segmentIndex, t } = segmentInfo
     const newPoints = [...shape.props.points]
     const p1 = newPoints[segmentIndex]

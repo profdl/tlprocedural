@@ -1,6 +1,6 @@
 import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, useEditor, type Editor, type TLResizeInfo, type TLRotationSnapshot } from 'tldraw'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
-import { getAccurateBounds } from './utils/bezierUtils'
+import { getAccurateBounds, getClosestPointOnSegment, splitSegmentAtT } from './utils/bezierUtils'
 
 export interface BezierPoint {
   x: number
@@ -389,6 +389,8 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
 
   // Track initial handle positions and deletion state for movement threshold detection
   private handleDragStart = new Map<string, { x: number; y: number; deleted: boolean }>()
+  // Track which segment handles have already added a point during the current drag operation
+  private segmentPointsAdded = new Set<string>()
   
   // Handle updates when handles are moved
   override onHandleDrag = (shape: BezierShape, { handle }: { handle: TLHandle }) => {
@@ -404,16 +406,44 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     
     // Parse handle ID to determine what we're updating
     if (handle.id.startsWith('segment-')) {
-      // Clicking on a segment handle adds a new point
+      const handleKey = `${shape.id}-${handle.id}`
+      
+      // Only add point once per drag operation
+      if (this.segmentPointsAdded.has(handleKey)) {
+        return shape // Already added point for this segment
+      }
+      
       const segmentIndex = parseInt(handle.id.split('-')[1])
       if (segmentIndex >= 0) {
-        const newPoint: BezierPoint = {
-          x: handle.x,
-          y: handle.y,
-        }
+        // Mark this segment as having a point added
+        this.segmentPointsAdded.add(handleKey)
         
-        // Insert the new point after the segment start
-        newPoints.splice(segmentIndex + 1, 0, newPoint)
+        // Get the segment points
+        const p1 = newPoints[segmentIndex]
+        const p2 = segmentIndex === newPoints.length - 1 && shape.props.isClosed 
+          ? newPoints[0] 
+          : newPoints[segmentIndex + 1]
+        
+        // Calculate the t value for where the user clicked on the curve
+        const localPoint = { x: handle.x, y: handle.y }
+        const curveResult = getClosestPointOnSegment(p1, p2, localPoint)
+        
+        // Use bezier.js to split the segment at the precise t value for smooth insertion
+        const splitResult = splitSegmentAtT(p1, p2, curveResult.t)
+        
+        // Update the original points with new control points
+        newPoints[segmentIndex] = splitResult.leftSegment.p1
+        
+        // Insert the new point with calculated control points
+        const insertIndex = segmentIndex + 1
+        if (segmentIndex === newPoints.length - 1 && shape.props.isClosed) {
+          // Inserting in closing segment - update first point instead
+          newPoints[0] = splitResult.rightSegment.p2
+          newPoints.push(splitResult.splitPoint)
+        } else {
+          newPoints[insertIndex] = splitResult.rightSegment.p2
+          newPoints.splice(insertIndex, 0, splitResult.splitPoint)
+        }
         
         // Recalculate bounds with new points
         return this.recalculateBounds(shape, newPoints)
@@ -497,6 +527,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     
     // Clean up completed drag operations
     this.handleDragStart.delete(handleKey)
+    this.segmentPointsAdded.delete(handleKey)
     
     // Only recalculate bounds when necessary (not on every handle drag)
     // This prevents the exponential movement issue
@@ -729,6 +760,6 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   override canBind = () => true as const
   
   // Override hideSelectionBoundsFg to hide selection bounds in edit mode
-  override hideSelectionBoundsFg = (shape: BezierShape) => shape.props.editMode
-  override hideSelectionBoundsBg = (shape: BezierShape) => shape.props.editMode
+  override hideSelectionBoundsFg = (shape: BezierShape) => !!shape.props.editMode
+  override hideSelectionBoundsBg = (shape: BezierShape) => !!shape.props.editMode
 }
