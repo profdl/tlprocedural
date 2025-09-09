@@ -21,6 +21,10 @@ export class BezierCreating extends StateNode {
   isHoveringStart = false
   isSnappedToStart = false
   originalPreviewPoint?: Vec
+  isCreatingFirstPoint = false
+  isClosingDrag = false
+  closingDragStart?: Vec
+  initialDragOccurred = false
   readonly CORNER_POINT_THRESHOLD = 3 // pixels
   readonly SNAP_THRESHOLD = 12 // pixels for entering snap zone
   readonly RELEASE_THRESHOLD = 15 // pixels for exiting snap zone
@@ -33,19 +37,20 @@ export class BezierCreating extends StateNode {
     this.isHoveringStart = false
     this.isSnappedToStart = false
     this.originalPreviewPoint = undefined
+    this.isCreatingFirstPoint = false
+    this.isClosingDrag = false
+    this.closingDragStart = undefined
+    this.initialDragOccurred = false
     
     // Set initial cursor
     this.editor.setCursor({ type: 'cross' })
     
-    // Add the first point at the click location
+    // Defer first point creation - wait for user click/drag
+    this.isCreatingFirstPoint = true
     const point = this.editor.inputs.currentPagePoint.clone()
-    this.addPoint({ x: point.x, y: point.y })
     this.startPoint = point.clone()
     this.currentPoint = point.clone()
     this.dragDistance = 0
-    
-    // Create initial shape with just one point
-    this.updateShape()
   }
 
   override onPointerMove() {
@@ -103,44 +108,21 @@ export class BezierCreating extends StateNode {
       this.editor.setCursor({ type: cursorType as any })
     }
     
-    if (this.isDragging && this.points.length > 0) {
+    if (this.isDragging) {
       // Calculate drag distance for corner point detection
       if (this.startPoint) {
         this.dragDistance = Vec.Dist(currentPoint, this.startPoint) * this.editor.getZoomLevel()
       }
       
-      // Update control points of the current point being created
-      const lastPoint = this.points[this.points.length - 1]
-      const startPoint = this.startPoint!
-      
-      // Only create handles if drag distance exceeds threshold
-      if (this.dragDistance > this.CORNER_POINT_THRESHOLD) {
-        // Calculate control points for curve
-        let offset = Vec.Sub(currentPoint, startPoint)
-        const isAltPressed = this.editor.inputs.altKey
-        const isShiftPressed = this.editor.inputs.shiftKey
-        
-        // Apply angle constraint if Shift is pressed
-        if (isShiftPressed) {
-          offset = this.constrainAngle(offset)
-        }
-        
-        if (isAltPressed) {
-          // Alt key: create asymmetric handles - only outgoing handle
-          const controlPoint2 = Vec.Add(startPoint, offset)
-          lastPoint.cp1 = undefined // No incoming handle
-          lastPoint.cp2 = { x: controlPoint2.x, y: controlPoint2.y }
-        } else {
-          // Default: symmetric handles
-          const controlPoint1 = Vec.Add(startPoint, Vec.Neg(offset))
-          const controlPoint2 = Vec.Add(startPoint, offset)
-          lastPoint.cp1 = { x: controlPoint1.x, y: controlPoint1.y }
-          lastPoint.cp2 = { x: controlPoint2.x, y: controlPoint2.y }
-        }
-      } else {
-        // Small drag distance: create corner point (no handles)
-        lastPoint.cp1 = undefined
-        lastPoint.cp2 = undefined
+      if (this.isClosingDrag) {
+        // Handle closing drag - update control points for smooth closure
+        this.handleClosingDrag(currentPoint)
+      } else if (this.points.length === 1 && !this.initialDragOccurred) {
+        // Handle first point dragging - special case to ensure edit mode is active
+        this.handleFirstPointDrag(currentPoint)
+      } else if (this.points.length > 0) {
+        // Handle normal point dragging
+        this.handleNormalPointDrag(currentPoint)
       }
       
       this.updateShape()
@@ -155,20 +137,43 @@ export class BezierCreating extends StateNode {
 
   override onPointerUp() {
     if (this.isDragging) {
+      if (this.isClosingDrag) {
+        // Finalize the closing drag and close the curve
+        this.finalizeClosingDrag()
+      }
+      
       this.isDragging = false
+      this.isClosingDrag = false
       this.startPoint = undefined
+      this.closingDragStart = undefined
     }
   }
 
   override onPointerDown(info: TLPointerEventInfo) {
     if (info.target === 'canvas') {
-      // Check if we're currently snapped to start - if so, close the curve
-      if (this.isSnappedToStart && this.points.length > 2) {
-        this.closeCurve()
+      const currentPoint = this.editor.inputs.currentPagePoint.clone()
+      
+      // Handle first point creation
+      if (this.isCreatingFirstPoint) {
+        // Create the first point and start dragging it immediately
+        this.addPoint({ x: currentPoint.x, y: currentPoint.y })
+        this.isCreatingFirstPoint = false
+        this.isDragging = true
+        this.startPoint = currentPoint.clone()
+        this.dragDistance = 0
+        this.initialDragOccurred = false // Mark that this is the initial first point drag
         return
       }
       
-      const currentPoint = this.editor.inputs.currentPagePoint.clone()
+      // Check if we're currently snapped to start - if so, enter closing drag mode
+      if (this.isSnappedToStart && this.points.length > 2) {
+        this.isClosingDrag = true
+        this.isDragging = true
+        this.closingDragStart = currentPoint.clone()
+        this.startPoint = currentPoint.clone()
+        this.dragDistance = 0
+        return
+      }
       
       // Check if clicking near the first point to close the curve (fallback for edge cases)
       if (this.points.length > 2 && !this.isSnappedToStart) {
@@ -176,13 +181,13 @@ export class BezierCreating extends StateNode {
         const distToFirst = Vec.Dist(currentPoint, { x: firstPoint.x, y: firstPoint.y })
         
         if (distToFirst < 10 / this.editor.getZoomLevel()) {
-          // Close the curve
+          // Close the curve immediately (no drag)
           this.closeCurve()
           return
         }
       }
       
-      // Add new point
+      // Add new point (normal case)
       this.addPoint({ x: currentPoint.x, y: currentPoint.y })
       this.isDragging = true
       this.startPoint = currentPoint.clone()
@@ -211,6 +216,126 @@ export class BezierCreating extends StateNode {
     }
   }
 
+  private handleFirstPointDrag(currentPoint: Vec) {
+    const firstPoint = this.points[0]
+    const startPoint = this.startPoint!
+    
+    // Only create handles if drag distance exceeds threshold
+    if (this.dragDistance > this.CORNER_POINT_THRESHOLD) {
+      // Calculate control points for curve
+      let offset = Vec.Sub(currentPoint, startPoint)
+      const isAltPressed = this.editor.inputs.altKey
+      const isShiftPressed = this.editor.inputs.shiftKey
+      
+      // Apply angle constraint if Shift is pressed
+      if (isShiftPressed) {
+        offset = this.constrainAngle(offset)
+      }
+      
+      if (isAltPressed) {
+        // Alt key: create asymmetric handles - only outgoing handle for first point
+        const controlPoint2 = Vec.Add(startPoint, offset)
+        firstPoint.cp1 = undefined // No incoming handle for first point
+        firstPoint.cp2 = { x: controlPoint2.x, y: controlPoint2.y }
+      } else {
+        // Default: symmetric handles
+        const controlPoint1 = Vec.Add(startPoint, Vec.Neg(offset))
+        const controlPoint2 = Vec.Add(startPoint, offset)
+        firstPoint.cp1 = { x: controlPoint1.x, y: controlPoint1.y }
+        firstPoint.cp2 = { x: controlPoint2.x, y: controlPoint2.y }
+      }
+      
+      this.initialDragOccurred = true
+    } else {
+      // Small drag distance: create corner point (no handles)
+      firstPoint.cp1 = undefined
+      firstPoint.cp2 = undefined
+    }
+  }
+
+  private handleNormalPointDrag(currentPoint: Vec) {
+    const lastPoint = this.points[this.points.length - 1]
+    const startPoint = this.startPoint!
+    
+    // Only create handles if drag distance exceeds threshold
+    if (this.dragDistance > this.CORNER_POINT_THRESHOLD) {
+      // Calculate control points for curve
+      let offset = Vec.Sub(currentPoint, startPoint)
+      const isAltPressed = this.editor.inputs.altKey
+      const isShiftPressed = this.editor.inputs.shiftKey
+      
+      // Apply angle constraint if Shift is pressed
+      if (isShiftPressed) {
+        offset = this.constrainAngle(offset)
+      }
+      
+      if (isAltPressed) {
+        // Alt key: create asymmetric handles - only outgoing handle
+        const controlPoint2 = Vec.Add(startPoint, offset)
+        lastPoint.cp1 = undefined // No incoming handle
+        lastPoint.cp2 = { x: controlPoint2.x, y: controlPoint2.y }
+      } else {
+        // Default: symmetric handles
+        const controlPoint1 = Vec.Add(startPoint, Vec.Neg(offset))
+        const controlPoint2 = Vec.Add(startPoint, offset)
+        lastPoint.cp1 = { x: controlPoint1.x, y: controlPoint1.y }
+        lastPoint.cp2 = { x: controlPoint2.x, y: controlPoint2.y }
+      }
+      
+      // Mark that initial drag occurred for first point
+      if (this.points.length === 1) {
+        this.initialDragOccurred = true
+      }
+    } else {
+      // Small drag distance: create corner point (no handles)
+      lastPoint.cp1 = undefined
+      lastPoint.cp2 = undefined
+    }
+  }
+
+  private handleClosingDrag(currentPoint: Vec) {
+    if (this.points.length < 3 || !this.closingDragStart) return
+    
+    const firstPoint = this.points[0]
+    const lastPoint = this.points[this.points.length - 1]
+    const startPoint = this.closingDragStart
+    
+    // Only create handles if drag distance exceeds threshold
+    if (this.dragDistance > this.CORNER_POINT_THRESHOLD) {
+      let offset = Vec.Sub(currentPoint, startPoint)
+      const isAltPressed = this.editor.inputs.altKey
+      const isShiftPressed = this.editor.inputs.shiftKey
+      
+      // Apply angle constraint if Shift is pressed
+      if (isShiftPressed) {
+        offset = this.constrainAngle(offset)
+      }
+      
+      // Set outgoing handle for last point (pointing towards first point)
+      const lastPointOutgoing = Vec.Add(firstPoint, offset)
+      lastPoint.cp2 = { x: lastPointOutgoing.x, y: lastPointOutgoing.y }
+      
+      if (isAltPressed) {
+        // Alt key: asymmetric closure - no incoming handle for first point
+        firstPoint.cp1 = undefined
+      } else {
+        // Default: symmetric closure - create incoming handle for first point
+        const firstPointIncoming = Vec.Add(firstPoint, Vec.Neg(offset))
+        firstPoint.cp1 = { x: firstPointIncoming.x, y: firstPointIncoming.y }
+      }
+    } else {
+      // Small drag distance: create corner closure (no handles)
+      lastPoint.cp2 = undefined
+      firstPoint.cp1 = undefined
+    }
+  }
+
+  private finalizeClosingDrag() {
+    // The control points have already been set during handleClosingDrag
+    // Now we just need to close the curve properly
+    this.closeCurveWithExistingPoints()
+  }
+
   private constrainAngle(offset: Vec): Vec {
     // Constrain to 45-degree increments (0°, 45°, 90°, 135°, 180°, 225°, 270°, 315°)
     const angle = Math.atan2(offset.y, offset.x)
@@ -233,14 +358,16 @@ export class BezierCreating extends StateNode {
   }
 
   private updateShape() {
-    this.updateShapeWithPoints(this.points)
+    // Force edit mode when creating/dragging the first point
+    const forceEditMode = this.points.length === 1 && !this.initialDragOccurred
+    this.updateShapeWithPointsAndClosed(this.points, false, forceEditMode)
   }
 
   private updateShapeWithPoints(points: BezierPoint[]) {
     this.updateShapeWithPointsAndClosed(points, false)
   }
 
-  private updateShapeWithPointsAndClosed(points: BezierPoint[], isClosed: boolean) {
+  private updateShapeWithPointsAndClosed(points: BezierPoint[], isClosed: boolean, forceEditMode?: boolean) {
     console.log('updateShapeWithPointsAndClosed: input points.length =', points.length, 'isClosed =', isClosed)
     if (points.length === 0) return
     
@@ -285,7 +412,7 @@ export class BezierCreating extends StateNode {
         strokeWidth: 2,
         fill: false,
         isClosed: isClosed,
-        editMode: !isClosed, // Show handles during creation, hide when closed
+        editMode: forceEditMode !== undefined ? forceEditMode : !isClosed, // Show handles during creation, hide when closed
       },
     }
 
@@ -295,6 +422,7 @@ export class BezierCreating extends StateNode {
       this.editor.createShape(partial)
     }
   }
+
 
   private showPreview() {
     if (this.points.length === 0 || !this.currentPoint) return
@@ -310,6 +438,22 @@ export class BezierCreating extends StateNode {
     
     // Update the shape with the preview
     this.updateShapeWithPoints(previewPoints)
+  }
+
+  private closeCurveWithExistingPoints() {
+    if (this.points.length < 3) return
+    
+    // Use existing points array directly (control points already set during drag)
+    this.updateShapeWithPointsAndClosed(this.points, true)
+    
+    this.editor.setCurrentTool('select')
+    this.editor.setSelectedShapes([this.shapeId])
+    
+    // Force transform controls to update properly for the closed shape
+    setTimeout(() => {
+      this.editor.setSelectedShapes([])
+      this.editor.setSelectedShapes([this.shapeId])
+    }, 50)
   }
 
   private closeCurve() {
