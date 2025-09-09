@@ -199,9 +199,9 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
                     cx={point.x}
                     cy={point.y}
                     r={selectedPointIndices.includes(i) ? 8 : 5}
-                    fill={selectedPointIndices.includes(i) ? "#ff6600" : "white"}
-                    stroke={selectedPointIndices.includes(i) ? "white" : "#0066ff"}
-                    strokeWidth={selectedPointIndices.includes(i) ? 4 : 2}
+                    fill={selectedPointIndices.includes(i) ? "#0066ff" : "white"}
+                    stroke={selectedPointIndices.includes(i) ? "#0066ff" : "#0066ff"}
+                    strokeWidth={selectedPointIndices.includes(i) ? 1 : 2}
                     style={{ cursor: 'pointer' }}
                   />
                 </g>
@@ -306,7 +306,8 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     const handles: TLHandle[] = []
     
     shape.props.points.forEach((point, i) => {
-      // Anchor point handle
+      // Anchor point handle - needed for dragging functionality
+      // The visual styling is handled by our custom SVG, but TLDraw needs the handle for interaction
       handles.push({
         id: `anchor-${i}`,
         type: 'vertex',
