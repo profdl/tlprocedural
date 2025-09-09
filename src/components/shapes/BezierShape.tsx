@@ -174,7 +174,6 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
                       fill="#0066ff"
                       stroke="white"
                       strokeWidth={1.5}
-                      title="Drag to adjust curve. Alt+drag for asymmetric handles"
                     />
                   )}
                   {point.cp2 && (
@@ -185,7 +184,6 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
                       fill="#0066ff"
                       stroke="white"
                       strokeWidth={1.5}
-                      title="Drag to adjust curve. Alt+drag for asymmetric handles"
                     />
                   )}
                   
@@ -198,7 +196,6 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
                     stroke="#0066ff"
                     strokeWidth={2}
                     style={{ cursor: 'pointer' }}
-                    title="Drag to move. Double-click to toggle corner/smooth"
                   />
                 </g>
               ))}
@@ -206,23 +203,6 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
           )}
         </svg>
         
-        {/* Helper text when in edit mode */}
-        {editMode && (
-          <div style={{
-            position: 'absolute',
-            bottom: -30,
-            left: 0,
-            fontSize: '11px',
-            color: '#666',
-            background: 'rgba(255,255,255,0.9)',
-            padding: '2px 6px',
-            borderRadius: '3px',
-            pointerEvents: 'none',
-            whiteSpace: 'nowrap'
-          }}>
-            Click path segments to add points • Double-click anchors to toggle corner/smooth • Alt+drag handles for asymmetric
-          </div>
-        )}
       </HTMLContainer>
     )
   }
