@@ -346,7 +346,6 @@ export class BezierCreating extends StateNode {
   }
 
   private updateShapeWithPointsAndClosed(points: BezierPoint[], isClosed: boolean, forceEditMode?: boolean) {
-    console.log('updateShapeWithPointsAndClosed: input points.length =', points.length, 'isClosed =', isClosed)
     if (points.length === 0) return
     
     // Use stable origin positioning to prevent shifting during creation
@@ -384,8 +383,6 @@ export class BezierCreating extends StateNode {
         cp2: p.cp2 ? { x: p.cp2.x - actualMinX, y: p.cp2.y - actualMinY } : undefined,
       }))
       
-      console.log('Single point bounds: x =', actualMinX, 'y =', actualMinY, 'w =', w, 'h =', h)
-      console.log('Normalized first point:', `(${normalizedPoints[0].x.toFixed(1)}, ${normalizedPoints[0].y.toFixed(1)})`)
       
       const partial: TLShapePartial<BezierShape> = {
         id: this.shapeId,

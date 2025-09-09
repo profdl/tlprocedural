@@ -32,15 +32,7 @@ export class BezierEditing extends StateNode {
   }
 
   override onPointerDown(info: TLPointerEventInfo) {
-    console.log('🔷 BezierEditing.onPointerDown:', {
-      target: info.target,
-      targetShapeId: this.targetShapeId,
-      shape: info.target === 'shape' ? info.shape?.id : null,
-      currentTool: this.editor.getCurrentToolId()
-    })
-    
     if (!this.targetShape || !this.targetShapeId) {
-      console.log('❌ BezierEditing: No target shape, returning')
       return
     }
 
@@ -57,27 +49,29 @@ export class BezierEditing extends StateNode {
       y: pagePoint.y - shapePageBounds.y
     }
 
-    // Check if clicking on an existing anchor point (do nothing - let handle system manage it)
+    // Check if clicking on an existing anchor point - handle selection directly
     const anchorPointIndex = this.getAnchorPointAt(shape, localPoint)
     if (anchorPointIndex !== -1) {
-      console.log('🎯 BezierEditing: Clicked on anchor point', anchorPointIndex)
-      return // Let TLDraw's handle system manage existing points
+      console.log('🔵 SELECTION: BezierEditing detected anchor point click:', anchorPointIndex, 'shiftKey:', this.editor.inputs.shiftKey)
+      this.handlePointSelection(shape, anchorPointIndex, this.editor.inputs.shiftKey)
+      return // Selection handled, don't continue with other logic
     }
 
     // Check if clicking on a control point (do nothing - let handle system manage it)
     const controlPointInfo = this.getControlPointAt(shape, localPoint)
     if (controlPointInfo) {
-      console.log('🎮 BezierEditing: Clicked on control point', controlPointInfo)
       return // Let TLDraw's handle system manage control points
     }
 
     // Check if clicking on a path segment to add a point
     const segmentInfo = this.getSegmentAtPosition(shape, localPoint)
     if (segmentInfo) {
-      console.log('➕ BezierEditing: Clicked on path segment - adding point', segmentInfo)
       this.addPointToSegment(shape, segmentInfo)
       return
     }
+
+    // If clicking elsewhere, clear point selection
+    this.clearPointSelection(shape)
 
     // If clicking on canvas (not on shape), delay exit to check if it's a handle drag
     if (info.target === 'canvas') {
@@ -87,16 +81,12 @@ export class BezierEditing extends StateNode {
         // Check if a handle drag is in progress by seeing if the editor is in a drag state
         const isDragging = this.editor.inputs.isDragging
         if (!isDragging) {
-          console.log('🚪 BezierEditing: Confirmed canvas click - exiting edit mode')
           this.exitEditMode()
-        } else {
-          console.log('🎮 BezierEditing: Handle drag in progress - staying in edit mode')
         }
       }, 10) // Very short delay
       return
     } else {
-      // Clicked on shape but not on any interactive element - also exit edit mode
-      console.log('🚪 BezierEditing: Clicked off path - exiting edit mode')
+      // Clicked on shape but not on any interactive element - exit edit mode
       this.exitEditMode()
     }
   }
@@ -395,20 +385,67 @@ export class BezierEditing extends StateNode {
     return updatedShape
   }
 
+  private clearPointSelection(shape: BezierShape) {
+    if (shape.props.selectedPointIndices && shape.props.selectedPointIndices.length > 0) {
+      this.editor.updateShape({
+        id: shape.id,
+        type: 'bezier',
+        props: {
+          ...shape.props,
+          selectedPointIndices: []
+        }
+      })
+    }
+  }
+
+  private handlePointSelection(shape: BezierShape, pointIndex: number, shiftKey: boolean) {
+    const currentSelected = shape.props.selectedPointIndices || []
+    let newSelected: number[]
+
+    if (shiftKey) {
+      // Shift-click: toggle selection
+      if (currentSelected.includes(pointIndex)) {
+        // Remove from selection
+        newSelected = currentSelected.filter(i => i !== pointIndex)
+        console.log('🔵 SELECTION: Removed point', pointIndex, 'from selection. New selection:', newSelected)
+      } else {
+        // Add to selection
+        newSelected = [...currentSelected, pointIndex]
+        console.log('🔵 SELECTION: Added point', pointIndex, 'to selection. New selection:', newSelected)
+      }
+    } else {
+      // Regular click: select only this point
+      newSelected = [pointIndex]
+      console.log('🔵 SELECTION: Single-selected point', pointIndex)
+    }
+
+    // Update the shape with new selection
+    const updatedShape = {
+      id: shape.id,
+      type: 'bezier' as const,
+      props: {
+        ...shape.props,
+        selectedPointIndices: newSelected
+      }
+    }
+    console.log('🔵 SELECTION: Updating shape with selectedPointIndices:', newSelected)
+    this.editor.updateShape(updatedShape)
+    
+    // Log the updated shape to verify the change took effect
+    setTimeout(() => {
+      const verifyShape = this.editor.getShape(shape.id) as BezierShape
+      console.log('🔵 SELECTION: Verified shape selectedPointIndices:', verifyShape?.props?.selectedPointIndices)
+    }, 10)
+  }
+
   private exitEditMode() {
-    console.log('🚪 BezierEditing.exitEditMode called for shape:', this.targetShapeId)
     if (!this.targetShapeId) {
-      console.log('❌ BezierEditing.exitEditMode: No target shape ID')
       return
     }
 
     // Exit edit mode
     const shape = this.editor.getShape(this.targetShapeId as any) as BezierShape
     if (shape) {
-      console.log('✅ BezierEditing.exitEditMode: Shape found, updating editMode to false', {
-        currentEditMode: shape.props.editMode,
-        shapeId: shape.id
-      })
       this.editor.updateShape({
         id: this.targetShapeId as any,
         type: 'bezier',
@@ -417,16 +454,12 @@ export class BezierEditing extends StateNode {
           editMode: false,
         },
       })
-      console.log('✅ BezierEditing.exitEditMode: Shape updated successfully')
       
       // Select the shape to show transform controls after exiting edit mode
       this.editor.setSelectedShapes([this.targetShapeId as any])
-    } else {
-      console.log('❌ BezierEditing.exitEditMode: Shape not found')
     }
 
     // Return to select tool
-    console.log('🔧 BezierEditing.exitEditMode: Switching to select tool')
     this.editor.setCurrentTool('select')
   }
 

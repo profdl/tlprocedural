@@ -20,6 +20,7 @@ export type BezierShape = TLBaseShape<
     points: BezierPoint[]
     isClosed: boolean
     editMode?: boolean
+    selectedPointIndices?: number[]
   }
 >
 
@@ -47,6 +48,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     })),
     isClosed: T.boolean,
     editMode: T.optional(T.boolean),
+    selectedPointIndices: T.optional(T.arrayOf(T.number)),
   }
 
   override getDefaultProps(): BezierShape['props'] {
@@ -62,8 +64,13 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   }
 
   override component(shape: BezierShape) {
-    const { points, color, strokeWidth, fill, isClosed, editMode } = shape.props
+    const { points, color, strokeWidth, fill, isClosed, editMode, selectedPointIndices = [] } = shape.props
     const editor = useEditor()
+    
+    // Debug logging for selection state
+    if (editMode && selectedPointIndices.length > 0) {
+      console.log('🔵 RENDER: BezierShape component rendering with selectedPointIndices:', selectedPointIndices)
+    }
     
     // Get flip transform from the FlippableShapeUtil
     const flipTransform = this.getFlipTransform(shape)
@@ -170,20 +177,20 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
                     <circle
                       cx={point.cp1.x}
                       cy={point.cp1.y}
-                      r={4}
-                      fill="#0066ff"
+                      r={selectedPointIndices.includes(i) ? 5 : 4}
+                      fill={selectedPointIndices.includes(i) ? "#0099ff" : "#0066ff"}
                       stroke="white"
-                      strokeWidth={1.5}
+                      strokeWidth={selectedPointIndices.includes(i) ? 2 : 1.5}
                     />
                   )}
                   {point.cp2 && (
                     <circle
                       cx={point.cp2.x}
                       cy={point.cp2.y}
-                      r={4}
-                      fill="#0066ff"
+                      r={selectedPointIndices.includes(i) ? 5 : 4}
+                      fill={selectedPointIndices.includes(i) ? "#0099ff" : "#0066ff"}
                       stroke="white"
-                      strokeWidth={1.5}
+                      strokeWidth={selectedPointIndices.includes(i) ? 2 : 1.5}
                     />
                   )}
                   
@@ -191,10 +198,10 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
                   <circle
                     cx={point.x}
                     cy={point.y}
-                    r={5}
-                    fill="white"
-                    stroke="#0066ff"
-                    strokeWidth={2}
+                    r={selectedPointIndices.includes(i) ? 8 : 5}
+                    fill={selectedPointIndices.includes(i) ? "#ff6600" : "white"}
+                    stroke={selectedPointIndices.includes(i) ? "white" : "#0066ff"}
+                    strokeWidth={selectedPointIndices.includes(i) ? 4 : 2}
                     style={{ cursor: 'pointer' }}
                   />
                 </g>
@@ -380,13 +387,15 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   
   // Handle updates when handles are moved
   override onHandleDrag = (shape: BezierShape, { handle }: { handle: TLHandle }) => {
+    console.log('🎯 DRAG: onHandleDrag called for handle:', handle.id, 'shiftKey:', this.editor.inputs.shiftKey)
     const newPoints = [...shape.props.points]
     const altKey = this.editor.inputs.altKey // Alt key breaks symmetry
-    const shiftKey = this.editor.inputs.shiftKey // Shift key for removing points
     
-    // Track initial position and deletion state for movement threshold detection
+    // Track initial position for movement threshold detection
     const handleKey = `${shape.id}-${handle.id}`
-    if (!this.handleDragStart.has(handleKey)) {
+    const isInitialDrag = !this.handleDragStart.has(handleKey)
+    
+    if (isInitialDrag) {
       this.handleDragStart.set(handleKey, { x: handle.x, y: handle.y, deleted: false })
     }
     
@@ -437,25 +446,6 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     } else if (handle.id.startsWith('anchor-')) {
       const pointIndex = parseInt(handle.id.split('-')[1])
       if (pointIndex >= 0 && pointIndex < newPoints.length) {
-        // Check for shift+drag deletion (only once per drag operation)
-        if (shiftKey && newPoints.length > 2) {
-          const dragState = this.handleDragStart.get(handleKey)
-          if (dragState && !dragState.deleted) {
-            // Delete immediately on first drag event when shift is held
-            newPoints.splice(pointIndex, 1)
-            
-            // Mark this point as deleted to prevent further deletions during this drag
-            dragState.deleted = true
-            
-            return this.recalculateBounds(shape, newPoints)
-          }
-          
-          // If already deleted during this drag, skip normal dragging
-          if (dragState?.deleted) {
-            return shape // Don't process further - point is already gone
-          }
-        }
-        
         // Move the anchor point and mirror both control points relative to the new position
         const oldPoint = newPoints[pointIndex]
         const deltaX = handle.x - oldPoint.x
@@ -551,6 +541,67 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     }
     
     return next
+  }
+
+  // Handle point selection logic for clicks (not drags)
+  private handlePointSelection(shape: BezierShape, pointIndex: number, shiftKey: boolean): BezierShape {
+    const currentSelected = shape.props.selectedPointIndices || []
+    let newSelected: number[]
+
+    if (shiftKey) {
+      // Shift-click: toggle selection
+      if (currentSelected.includes(pointIndex)) {
+        // Remove from selection
+        newSelected = currentSelected.filter(i => i !== pointIndex)
+        console.log('🔵 SELECTION: Removed point', pointIndex, 'from selection. New selection:', newSelected)
+      } else {
+        // Add to selection
+        newSelected = [...currentSelected, pointIndex]
+        console.log('🔵 SELECTION: Added point', pointIndex, 'to selection. New selection:', newSelected)
+      }
+    } else {
+      // Regular click: select only this point
+      newSelected = [pointIndex]
+      console.log('🔵 SELECTION: Single-selected point', pointIndex)
+    }
+
+    return {
+      ...shape,
+      props: {
+        ...shape.props,
+        selectedPointIndices: newSelected
+      }
+    }
+  }
+
+  // Delete selected points
+  private deleteSelectedPoints(shape: BezierShape, selectedIndices: number[]): BezierShape {
+    const currentPoints = [...shape.props.points]
+    
+    // Don't allow deletion if it would leave less than 2 points
+    if (currentPoints.length - selectedIndices.length < 2) {
+      return shape
+    }
+    
+    // Sort indices in descending order to avoid index shifting during deletion
+    const sortedIndices = [...selectedIndices].sort((a, b) => b - a)
+    
+    // Remove points from highest index to lowest
+    for (const index of sortedIndices) {
+      if (index >= 0 && index < currentPoints.length) {
+        currentPoints.splice(index, 1)
+      }
+    }
+    
+    // Recalculate bounds and clear selection
+    const updatedShape = this.recalculateBounds(shape, currentPoints)
+    return {
+      ...updatedShape,
+      props: {
+        ...updatedShape.props,
+        selectedPointIndices: [] // Clear selection after deletion
+      }
+    }
   }
   
   private recalculateBounds(shape: BezierShape, points: BezierPoint[]): BezierShape {
@@ -654,13 +705,9 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     }
   }
 
+
   // Double-click to enter/exit edit mode
   override onDoubleClick = (shape: BezierShape) => {
-    console.log('💆 BezierShape.onDoubleClick detected, current editMode:', {
-      shapeId: shape.id,
-      editMode: shape.props.editMode,
-      currentTool: this.editor.getCurrentToolId()
-    })
     const wasInEditMode = shape.props.editMode
     const updatedShape = {
       ...shape,
@@ -676,10 +723,8 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     // Handle selection state based on edit mode transition
     if (!wasInEditMode) {
       // Entering edit mode: keep shape selected so first click can interact with points/paths
-      console.log('🚪 BezierShape: Entering edit mode - keeping shape selected for immediate point editing')
       this.editor.setSelectedShapes([shape.id])
     } else {
-      console.log('🚪 BezierShape: Exiting edit mode - selecting shape')
       // Exiting edit mode: select the shape to show transform controls
       this.editor.setSelectedShapes([shape.id])
     }
@@ -691,6 +736,18 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   override onKeyDown = (shape: BezierShape, info: { key: string; code: string }) => {
     if (shape.props.editMode) {
       switch (info.key) {
+        case 'Delete':
+        case 'Backspace':
+          // Delete selected points if any are selected
+          const selectedIndices = shape.props.selectedPointIndices || []
+          if (selectedIndices.length > 0) {
+            console.log('🗑️ DELETE: Deleting selected points:', selectedIndices)
+            return this.deleteSelectedPoints(shape, selectedIndices)
+          }
+          // If no points selected, don't delete the shape - let TldrawCanvas handle this
+          console.log('🗑️ DELETE: No points selected, not deleting anything')
+          return shape
+          
         case 'Escape':
         case 'Enter':
           // Exit edit mode
@@ -699,6 +756,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
             props: {
               ...shape.props,
               editMode: false,
+              selectedPointIndices: [], // Clear selection when exiting edit mode
             }
           }
           this.editor.updateShape(updatedShape)
@@ -755,4 +813,5 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   // Override hideSelectionBoundsFg to hide selection bounds in edit mode
   override hideSelectionBoundsFg = (shape: BezierShape) => !!shape.props.editMode
   override hideSelectionBoundsBg = (shape: BezierShape) => !!shape.props.editMode
+
 }

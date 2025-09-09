@@ -336,6 +336,18 @@ export function TldrawCanvas() {
       }
     )
 
+    // Register delete handler to prevent shape deletion in bezier edit mode
+    const cleanupDeleteHandler = editor.sideEffects.registerBeforeDeleteHandler('shape', (shape) => {
+      // Check if this is a bezier shape in edit mode
+      if (shape.type === 'bezier' && 'editMode' in shape.props && shape.props.editMode) {
+        console.log('🛡️ TldrawCanvas: Preventing deletion of bezier shape in edit mode:', shape.id)
+        // Return false to prevent deletion
+        return false
+      }
+      // Allow deletion for all other shapes
+      return shape
+    })
+
     // Prevent array clones from being selected by select-all
     const cleanupSelection = editor.sideEffects.registerAfterCreateHandler(
       'shape',
@@ -362,8 +374,6 @@ export function TldrawCanvas() {
     // Handle clicks outside bezier shapes in edit mode to exit edit mode
     // Use a proper event listener approach instead of side effects
     const handlePointerDown = (e: PointerEvent) => {
-      console.log('🔴 TldrawCanvas: handlePointerDown called')
-      
       // Find any bezier shape currently in edit mode
       const allShapes = editor.getCurrentPageShapes()
       const editingBezierShape = allShapes.find(shape => 
@@ -371,20 +381,12 @@ export function TldrawCanvas() {
       )
       
       if (!editingBezierShape) {
-        console.log('🔴 TldrawCanvas: No bezier shape in edit mode')
         return
       }
-      
-      console.log('🔴 TldrawCanvas: Found bezier shape in edit mode:', {
-        shapeId: editingBezierShape.id,
-        currentTool: editor.getCurrentToolId()
-      })
       
       // Convert screen coordinates to page coordinates
       const screenPoint = { x: e.clientX, y: e.clientY }
       const pagePoint = editor.screenToPage(screenPoint)
-      
-      console.log('📍 TldrawCanvas: Pointer down at screen:', screenPoint, 'page:', pagePoint)
       
       // Check if clicking on the editing shape or its handles
       const shapesAtPointer = editor.getShapesAtPoint(pagePoint)
@@ -454,7 +456,6 @@ export function TldrawCanvas() {
       lastClickPosition = currentPosition
       
       if (isDoubleClick && clickingOnAnchorPoint && editingBezierShape.type === 'bezier') {
-        console.log('🔥 TldrawCanvas: Double-click detected on anchor point')
         
         // Check if clicking on an anchor point specifically
         const shapePageBounds = editor.getShapePageBounds(editingBezierShape.id)
@@ -476,7 +477,6 @@ export function TldrawCanvas() {
             )
             
             if (distance < threshold) {
-              console.log('🎯 TldrawCanvas: Toggling point type for point', i)
               
               // Toggle point type logic
               const newPoints = [...points]
@@ -544,13 +544,96 @@ export function TldrawCanvas() {
                 },
               })
               
-              console.log('✅ TldrawCanvas: Point type toggled successfully')
               return // Don't continue with exit edit mode logic
             }
           }
         }
       }
       
+      // Handle anchor point selection for bezier shapes in edit mode
+      if (clickingOnAnchorPoint && !isDoubleClick) {
+        console.log('🎯 TldrawCanvas: Anchor point click - handling selection')
+        
+        // Find which anchor point was clicked and handle selection
+        const shapePageBounds = editor.getShapePageBounds(editingBezierShape.id)
+        if (shapePageBounds) {
+          const localPoint = {
+            x: pagePoint.x - shapePageBounds.x,
+            y: pagePoint.y - shapePageBounds.y
+          }
+          
+          const threshold = 8 / editor.getZoomLevel()
+          const points = (editingBezierShape as any).props.points || []
+          
+          // Find which anchor point was clicked
+          for (let i = 0; i < points.length; i++) {
+            const point = points[i]
+            const distance = Math.sqrt(
+              Math.pow(localPoint.x - point.x, 2) + 
+              Math.pow(localPoint.y - point.y, 2)
+            )
+            
+            if (distance < threshold) {
+              console.log('🔵 SELECTION: TldrawCanvas detected anchor point click:', i, 'shiftKey:', e.shiftKey)
+              
+              // Handle point selection
+              const currentSelected = editingBezierShape.props.selectedPointIndices || []
+              let newSelected: number[]
+
+              if (e.shiftKey) {
+                // Shift-click: toggle selection
+                if (currentSelected.includes(i)) {
+                  // Remove from selection
+                  newSelected = currentSelected.filter(idx => idx !== i)
+                  console.log('🔵 SELECTION: Removed point', i, 'from selection. New selection:', newSelected)
+                } else {
+                  // Add to selection
+                  newSelected = [...currentSelected, i]
+                  console.log('🔵 SELECTION: Added point', i, 'to selection. New selection:', newSelected)
+                }
+              } else {
+                // Regular click: select only this point
+                newSelected = [i]
+                console.log('🔵 SELECTION: Single-selected point', i)
+              }
+
+              // Update the shape with new selection
+              const updatedShape = {
+                id: editingBezierShape.id,
+                type: 'bezier' as const,
+                props: {
+                  ...editingBezierShape.props,
+                  selectedPointIndices: newSelected
+                }
+              }
+              console.log('🔵 SELECTION: Updating shape with selectedPointIndices:', newSelected)
+              editor.updateShape(updatedShape)
+              
+              return // Selection handled
+            }
+          }
+        }
+      }
+      
+      // Handle clicking on the editing shape but not on handles or anchor points
+      if (clickingOnEditingShape && !clickingOnHandle && !clickingOnAnchorPoint) {
+        console.log('🔵 SELECTION: Clicked on editing shape but not on point - clearing selection')
+        // Clear point selection when clicking on the shape but not on specific points
+        const hasSelection = editingBezierShape.props.selectedPointIndices && editingBezierShape.props.selectedPointIndices.length > 0
+        if (hasSelection) {
+          editor.updateShape({
+            id: editingBezierShape.id,
+            type: 'bezier',
+            props: {
+              ...editingBezierShape.props,
+              selectedPointIndices: []
+            },
+          })
+          console.log('🔵 SELECTION: Cleared point selection')
+        }
+        return
+      }
+
       if (!clickingOnEditingShape && !clickingOnHandle) {
         console.log('🚪 TldrawCanvas: Clicking outside editing bezier shape - exiting edit mode')
         // Exit edit mode
@@ -566,22 +649,22 @@ export function TldrawCanvas() {
         
         // Select the shape to show transform controls
         editor.setSelectedShapes([editingBezierShape.id])
-      } else {
-        console.log('🎯 TldrawCanvas: Still clicking on editing shape, not exiting edit mode')
       }
     }
     
     // Add the event listener to the editor's container
+    // Use capture: false to allow TLDraw's handle system to process events first
     const container = editor.getContainer()
-    container.addEventListener('pointerdown', handlePointerDown, { capture: true })
+    container.addEventListener('pointerdown', handlePointerDown, { capture: false })
     
     const cleanupBezierEditMode = () => {
-      container.removeEventListener('pointerdown', handlePointerDown, { capture: true })
+      container.removeEventListener('pointerdown', handlePointerDown, { capture: false })
     }
 
     // Return cleanup function
     return () => {
       cleanupKeepArrayClonesLocked()
+      cleanupDeleteHandler()
       cleanupSelection()
       cleanupBezierEditMode()
     }
