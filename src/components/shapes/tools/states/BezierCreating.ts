@@ -19,7 +19,11 @@ export class BezierCreating extends StateNode {
   currentPoint?: Vec
   dragDistance = 0
   isHoveringStart = false
+  isSnappedToStart = false
+  originalPreviewPoint?: Vec
   readonly CORNER_POINT_THRESHOLD = 3 // pixels
+  readonly SNAP_THRESHOLD = 12 // pixels for entering snap zone
+  readonly RELEASE_THRESHOLD = 15 // pixels for exiting snap zone
 
   override onEnter(info: TLPointerEventInfo) {
     this.info = info
@@ -27,6 +31,8 @@ export class BezierCreating extends StateNode {
     this.points = []
     this.isDragging = false
     this.isHoveringStart = false
+    this.isSnappedToStart = false
+    this.originalPreviewPoint = undefined
     
     // Set initial cursor
     this.editor.setCursor({ type: 'cross' })
@@ -44,20 +50,57 @@ export class BezierCreating extends StateNode {
 
   override onPointerMove() {
     const currentPoint = this.editor.inputs.currentPagePoint.clone()
-    this.currentPoint = currentPoint
     
-    // Check if hovering over the start point for closing the curve
+    // Check proximity to start point for snapping/hovering
     let hoveringStart = false
+    let shouldSnapToStart = false
+    
     if (this.points.length > 2) {
       const firstPoint = this.points[0]
       const distToFirst = Vec.Dist(currentPoint, { x: firstPoint.x, y: firstPoint.y })
+      const snapThreshold = this.SNAP_THRESHOLD / this.editor.getZoomLevel()
+      const releaseThreshold = this.RELEASE_THRESHOLD / this.editor.getZoomLevel()
+      
       hoveringStart = distToFirst < 10 / this.editor.getZoomLevel()
+      
+      // Snap logic
+      if (!this.isSnappedToStart && distToFirst < snapThreshold) {
+        // Enter snap zone
+        shouldSnapToStart = true
+        this.isSnappedToStart = true
+        this.originalPreviewPoint = currentPoint.clone()
+        this.currentPoint = new Vec(firstPoint.x, firstPoint.y)
+      } else if (this.isSnappedToStart && this.originalPreviewPoint) {
+        // Check if we should release the snap
+        const distFromOriginalSnap = Vec.Dist(currentPoint, this.originalPreviewPoint)
+        if (distFromOriginalSnap > releaseThreshold) {
+          // Release snap
+          this.isSnappedToStart = false
+          this.originalPreviewPoint = undefined
+          this.currentPoint = currentPoint
+        } else {
+          // Stay snapped
+          shouldSnapToStart = true
+          this.currentPoint = new Vec(firstPoint.x, firstPoint.y)
+        }
+      } else {
+        this.currentPoint = currentPoint
+      }
+    } else {
+      this.currentPoint = currentPoint
     }
     
-    // Update cursor if hover state changed
-    if (hoveringStart !== this.isHoveringStart) {
+    // Update cursor based on state
+    let cursorType = 'cross'
+    if (this.isSnappedToStart) {
+      cursorType = 'pointer' // Could use a different cursor to indicate snapping
+    } else if (hoveringStart) {
+      cursorType = 'pointer'
+    }
+    
+    if (this.isHoveringStart !== hoveringStart || shouldSnapToStart) {
       this.isHoveringStart = hoveringStart
-      this.editor.setCursor({ type: hoveringStart ? 'pointer' : 'cross' })
+      this.editor.setCursor({ type: cursorType as any })
     }
     
     if (this.isDragging && this.points.length > 0) {
@@ -101,8 +144,11 @@ export class BezierCreating extends StateNode {
       }
       
       this.updateShape()
-    } else if (this.points.length > 0 && !hoveringStart) {
-      // Show preview of next segment (but not when hovering over start point)
+    } else if (this.points.length > 0 && !hoveringStart && !this.isSnappedToStart) {
+      // Show preview of next segment (but not when hovering over start point or snapped)
+      this.showPreview()
+    } else if (this.points.length > 0 && this.isSnappedToStart) {
+      // Show preview snapped to start point
       this.showPreview()
     }
   }
@@ -116,10 +162,16 @@ export class BezierCreating extends StateNode {
 
   override onPointerDown(info: TLPointerEventInfo) {
     if (info.target === 'canvas') {
+      // Check if we're currently snapped to start - if so, close the curve
+      if (this.isSnappedToStart && this.points.length > 2) {
+        this.closeCurve()
+        return
+      }
+      
       const currentPoint = this.editor.inputs.currentPagePoint.clone()
       
-      // Check if clicking near the first point to close the curve
-      if (this.points.length > 2) {
+      // Check if clicking near the first point to close the curve (fallback for edge cases)
+      if (this.points.length > 2 && !this.isSnappedToStart) {
         const firstPoint = this.points[0]
         const distToFirst = Vec.Dist(currentPoint, { x: firstPoint.x, y: firstPoint.y })
         
