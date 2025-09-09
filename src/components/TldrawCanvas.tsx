@@ -652,13 +652,86 @@ export function TldrawCanvas() {
       }
     }
     
-    // Add the event listener to the editor's container
+    // Handle keyboard events for bezier edit mode
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const editingBezierShape = editor.getOnlySelectedShape() as any
+      if (!editingBezierShape || editingBezierShape.type !== 'bezier' || !editingBezierShape.props.editMode) {
+        return
+      }
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const selectedIndices = editingBezierShape.props.selectedPointIndices || []
+        
+        if (selectedIndices.length > 0) {
+          console.log('🗑️ DELETE: Deleting selected points:', selectedIndices)
+          
+          // Don't allow deletion if it would leave less than 2 points
+          const currentPoints = editingBezierShape.props.points || []
+          if (currentPoints.length - selectedIndices.length < 2) {
+            console.log('🗑️ DELETE: Cannot delete - would leave less than 2 points')
+            return
+          }
+          
+          // Create new points array with selected points removed
+          const newPoints = [...currentPoints]
+          
+          // Sort indices in descending order to avoid index shifting during deletion
+          const sortedIndices = [...selectedIndices].sort((a, b) => b - a)
+          
+          // Remove points from highest index to lowest
+          for (const index of sortedIndices) {
+            if (index >= 0 && index < newPoints.length) {
+              newPoints.splice(index, 1)
+            }
+          }
+          
+          // Recalculate bounds for the new points (simplified version)
+          const minX = Math.min(...newPoints.map(p => p.x))
+          const minY = Math.min(...newPoints.map(p => p.y))
+          const maxX = Math.max(...newPoints.map(p => p.x))
+          const maxY = Math.max(...newPoints.map(p => p.y))
+          
+          const w = Math.max(1, maxX - minX)
+          const h = Math.max(1, maxY - minY)
+          
+          // Normalize points to new bounds
+          const normalizedPoints = newPoints.map(p => ({
+            x: p.x - minX,
+            y: p.y - minY,
+            cp1: p.cp1 ? { x: p.cp1.x - minX, y: p.cp1.y - minY } : undefined,
+            cp2: p.cp2 ? { x: p.cp2.x - minX, y: p.cp2.y - minY } : undefined,
+          }))
+          
+          // Update the shape
+          editor.updateShape({
+            id: editingBezierShape.id,
+            type: 'bezier',
+            x: editingBezierShape.x + minX,
+            y: editingBezierShape.y + minY,
+            props: {
+              ...editingBezierShape.props,
+              w,
+              h,
+              points: normalizedPoints,
+              selectedPointIndices: [] // Clear selection after deletion
+            }
+          })
+          
+          console.log('🗑️ DELETE: Successfully deleted points and updated shape')
+          e.preventDefault() // Prevent default delete behavior
+        }
+      }
+    }
+    
+    // Add the event listeners to the editor's container
     // Use capture: false to allow TLDraw's handle system to process events first
     const container = editor.getContainer()
     container.addEventListener('pointerdown', handlePointerDown, { capture: false })
+    container.addEventListener('keydown', handleKeyDown, { capture: false })
     
     const cleanupBezierEditMode = () => {
       container.removeEventListener('pointerdown', handlePointerDown, { capture: false })
+      container.removeEventListener('keydown', handleKeyDown, { capture: false })
     }
 
     // Return cleanup function
