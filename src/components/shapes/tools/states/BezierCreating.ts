@@ -450,23 +450,63 @@ export class BezierCreating extends StateNode {
     const firstPoint = this.points[0]
     const lastPoint = this.points[this.points.length - 1]
     
-    // If the first point has an outgoing handle (cp2), create a mirrored incoming handle (cp1)
-    if (firstPoint.cp2) {
-      const mirroredHandle = {
-        x: firstPoint.x - (firstPoint.cp2.x - firstPoint.x),
-        y: firstPoint.y - (firstPoint.cp2.y - firstPoint.y)
+    // To replicate the preview curvature, we need to ensure the closing segment
+    // uses the same curve type as the preview. The preview creates a quadratic curve
+    // when the last point has cp2 but the target point (first point) has no cp1.
+    
+    // If the last point has an outgoing handle (cp2), ensure the first point 
+    // has an incoming handle (cp1) to create a cubic bezier for the closing segment
+    if (lastPoint.cp2) {
+      // If first point already has cp2, mirror it to create cp1
+      if (firstPoint.cp2) {
+        firstPoint.cp1 = {
+          x: firstPoint.x - (firstPoint.cp2.x - firstPoint.x),
+          y: firstPoint.y - (firstPoint.cp2.y - firstPoint.y)
+        }
+      } else {
+        // If first point has no handles, create a minimal incoming handle
+        // that maintains the curve direction from the last point
+        const direction = {
+          x: firstPoint.x - lastPoint.x,
+          y: firstPoint.y - lastPoint.y
+        }
+        const length = Math.sqrt(direction.x * direction.x + direction.y * direction.y)
+        const normalizedDirection = {
+          x: direction.x / length,
+          y: direction.y / length
+        }
+        // Place the control point at about 1/3 of the distance in the incoming direction
+        firstPoint.cp1 = {
+          x: firstPoint.x - normalizedDirection.x * (length * 0.3),
+          y: firstPoint.y - normalizedDirection.y * (length * 0.3)
+        }
       }
-      firstPoint.cp1 = mirroredHandle
     }
     
-    // If the last point has an incoming handle (cp1), create a mirrored outgoing handle (cp2)
-    // This handle should point toward the first point to create a smooth closure
-    if (lastPoint.cp1) {
-      const mirroredHandle = {
-        x: lastPoint.x - (lastPoint.cp1.x - lastPoint.x),
-        y: lastPoint.y - (lastPoint.cp1.y - lastPoint.y)
+    // Similarly, if the first point has an outgoing handle (cp2), ensure the last point
+    // has a matching outgoing handle (cp2) for the closing segment
+    if (firstPoint.cp2 && !lastPoint.cp2) {
+      if (lastPoint.cp1) {
+        lastPoint.cp2 = {
+          x: lastPoint.x - (lastPoint.cp1.x - lastPoint.x),
+          y: lastPoint.y - (lastPoint.cp1.y - lastPoint.y)
+        }
+      } else {
+        // Create a minimal outgoing handle pointing toward the first point
+        const direction = {
+          x: firstPoint.x - lastPoint.x,
+          y: firstPoint.y - lastPoint.y
+        }
+        const length = Math.sqrt(direction.x * direction.x + direction.y * direction.y)
+        const normalizedDirection = {
+          x: direction.x / length,
+          y: direction.y / length
+        }
+        lastPoint.cp2 = {
+          x: lastPoint.x + normalizedDirection.x * (length * 0.3),
+          y: lastPoint.y + normalizedDirection.y * (length * 0.3)
+        }
       }
-      lastPoint.cp2 = mirroredHandle
     }
   }
 
