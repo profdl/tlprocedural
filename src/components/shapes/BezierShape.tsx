@@ -656,13 +656,9 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     
     // Handle selection state based on edit mode transition
     if (!wasInEditMode) {
-      // Entering edit mode: force clear selection and stay on select tool for point editing
-      console.log('🚪 BezierShape: Entering edit mode - clearing selection, staying on select tool')
-      this.editor.setSelectedShapes([])
-      // Force immediate deselection by updating the editor state
-      setTimeout(() => {
-        this.editor.setSelectedShapes([])
-      }, 1)
+      // Entering edit mode: keep shape selected so first click can interact with points/paths
+      console.log('🚪 BezierShape: Entering edit mode - keeping shape selected for immediate point editing')
+      this.editor.setSelectedShapes([shape.id])
     } else {
       console.log('🚪 BezierShape: Exiting edit mode - selecting shape')
       // Exiting edit mode: select the shape to show transform controls
