@@ -1,4 +1,4 @@
-import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, useEditor, type Editor, type TLResizeInfo, type TLRotationSnapshot } from 'tldraw'
+import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, useEditor, type TLResizeInfo } from 'tldraw'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 import { getAccurateBounds, getClosestPointOnSegment, splitSegmentAtT } from './utils/bezierUtils'
 
@@ -278,16 +278,13 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   }
 
   getBounds(shape: BezierShape) {
-    // Use bezier.js for accurate bounds calculation that accounts for curve extremes
-    const bounds = getAccurateBounds(shape.props.points, shape.props.isClosed)
-    
-    // TLDraw expects bounds to start at (0,0) with points normalized within
-    // The shape's x,y position handles the offset
+    // Points are already normalized to (0,0) after recalculateBounds
+    // Use the stored width and height like other shapes
     return {
       x: 0,
-      y: 0, 
-      w: Math.max(1, bounds.maxX - bounds.minX),
-      h: Math.max(1, bounds.maxY - bounds.minY)
+      y: 0,
+      w: shape.props.w,
+      h: shape.props.h,
     }
   }
 
@@ -529,8 +526,8 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     this.handleDragStart.delete(handleKey)
     this.segmentPointsAdded.delete(handleKey)
     
-    // Only recalculate bounds when necessary (not on every handle drag)
-    // This prevents the exponential movement issue
+    // For normal point dragging, just update points without recalculating bounds
+    // Bounds will be recalculated in onBeforeUpdate when the drag operation completes
     return {
       ...shape,
       props: {
@@ -538,6 +535,33 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
         points: newPoints,
       }
     }
+  }
+
+  // Recalculate bounds when exiting edit mode or when points change outside edit mode
+  override onBeforeUpdate = (prev: BezierShape, next: BezierShape) => {
+    // If transitioning from edit mode to normal mode, recalculate bounds
+    if (prev.props.editMode && !next.props.editMode) {
+      return this.recalculateBounds(next, next.props.points)
+    }
+    
+    // If not in edit mode and points changed, also recalculate (for other operations)
+    if (!next.props.editMode && prev.props.points !== next.props.points) {
+      const prevBounds = getAccurateBounds(prev.props.points, prev.props.isClosed)
+      const nextBounds = getAccurateBounds(next.props.points, next.props.isClosed)
+      
+      // If the actual bounds changed, recalculate
+      const boundsChanged = 
+        Math.abs(prevBounds.maxX - prevBounds.minX - (nextBounds.maxX - nextBounds.minX)) > 0.01 ||
+        Math.abs(prevBounds.maxY - prevBounds.minY - (nextBounds.maxY - nextBounds.minY)) > 0.01 ||
+        Math.abs(prevBounds.minX - nextBounds.minX) > 0.01 ||
+        Math.abs(prevBounds.minY - nextBounds.minY) > 0.01
+      
+      if (boundsChanged) {
+        return this.recalculateBounds(next, next.props.points)
+      }
+    }
+    
+    return next
   }
   
   private recalculateBounds(shape: BezierShape, points: BezierPoint[]): BezierShape {
@@ -555,7 +579,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
       cp2: p.cp2 ? { x: p.cp2.x - bounds.minX, y: p.cp2.y - bounds.minY } : undefined,
     }))
 
-    return {
+    const updatedShape = {
       ...shape,
       x: shape.x + bounds.minX,
       y: shape.y + bounds.minY,
@@ -566,6 +590,9 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
         points: normalizedPoints,
       }
     }
+
+
+    return updatedShape
   }
 
 
@@ -577,6 +604,9 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     // Use bezier.js for accurate bounds calculation
     const bounds = getAccurateBounds(newPoints, shape.props.isClosed)
     
+    const w = Math.max(1, bounds.maxX - bounds.minX)
+    const h = Math.max(1, bounds.maxY - bounds.minY)
+    
     // Normalize points relative to the new bounds
     const normalizedPoints = newPoints.map(p => ({
       x: p.x - bounds.minX,
@@ -587,14 +617,14 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     
     return {
       ...shape,
-      props: {
-        ...shape.props,
-        w: Math.max(1, bounds.maxX - bounds.minX),
-        h: Math.max(1, bounds.maxY - bounds.minY),
-        points: normalizedPoints,
-      },
       x: shape.x + bounds.minX,
       y: shape.y + bounds.minY,
+      props: {
+        ...shape.props,
+        w,
+        h,
+        points: normalizedPoints,
+      },
     }
   }
 
@@ -663,18 +693,6 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
       console.log('🚪 BezierShape: Exiting edit mode - selecting shape')
       // Exiting edit mode: select the shape to show transform controls
       this.editor.setSelectedShapes([shape.id])
-      // Force a bounds recalculation to ensure transform controls update correctly
-      setTimeout(() => {
-        const currentShape = this.editor.getShape(shape.id) as BezierShape
-        if (currentShape) {
-          // Force TLDraw to recalculate transforms by briefly deselecting and reselecting
-          this.editor.setSelectedShapes([])
-          setTimeout(() => {
-            this.editor.setSelectedShapes([shape.id])
-            this.editor.updateRenderingBounds()
-          }, 5)
-        }
-      }, 10)
     }
     
     return updatedShape
@@ -701,22 +719,6 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
           
           // Select the shape to show transform controls
           this.editor.setSelectedShapes([shape.id])
-          
-          // Force transform controls to update with proper bounds
-          setTimeout(() => {
-            // Get the updated shape to ensure we have latest bounds
-            const currentShape = this.editor.getShape(shape.id) as BezierShape
-            if (currentShape) {
-              // Force bounds recalculation by temporarily clearing and re-adding to selection
-              this.editor.setSelectedShapes([])
-              // Give TLDraw time to process the deselection
-              setTimeout(() => {
-                this.editor.setSelectedShapes([shape.id])
-                // Force editor to recalculate all geometry
-                this.editor.updateRenderingBounds()
-              }, 5)
-            }
-          }, 10)
           
           return updatedShape
       }

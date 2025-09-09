@@ -220,7 +220,7 @@ export class BezierEditing extends StateNode {
       cp2: p.cp2 ? { x: p.cp2.x - bounds.minX, y: p.cp2.y - bounds.minY } : undefined,
     }))
 
-    return {
+    const updatedShape = {
       ...shape,
       x: shape.x + bounds.minX,
       y: shape.y + bounds.minY,
@@ -231,6 +231,9 @@ export class BezierEditing extends StateNode {
         points: normalizedPoints,
       }
     }
+
+
+    return updatedShape
   }
 
   private exitEditMode() {
@@ -256,20 +259,12 @@ export class BezierEditing extends StateNode {
         },
       })
       console.log('✅ BezierEditing.exitEditMode: Shape updated successfully')
+      
+      // Select the shape to show transform controls after exiting edit mode
+      this.editor.setSelectedShapes([this.targetShapeId as any])
     } else {
       console.log('❌ BezierEditing.exitEditMode: Shape not found')
     }
-
-      // Select the shape to show transform controls after exiting edit mode
-      console.log('🎯 BezierEditing.exitEditMode: Selecting shape for transform controls')
-      this.editor.setSelectedShapes([this.targetShapeId as any])
-      
-      // Force transform controls to update by briefly clearing and restoring selection
-      setTimeout(() => {
-        console.log('🔄 BezierEditing.exitEditMode: Refreshing selection for transform controls')
-        this.editor.setSelectedShapes([])
-        this.editor.setSelectedShapes([this.targetShapeId as any])
-      }, 10)
 
     // Return to select tool
     console.log('🔧 BezierEditing.exitEditMode: Switching to select tool')
