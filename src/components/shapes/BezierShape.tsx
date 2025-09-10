@@ -91,6 +91,20 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     // Helper methods for hover detection (defined before useEffect)
     const getSegmentAtPosition = (localPoint: { x: number; y: number }): { segmentIndex: number; t: number } | null => {
       const threshold = 8 / editor.getZoomLevel() // 8 pixels at current zoom
+      const anchorThreshold = 10 / editor.getZoomLevel() // Larger threshold for anchor points
+
+      // First check if we're near an anchor point - if so, don't show segment hover
+      for (let i = 0; i < points.length; i++) {
+        const point = points[i]
+        const distance = Math.sqrt(
+          Math.pow(localPoint.x - point.x, 2) + 
+          Math.pow(localPoint.y - point.y, 2)
+        )
+        
+        if (distance < anchorThreshold) {
+          return null // Don't show segment hover near anchor points
+        }
+      }
 
       // Check each segment using precise bezier curve distance
       for (let i = 0; i < points.length - 1; i++) {
@@ -129,11 +143,15 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
       const splitResult = splitSegmentAtT(p1, p2, t)
       const newPoint = splitResult.splitPoint
 
+      // Get current shape state to preserve selection and other properties
+      const currentShape = editor.getShape(shape.id) as BezierShape
+      if (!currentShape) return
+
       editor.updateShape({
         id: shape.id,
         type: 'bezier',
         props: {
-          ...shape.props,
+          ...currentShape.props,
           hoverPoint: newPoint,
           hoverSegmentIndex: segmentIndex
         }
@@ -142,11 +160,15 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
 
     const clearHoverPreview = () => {
       if (hoverPoint) {
+        // Get current shape state to preserve selection and other properties
+        const currentShape = editor.getShape(shape.id) as BezierShape
+        if (!currentShape) return
+
         editor.updateShape({
           id: shape.id,
           type: 'bezier',
           props: {
-            ...shape.props,
+            ...currentShape.props,
             hoverPoint: undefined,
             hoverSegmentIndex: undefined
           }
@@ -167,12 +189,19 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
       }
 
       let animationId: number
+      let lastHoverSegment: number | null = null
 
       const updateHoverPreviewOnMove = () => {
         // Double-check tool is still select during animation loop
         const currentTool = editor.getCurrentToolId()
         if (currentTool !== 'select') {
           clearHoverPreview()
+          return
+        }
+
+        // Don't update hover preview if user is currently clicking/dragging
+        if (editor.inputs.isDragging || editor.inputs.isPointing) {
+          animationId = requestAnimationFrame(updateHoverPreviewOnMove)
           return
         }
 
@@ -190,9 +219,16 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
         // Check if hovering over a path segment
         const segmentInfo = getSegmentAtPosition(localPoint)
         if (segmentInfo) {
-          updateHoverPreview(segmentInfo)
+          // Only update if we're on a different segment to reduce updates
+          if (lastHoverSegment !== segmentInfo.segmentIndex) {
+            updateHoverPreview(segmentInfo)
+            lastHoverSegment = segmentInfo.segmentIndex
+          }
         } else {
-          clearHoverPreview()
+          if (lastHoverSegment !== null) {
+            clearHoverPreview()
+            lastHoverSegment = null
+          }
         }
 
         // Continue tracking if still in edit mode and using select tool
