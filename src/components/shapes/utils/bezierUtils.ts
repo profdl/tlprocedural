@@ -1,5 +1,5 @@
 import { Bezier } from 'bezier-js'
-import { type TLHandle } from 'tldraw'
+import { type TLHandle, type IndexKey } from 'tldraw'
 import { type BezierPoint, type BezierShape } from '../BezierShape'
 import { BEZIER_HANDLES, BEZIER_THRESHOLDS, bezierLog } from './bezierConstants'
 
@@ -85,9 +85,9 @@ export function getClosestPointOnSegment(
   const projected = bezier.project(targetPoint)
   
   return {
-    t: projected.t,
-    point: { x: projected.x, y: projected.y },
-    distance: projected.d
+    t: projected.t || 0,
+    point: { x: projected.x || 0, y: projected.y || 0 },
+    distance: projected.d || 0
   }
 }
 
@@ -443,9 +443,9 @@ export function generateBezierHandles(shape: BezierShape): TLHandle[] {
     // Anchor point handle - needed for dragging functionality
     // The visual styling is handled by our custom SVG, but TLDraw needs the handle for interaction
     handles.push({
-      id: `anchor-${i}`,
+      id: `bezier-${i}-anchor`,
       type: 'vertex',
-      index: `a${i}` as unknown as string,
+      index: `a${i}` as IndexKey,
       x: point.x,
       y: point.y,
       canSnap: true,
@@ -454,9 +454,9 @@ export function generateBezierHandles(shape: BezierShape): TLHandle[] {
     // Control point handles
     if (point.cp1) {
       handles.push({
-        id: `cp1-${i}`,
+        id: `bezier-${i}-cp1`,
         type: 'virtual',
-        index: `cp1-${i}` as unknown as string,
+        index: `cp1-${i}` as IndexKey,
         x: point.cp1.x,
         y: point.cp1.y,
         canSnap: true,
@@ -465,9 +465,9 @@ export function generateBezierHandles(shape: BezierShape): TLHandle[] {
     
     if (point.cp2) {
       handles.push({
-        id: `cp2-${i}`,
+        id: `bezier-${i}-cp2`,
         type: 'virtual',
-        index: `cp2-${i}` as unknown as string,
+        index: `cp2-${i}` as IndexKey,
         x: point.cp2.x,
         y: point.cp2.y,
         canSnap: true,

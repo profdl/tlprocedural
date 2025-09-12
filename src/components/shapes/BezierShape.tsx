@@ -1,10 +1,10 @@
 import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, useEditor, type TLResizeInfo } from 'tldraw'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
+import { BezierBounds } from './services/BezierBounds'
+import { BezierState } from './services/BezierState'
 import { 
-  getAccurateBounds, 
   generateBezierHandles, 
   createHandleMemoKey,
-  updatePointsFromHandleDrag,
   createHandleDragKey 
 } from './utils/bezierUtils'
 import { bezierLog } from './utils/bezierConstants'
@@ -195,38 +195,22 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   }
 
   getBounds(shape: BezierShape) {
-    // In edit mode, always calculate accurate bounds for proper hit detection
+    // Use BezierBounds service for consistent bounds calculation
     if (shape.props.editMode) {
-      const bounds = getAccurateBounds(shape.props.points, shape.props.isClosed)
-      return {
-        x: 0,
-        y: 0,
-        w: Math.max(1, bounds.maxX - bounds.minX),
-        h: Math.max(1, bounds.maxY - bounds.minY),
-      }
-    }
-    
-    // Outside edit mode, use the stored width and height (points are normalized)
-    return {
-      x: 0,
-      y: 0,
-      w: shape.props.w,
-      h: shape.props.h,
+      return BezierBounds.getEditModeBounds(shape)
+    } else {
+      return BezierBounds.getNormalModeBounds(shape)
     }
   }
 
   getCenter(shape: BezierShape) {
-    // Calculate center from actual bounds, not static w/h
-    const bounds = this.getBounds(shape)
-    return {
-      x: bounds.x + bounds.w / 2,
-      y: bounds.y + bounds.h / 2,
-    }
+    // Use BezierBounds service for center calculation
+    return BezierBounds.getShapeCenter(shape)
   }
 
   getOutline(shape: BezierShape) {
-    const { points } = shape.props
-    return points.map(p => ({ x: p.x, y: p.y }))
+    // Use BezierBounds service for outline points
+    return BezierBounds.getOutlinePoints(shape)
   }
 
   // Memoized handle generation for performance optimization
@@ -272,8 +256,8 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
       this.handleDragStart.set(handleKey, { x: handle.x, y: handle.y, deleted: false })
     }
     
-    // Use utility function to update points based on handle drag
-    const newPoints = updatePointsFromHandleDrag(shape.props.points, handle, altKey)
+    // Use BezierState service for handle drag updates
+    const newPoints = BezierState.updatePointsFromHandleDrag(shape.props.points, handle, altKey)
     
     // Clean up completed drag operations
     this.handleDragStart.delete(handleKey)
@@ -293,23 +277,20 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   override onBeforeUpdate = (prev: BezierShape, next: BezierShape) => {
     // If transitioning from edit mode to normal mode, recalculate bounds
     if (prev.props.editMode && !next.props.editMode) {
-      return this.recalculateBounds(next, next.props.points)
+      return BezierBounds.recalculateShapeBounds(next, next.props.points)
     }
     
     // If not in edit mode and points changed, also recalculate (for other operations)
     if (!next.props.editMode && prev.props.points !== next.props.points) {
-      const prevBounds = getAccurateBounds(prev.props.points, prev.props.isClosed)
-      const nextBounds = getAccurateBounds(next.props.points, next.props.isClosed)
-      
-      // If the actual bounds changed, recalculate
-      const boundsChanged = 
-        Math.abs(prevBounds.maxX - prevBounds.minX - (nextBounds.maxX - nextBounds.minX)) > 0.01 ||
-        Math.abs(prevBounds.maxY - prevBounds.minY - (nextBounds.maxY - nextBounds.minY)) > 0.01 ||
-        Math.abs(prevBounds.minX - nextBounds.minX) > 0.01 ||
-        Math.abs(prevBounds.minY - nextBounds.minY) > 0.01
+      // Use BezierBounds service to check if bounds have changed
+      const boundsChanged = BezierBounds.haveBoundsChanged(
+        prev.props.points, 
+        next.props.points, 
+        next.props.isClosed
+      )
       
       if (boundsChanged) {
-        return this.recalculateBounds(next, next.props.points)
+        return BezierBounds.recalculateShapeBounds(next, next.props.points)
       }
     }
     
@@ -317,66 +298,19 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   }
 
 
-  // Delete selected points
-  private deleteSelectedPoints(shape: BezierShape, selectedIndices: number[]): BezierShape {
-    const currentPoints = [...shape.props.points]
-    
-    // Don't allow deletion if it would leave less than 2 points
-    if (currentPoints.length - selectedIndices.length < 2) {
-      return shape
-    }
-    
-    // Sort indices in descending order to avoid index shifting during deletion
-    const sortedIndices = [...selectedIndices].sort((a, b) => b - a)
-    
-    // Remove points from highest index to lowest
-    for (const index of sortedIndices) {
-      if (index >= 0 && index < currentPoints.length) {
-        currentPoints.splice(index, 1)
-      }
-    }
-    
-    // Recalculate bounds and clear selection
-    const updatedShape = this.recalculateBounds(shape, currentPoints)
-    return {
-      ...updatedShape,
-      props: {
-        ...updatedShape.props,
-        selectedPointIndices: [] // Clear selection after deletion
-      }
-    }
+  // Delete selected points - now delegated to BezierState service
+  private deleteSelectedPoints(shape: BezierShape, _selectedIndices: number[]): BezierShape {
+    const updatedShape = BezierState.deleteSelectedPoints(shape, this.editor)
+    // Recalculate bounds after deletion
+    return BezierBounds.recalculateShapeBounds(updatedShape, updatedShape.props.points)
   }
   
 
+  // LEGACY: This method is still used by some legacy code paths
+  // TODO: Remove once all code paths use BezierBounds service directly
   private recalculateBounds(shape: BezierShape, points: BezierPoint[]): BezierShape {
-    // Use bezier.js for accurate bounds calculation
-    const bounds = getAccurateBounds(points, shape.props.isClosed)
-
-    const w = Math.max(1, bounds.maxX - bounds.minX)
-    const h = Math.max(1, bounds.maxY - bounds.minY)
-
-    // Normalize points to new bounds
-    const normalizedPoints = points.map(p => ({
-      x: p.x - bounds.minX,
-      y: p.y - bounds.minY,
-      cp1: p.cp1 ? { x: p.cp1.x - bounds.minX, y: p.cp1.y - bounds.minY } : undefined,
-      cp2: p.cp2 ? { x: p.cp2.x - bounds.minX, y: p.cp2.y - bounds.minY } : undefined,
-    }))
-
-    const updatedShape = {
-      ...shape,
-      x: shape.x + bounds.minX,
-      y: shape.y + bounds.minY,
-      props: {
-        ...shape.props,
-        w,
-        h,
-        points: normalizedPoints,
-      }
-    }
-
-
-    return updatedShape
+    // Delegate to BezierBounds service for consistent bounds calculation
+    return BezierBounds.recalculateShapeBounds(shape, points)
   }
 
 
@@ -384,32 +318,8 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   // Helper method to add a point to the bezier curve
   static addPoint(shape: BezierShape, point: BezierPoint): BezierShape {
     const newPoints = [...shape.props.points, point]
-    
-    // Use bezier.js for accurate bounds calculation
-    const bounds = getAccurateBounds(newPoints, shape.props.isClosed)
-    
-    const w = Math.max(1, bounds.maxX - bounds.minX)
-    const h = Math.max(1, bounds.maxY - bounds.minY)
-    
-    // Normalize points relative to the new bounds
-    const normalizedPoints = newPoints.map(p => ({
-      x: p.x - bounds.minX,
-      y: p.y - bounds.minY,
-      cp1: p.cp1 ? { x: p.cp1.x - bounds.minX, y: p.cp1.y - bounds.minY } : undefined,
-      cp2: p.cp2 ? { x: p.cp2.x - bounds.minX, y: p.cp2.y - bounds.minY } : undefined,
-    }))
-    
-    return {
-      ...shape,
-      x: shape.x + bounds.minX,
-      y: shape.y + bounds.minY,
-      props: {
-        ...shape.props,
-        w,
-        h,
-        points: normalizedPoints,
-      },
-    }
+    // Use BezierBounds service for consistent bounds calculation
+    return BezierBounds.recalculateShapeBounds(shape, newPoints)
   }
 
   // Custom flip behavior for Bezier curves
@@ -452,28 +362,8 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
 
   // Double-click to enter/exit edit mode
   override onDoubleClick = (shape: BezierShape) => {
-    const wasInEditMode = shape.props.editMode
-    const updatedShape = {
-      ...shape,
-      props: {
-        ...shape.props,
-        editMode: !shape.props.editMode,
-      }
-    }
-    
-    // Update the shape
-    this.editor.updateShape(updatedShape)
-    
-    // Handle selection state based on edit mode transition
-    if (!wasInEditMode) {
-      // Entering edit mode: keep shape selected so first click can interact with points/paths
-      this.editor.setSelectedShapes([shape.id])
-    } else {
-      // Exiting edit mode: select the shape to show transform controls
-      this.editor.setSelectedShapes([shape.id])
-    }
-    
-    return updatedShape
+    // Use BezierState service for consistent edit mode toggling
+    return BezierState.toggleEditMode(shape, this.editor)
   }
 
   // Handle key events for shapes in edit mode
@@ -494,24 +384,8 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
           
         case 'Escape':
         case 'Enter':
-          // Exit edit mode
-          const updatedShape = {
-            ...shape,
-            props: {
-              ...shape.props,
-              editMode: false,
-              selectedPointIndices: [], // Clear selection when exiting edit mode
-            }
-          }
-          this.editor.updateShape(updatedShape)
-          
-          // Force visual refresh by triggering a re-render
-          this.editor.updateShape(updatedShape)
-          
-          // Select the shape to show transform controls
-          this.editor.setSelectedShapes([shape.id])
-          
-          return updatedShape
+          // Use BezierState service to exit edit mode
+          return BezierState.exitEditMode(shape, this.editor)
       }
     }
     return shape

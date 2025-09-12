@@ -1,7 +1,8 @@
 import { useEffect, useCallback } from 'react'
 import { type Editor } from 'tldraw'
 import { type BezierShape, type BezierPoint } from '../BezierShape'
-import { getSegmentAtPosition } from '../utils/bezierUtils'
+import { BezierMath } from '../services/BezierMath'
+import { BezierState } from '../services/BezierState'
 import { BEZIER_THRESHOLDS } from '../utils/bezierConstants'
 
 interface HoverPreviewPoint {
@@ -35,18 +36,15 @@ export function useBezierHover({ shape, editor, editMode }: UseBezierHoverProps)
     // First check if we're near an anchor point - if so, don't show segment hover
     for (let i = 0; i < points.length; i++) {
       const point = points[i]
-      const distance = Math.sqrt(
-        Math.pow(localPoint.x - point.x, 2) + 
-        Math.pow(localPoint.y - point.y, 2)
-      )
+      const distance = BezierMath.getDistance(localPoint, point)
       
       if (distance < anchorThreshold) {
         return null // Don't show segment hover near anchor points
       }
     }
 
-    // Use shared utility for segment detection
-    return getSegmentAtPosition(points, localPoint, editor.getZoomLevel(), shape.props.isClosed)
+    // Use BezierState service for segment detection
+    return BezierState.getSegmentAtPosition(points, localPoint, editor.getZoomLevel(), shape.props.isClosed)
   }, [editor, shape.props.isClosed])
 
   const updateHoverPreview = useCallback((segmentInfo: { segmentIndex: number; t: number }) => {
@@ -59,37 +57,13 @@ export function useBezierHover({ shape, editor, editMode }: UseBezierHoverProps)
       ? points[0] 
       : points[segmentIndex + 1]
 
-    // Lightweight preview - just calculate the point position without control points
-    let previewX: number, previewY: number
-    
-    if (p1.cp2 && p2.cp1) {
-      // Cubic bezier
-      const x = Math.pow(1-t, 3) * p1.x + 3 * Math.pow(1-t, 2) * t * p1.cp2.x + 3 * (1-t) * Math.pow(t, 2) * p2.cp1.x + Math.pow(t, 3) * p2.x
-      const y = Math.pow(1-t, 3) * p1.y + 3 * Math.pow(1-t, 2) * t * p1.cp2.y + 3 * (1-t) * Math.pow(t, 2) * p2.cp1.y + Math.pow(t, 3) * p2.y
-      previewX = x
-      previewY = y
-    } else if (p1.cp2) {
-      // Quadratic bezier using p1.cp2
-      const x = Math.pow(1-t, 2) * p1.x + 2 * (1-t) * t * p1.cp2.x + Math.pow(t, 2) * p2.x
-      const y = Math.pow(1-t, 2) * p1.y + 2 * (1-t) * t * p1.cp2.y + Math.pow(t, 2) * p2.y
-      previewX = x
-      previewY = y
-    } else if (p2.cp1) {
-      // Quadratic bezier using p2.cp1
-      const x = Math.pow(1-t, 2) * p1.x + 2 * (1-t) * t * p2.cp1.x + Math.pow(t, 2) * p2.x
-      const y = Math.pow(1-t, 2) * p1.y + 2 * (1-t) * t * p2.cp1.y + Math.pow(t, 2) * p2.y
-      previewX = x
-      previewY = y
-    } else {
-      // Linear interpolation
-      previewX = p1.x + (p2.x - p1.x) * t
-      previewY = p1.y + (p2.y - p1.y) * t
-    }
+    // Use BezierMath service for precise point calculation
+    const previewPoint = BezierMath.getPointOnSegment(p1, p2, t)
 
     // Simple preview point without control points for performance
     const simplePreviewPoint: HoverPreviewPoint = {
-      x: previewX,
-      y: previewY
+      x: previewPoint.x,
+      y: previewPoint.y
     }
 
     // Get current shape state to preserve selection and other properties

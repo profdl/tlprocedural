@@ -15,6 +15,7 @@ export const BEZIER_THRESHOLDS = {
   // Segment interaction
   SEGMENT_HOVER: 8,
   SEGMENT_CLICK: 10,
+  PATH_SEGMENT: 10,
   SEGMENT_ANCHOR_EXCLUSION: 12, // Don't show segment hover near anchors
   
   // Snap behavior for closing curves
