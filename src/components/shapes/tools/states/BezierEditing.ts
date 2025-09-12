@@ -64,8 +64,14 @@ export class BezierEditing extends StateNode {
       return // Let TLDraw's handle system manage control points
     }
 
-    // Note: Point addition is now handled by the BezierShape component directly
-    // when using the Select tool, so we don't need to handle it here
+    // Check for Alt+click to add point on path segment
+    if (this.editor.inputs.altKey) {
+      const segmentInfo = this.getSegmentAtPosition(shape, localPoint)
+      if (segmentInfo) {
+        this.addPointToSegment(shape, segmentInfo)
+        return // Point added, don't continue with other logic
+      }
+    }
 
     // If clicking elsewhere, clear point selection
     this.clearPointSelection(shape)
@@ -173,8 +179,22 @@ export class BezierEditing extends StateNode {
   }
 
   private getSegmentAtPosition(shape: BezierShape, localPoint: { x: number; y: number }): { segmentIndex: number; t: number } | null {
-    const threshold = 8 / this.editor.getZoomLevel() // Increased threshold for better usability
+    const threshold = 10 / this.editor.getZoomLevel() // Generous threshold for click detection
+    const anchorThreshold = 12 / this.editor.getZoomLevel() // Don't add points too close to existing anchors
     const points = shape.props.points
+
+    // First check if we're too close to an existing anchor point
+    for (let i = 0; i < points.length; i++) {
+      const point = points[i]
+      const distance = Math.sqrt(
+        Math.pow(localPoint.x - point.x, 2) + 
+        Math.pow(localPoint.y - point.y, 2)
+      )
+      
+      if (distance < anchorThreshold) {
+        return null // Too close to existing anchor point
+      }
+    }
 
     // Check each segment using precise bezier curve distance
     for (let i = 0; i < points.length - 1; i++) {
@@ -219,17 +239,31 @@ export class BezierEditing extends StateNode {
     
     // Insert the new point with calculated control points
     const insertIndex = segmentIndex + 1
+    let newPointIndex: number
+    
     if (segmentIndex === newPoints.length - 1 && shape.props.isClosed) {
       // Inserting in closing segment - update first point instead
       newPoints[0] = splitResult.rightSegment.p2
       newPoints.push(splitResult.splitPoint)
+      newPointIndex = newPoints.length - 1
     } else {
       newPoints[insertIndex] = splitResult.rightSegment.p2
       newPoints.splice(insertIndex, 0, splitResult.splitPoint)
+      newPointIndex = insertIndex
     }
     
+    // Update the shape with new points and select the newly added point
     const updatedShape = this.recalculateBounds(shape, newPoints)
-    this.editor.updateShape(updatedShape)
+    const finalShape = {
+      ...updatedShape,
+      props: {
+        ...updatedShape.props,
+        selectedPointIndices: [newPointIndex] // Auto-select the new point
+      }
+    }
+    
+    this.editor.updateShape(finalShape)
+    console.log('✨ POINT ADDED: New point added at index', newPointIndex, 'using Alt+click')
   }
 
   private removePoint(shape: BezierShape, pointIndex: number) {
