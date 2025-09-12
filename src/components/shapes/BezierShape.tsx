@@ -1,5 +1,4 @@
 import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, useEditor, type TLResizeInfo } from 'tldraw'
-import { useMemo } from 'react'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 import { 
   getAccurateBounds, 
@@ -8,8 +7,11 @@ import {
   updatePointsFromHandleDrag,
   createHandleDragKey 
 } from './utils/bezierUtils'
-import { BEZIER_THRESHOLDS, BEZIER_STYLES, bezierLog } from './utils/bezierConstants'
+import { bezierLog } from './utils/bezierConstants'
 import { useBezierHover } from './hooks/useBezierHover'
+import { BezierPath } from './components/BezierPath'
+import { BezierControlPoints } from './components/BezierControlPoints'
+import { BezierHoverPreview } from './components/BezierHoverPreview'
 
 export interface BezierPoint {
   x: number
@@ -115,117 +117,30 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
             ...flipTransform
           }}
         >
-          {/* Only render path if we have 2+ points */}
-          {pathData && (
-            <path
-              d={pathData}
-              fill={isClosed && fill ? color : 'none'}
-              stroke={color}
-              strokeWidth={strokeWidth}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeDasharray={editMode ? BEZIER_STYLES.EDIT_MODE_DASH : undefined}
-              opacity={editMode ? BEZIER_STYLES.EDIT_MODE_OPACITY : 1}
-              style={{ cursor: editMode ? 'crosshair' : 'default' }}
-            />
-          )}
+          {/* Main bezier path */}
+          <BezierPath
+            pathData={pathData}
+            color={color}
+            strokeWidth={strokeWidth}
+            fill={fill}
+            isClosed={isClosed}
+            editMode={!!editMode}
+          />
           
-          {/* Show control points and connection lines when in edit mode only */}
+          {/* Show control points and hover preview when in edit mode only */}
           {editMode && (
-            <g opacity={BEZIER_STYLES.CONTROL_OPACITY}>
-              {/* Show hover preview point (Alt+click to add) */}
-              {hoverPoint && (
-                <g key="hover-preview" opacity={BEZIER_STYLES.CONTROL_OPACITY}>
-                  {/* Simple preview dot - no control points for better performance */}
-                  <circle
-                    cx={hoverPoint.x}
-                    cy={hoverPoint.y}
-                    r={BEZIER_THRESHOLDS.HOVER_PREVIEW_RADIUS}
-                    fill={BEZIER_STYLES.HOVER_PREVIEW_COLOR}
-                    stroke="white"
-                    strokeWidth={BEZIER_STYLES.HOVER_PREVIEW_STROKE}
-                    opacity={BEZIER_STYLES.HOVER_OPACITY}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  {/* Small pulsing ring for visibility */}
-                  <circle
-                    cx={hoverPoint.x}
-                    cy={hoverPoint.y}
-                    r={BEZIER_THRESHOLDS.HOVER_PREVIEW_RING}
-                    fill="none"
-                    stroke={BEZIER_STYLES.HOVER_PREVIEW_COLOR}
-                    strokeWidth={BEZIER_STYLES.HOVER_RING_STROKE}
-                    opacity={BEZIER_STYLES.HOVER_RING_OPACITY}
-                  />
-                </g>
-              )}
+            <>
+              {/* Hover preview for Alt+click point addition */}
+              <BezierHoverPreview hoverPoint={hoverPoint} />
               
-              {points.map((point, i) => (
-                <g key={i}>
-                  {/* Control point lines - draw these first so they appear behind the circles */}
-                  {point.cp1 && (
-                    <line
-                      x1={point.x}
-                      y1={point.y}
-                      x2={point.cp1.x}
-                      y2={point.cp1.y}
-                      stroke={BEZIER_STYLES.CONTROL_LINE_COLOR}
-                      strokeWidth={BEZIER_STYLES.CONTROL_LINE_WIDTH}
-                      strokeDasharray={BEZIER_STYLES.CONTROL_LINE_DASH}
-                      opacity={0.5}
-                    />
-                  )}
-                  {point.cp2 && (
-                    <line
-                      x1={point.x}
-                      y1={point.y}
-                      x2={point.cp2.x}
-                      y2={point.cp2.y}
-                      stroke={BEZIER_STYLES.CONTROL_LINE_COLOR}
-                      strokeWidth={BEZIER_STYLES.CONTROL_LINE_WIDTH}
-                      strokeDasharray={BEZIER_STYLES.CONTROL_LINE_DASH}
-                      opacity={0.5}
-                    />
-                  )}
-                  
-                  {/* Control point handles */}
-                  {point.cp1 && (
-                    <circle
-                      cx={point.cp1.x}
-                      cy={point.cp1.y}
-                      r={selectedPointIndices.includes(i) ? BEZIER_THRESHOLDS.CONTROL_RADIUS_SELECTED : BEZIER_THRESHOLDS.CONTROL_RADIUS}
-                      fill={selectedPointIndices.includes(i) ? BEZIER_STYLES.CONTROL_POINT_SELECTED : BEZIER_STYLES.CONTROL_POINT_COLOR}
-                      stroke="white"
-                      strokeWidth={selectedPointIndices.includes(i) ? BEZIER_STYLES.CONTROL_STROKE_SELECTED : BEZIER_STYLES.CONTROL_STROKE}
-                    />
-                  )}
-                  {point.cp2 && (
-                    <circle
-                      cx={point.cp2.x}
-                      cy={point.cp2.y}
-                      r={selectedPointIndices.includes(i) ? BEZIER_THRESHOLDS.CONTROL_RADIUS_SELECTED : BEZIER_THRESHOLDS.CONTROL_RADIUS}
-                      fill={selectedPointIndices.includes(i) ? BEZIER_STYLES.CONTROL_POINT_SELECTED : BEZIER_STYLES.CONTROL_POINT_COLOR}
-                      stroke="white"
-                      strokeWidth={selectedPointIndices.includes(i) ? BEZIER_STYLES.CONTROL_STROKE_SELECTED : BEZIER_STYLES.CONTROL_STROKE}
-                    />
-                  )}
-                  
-                  {/* Anchor points - draw these last so they appear on top */}
-                  <circle
-                    cx={point.x}
-                    cy={point.y}
-                    r={selectedPointIndices.includes(i) ? BEZIER_THRESHOLDS.ANCHOR_RADIUS_SELECTED : BEZIER_THRESHOLDS.ANCHOR_RADIUS}
-                    fill={selectedPointIndices.includes(i) ? BEZIER_STYLES.ANCHOR_POINT_SELECTED : BEZIER_STYLES.ANCHOR_POINT_COLOR}
-                    stroke={BEZIER_STYLES.CONTROL_POINT_COLOR}
-                    strokeWidth={selectedPointIndices.includes(i) ? BEZIER_STYLES.ANCHOR_STROKE_SELECTED : BEZIER_STYLES.ANCHOR_STROKE}
-                    style={{ cursor: 'pointer' }}
-                  />
-                </g>
-              ))}
-            </g>
+              {/* Control points and anchor points */}
+              <BezierControlPoints 
+                points={points}
+                selectedPointIndices={selectedPointIndices}
+              />
+            </>
           )}
         </svg>
-        
       </HTMLContainer>
     )
   }
@@ -635,9 +550,9 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   // No custom onRotate needed - TLDraw applies rotation to the entire shape container
 
   // Disable transform controls during edit mode but allow basic interaction
-  override canResize = (shape: BezierShape) => !shape.props.editMode as const
-  override canRotate = (shape: BezierShape) => !shape.props.editMode as const
-  override canBind = () => true as const
+  override canResize = (shape: BezierShape) => !shape.props.editMode
+  override canRotate = (shape: BezierShape) => !shape.props.editMode
+  override canBind = () => true
   
   // Override hideSelectionBoundsFg to hide selection bounds in edit mode
   override hideSelectionBoundsFg = (shape: BezierShape) => !!shape.props.editMode

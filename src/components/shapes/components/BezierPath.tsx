@@ -1,0 +1,41 @@
+import React from 'react'
+import { BEZIER_STYLES } from '../utils/bezierConstants'
+
+interface BezierPathProps {
+  pathData: string
+  color: string
+  strokeWidth: number
+  fill: boolean
+  isClosed: boolean
+  editMode: boolean
+}
+
+/**
+ * Renders the main bezier curve path
+ * Handles both fill and stroke rendering with appropriate styles
+ */
+export const BezierPath: React.FC<BezierPathProps> = ({
+  pathData,
+  color,
+  strokeWidth,
+  fill,
+  isClosed,
+  editMode
+}) => {
+  // Don't render anything if no path data
+  if (!pathData) return null
+
+  return (
+    <path
+      d={pathData}
+      fill={isClosed && fill ? color : 'none'}
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeDasharray={editMode ? BEZIER_STYLES.EDIT_MODE_DASH : undefined}
+      opacity={editMode ? BEZIER_STYLES.EDIT_MODE_OPACITY : 1}
+      style={{ cursor: editMode ? 'crosshair' : 'default' }}
+    />
+  )
+}

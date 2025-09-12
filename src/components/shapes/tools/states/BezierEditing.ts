@@ -6,7 +6,6 @@ import {
 } from 'tldraw'
 import { type BezierShape, type BezierPoint } from '../../BezierShape'
 import { 
-  getClosestPointOnSegment, 
   splitSegmentAtT, 
   getAccurateBounds,
   getAnchorPointAt,
@@ -14,7 +13,7 @@ import {
   getSegmentAtPosition,
   handlePointSelection
 } from '../../utils/bezierUtils'
-import { BEZIER_THRESHOLDS, BEZIER_HANDLES, bezierLog } from '../../utils/bezierConstants'
+import { BEZIER_HANDLES, bezierLog } from '../../utils/bezierConstants'
 
 export class BezierEditing extends StateNode {
   static override id = 'editing'
@@ -64,7 +63,10 @@ export class BezierEditing extends StateNode {
     if (anchorPointIndex !== -1) {
       bezierLog('Selection', 'BezierEditing detected anchor point click:', anchorPointIndex, 'shiftKey:', this.editor.inputs.shiftKey)
       const updatedShape = handlePointSelection(shape, anchorPointIndex, this.editor.inputs.shiftKey)
-      this.editor.updateShape(updatedShape)
+      this.editor.updateShape({
+        ...updatedShape,
+        id: shape.id
+      })
       return // Selection handled, don't continue with other logic
     }
 

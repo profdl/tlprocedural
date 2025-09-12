@@ -1,8 +1,8 @@
 import { useEffect, useCallback } from 'react'
-import { type TLEditor } from 'tldraw'
+import { type Editor } from 'tldraw'
 import { type BezierShape, type BezierPoint } from '../BezierShape'
-import { getSegmentAtPosition, splitSegmentAtT } from '../utils/bezierUtils'
-import { BEZIER_THRESHOLDS, bezierLog } from '../utils/bezierConstants'
+import { getSegmentAtPosition } from '../utils/bezierUtils'
+import { BEZIER_THRESHOLDS } from '../utils/bezierConstants'
 
 interface HoverPreviewPoint {
   x: number
@@ -13,7 +13,7 @@ interface HoverPreviewPoint {
 
 interface UseBezierHoverProps {
   shape: BezierShape
-  editor: TLEditor | null
+  editor: Editor | null
   editMode: boolean
 }
 
@@ -30,7 +30,6 @@ export function useBezierHover({ shape, editor, editMode }: UseBezierHoverProps)
     if (!editor) return null
     
     // For hover, we use slightly different thresholds than click detection
-    const threshold = BEZIER_THRESHOLDS.SEGMENT_HOVER / editor.getZoomLevel()
     const anchorThreshold = BEZIER_THRESHOLDS.ANCHOR_POINT_HOVER / editor.getZoomLevel()
 
     // First check if we're near an anchor point - if so, don't show segment hover
