@@ -1,6 +1,6 @@
 import { Bezier } from 'bezier-js'
-import { type BezierPoint } from '../BezierShape'
-import { BEZIER_HANDLES } from './bezierConstants'
+import { type BezierPoint, type BezierShape } from '../BezierShape'
+import { BEZIER_HANDLES, BEZIER_THRESHOLDS, bezierLog } from './bezierConstants'
 
 /**
  * Utility functions for converting between our BezierPoint format and bezier-js Bezier objects
@@ -215,4 +215,209 @@ export function getAccurateBounds(points: BezierPoint[], isClosed: boolean = fal
   })
   
   return { minX, minY, maxX, maxY }
+}
+
+/**
+ * Point selection utilities - shared between BezierShape and BezierEditing
+ */
+
+/**
+ * Find anchor point at given local coordinates
+ * @param points Array of bezier points to search
+ * @param localPoint Point in shape's local coordinate space
+ * @param zoomLevel Current editor zoom level for threshold scaling
+ * @returns Index of anchor point or -1 if none found
+ */
+export function getAnchorPointAt(
+  points: BezierPoint[], 
+  localPoint: { x: number; y: number }, 
+  zoomLevel: number
+): number {
+  const threshold = BEZIER_THRESHOLDS.ANCHOR_POINT / zoomLevel
+  
+  for (let i = 0; i < points.length; i++) {
+    const point = points[i]
+    const distance = Math.sqrt(
+      Math.pow(localPoint.x - point.x, 2) + 
+      Math.pow(localPoint.y - point.y, 2)
+    )
+    
+    if (distance < threshold) {
+      return i
+    }
+  }
+  
+  return -1
+}
+
+/**
+ * Find control point at given local coordinates
+ * @param points Array of bezier points to search
+ * @param localPoint Point in shape's local coordinate space
+ * @param zoomLevel Current editor zoom level for threshold scaling
+ * @returns Control point info or null if none found
+ */
+export function getControlPointAt(
+  points: BezierPoint[], 
+  localPoint: { x: number; y: number }, 
+  zoomLevel: number
+): { pointIndex: number; type: 'cp1' | 'cp2' } | null {
+  const threshold = BEZIER_THRESHOLDS.CONTROL_POINT / zoomLevel
+  
+  for (let i = 0; i < points.length; i++) {
+    const point = points[i]
+    
+    // Check cp1
+    if (point.cp1) {
+      const distance = Math.sqrt(
+        Math.pow(localPoint.x - point.cp1.x, 2) + 
+        Math.pow(localPoint.y - point.cp1.y, 2)
+      )
+      if (distance < threshold) {
+        return { pointIndex: i, type: 'cp1' }
+      }
+    }
+    
+    // Check cp2
+    if (point.cp2) {
+      const distance = Math.sqrt(
+        Math.pow(localPoint.x - point.cp2.x, 2) + 
+        Math.pow(localPoint.y - point.cp2.y, 2)
+      )
+      if (distance < threshold) {
+        return { pointIndex: i, type: 'cp2' }
+      }
+    }
+  }
+  
+  return null
+}
+
+/**
+ * Find segment at given position for point insertion
+ * @param points Array of bezier points 
+ * @param localPoint Point in shape's local coordinate space
+ * @param zoomLevel Current editor zoom level for threshold scaling
+ * @param isClosed Whether the path is closed
+ * @returns Segment info or null if none found
+ */
+export function getSegmentAtPosition(
+  points: BezierPoint[], 
+  localPoint: { x: number; y: number }, 
+  zoomLevel: number,
+  isClosed: boolean = false
+): { segmentIndex: number; t: number } | null {
+  const threshold = BEZIER_THRESHOLDS.SEGMENT_CLICK / zoomLevel
+  const anchorThreshold = BEZIER_THRESHOLDS.SEGMENT_ANCHOR_EXCLUSION / zoomLevel
+
+  // First check if we're too close to an existing anchor point
+  for (let i = 0; i < points.length; i++) {
+    const point = points[i]
+    const distance = Math.sqrt(
+      Math.pow(localPoint.x - point.x, 2) + 
+      Math.pow(localPoint.y - point.y, 2)
+    )
+    
+    if (distance < anchorThreshold) {
+      return null // Too close to existing anchor point
+    }
+  }
+
+  // Check each segment using precise bezier curve distance
+  for (let i = 0; i < points.length - 1; i++) {
+    const p1 = points[i]
+    const p2 = points[i + 1]
+    
+    const result = getClosestPointOnSegment(p1, p2, localPoint)
+    
+    if (result.distance < threshold) {
+      return { segmentIndex: i, t: result.t }
+    }
+  }
+
+  // Check closing segment if the path is closed
+  if (isClosed && points.length > 2) {
+    const p1 = points[points.length - 1]
+    const p2 = points[0]
+    const result = getClosestPointOnSegment(p1, p2, localPoint)
+    
+    if (result.distance < threshold) {
+      return { segmentIndex: points.length - 1, t: result.t }
+    }
+  }
+
+  return null
+}
+
+/**
+ * Calculate new selection indices based on point selection interaction
+ * @param currentSelected Currently selected point indices
+ * @param pointIndex Index of clicked point
+ * @param shiftKey Whether shift key was held during click
+ * @returns New selection indices array
+ */
+export function calculateNewSelection(
+  currentSelected: number[], 
+  pointIndex: number, 
+  shiftKey: boolean
+): number[] {
+  let newSelected: number[]
+
+  if (shiftKey) {
+    // Shift-click: toggle selection
+    if (currentSelected.includes(pointIndex)) {
+      // Remove from selection
+      newSelected = currentSelected.filter(i => i !== pointIndex)
+      bezierLog('Selection', 'Removed point', pointIndex, 'from selection. New selection:', newSelected)
+    } else {
+      // Add to selection
+      newSelected = [...currentSelected, pointIndex]
+      bezierLog('Selection', 'Added point', pointIndex, 'to selection. New selection:', newSelected)
+    }
+  } else {
+    // Regular click: select only this point
+    newSelected = [pointIndex]
+    bezierLog('Selection', 'Single-selected point', pointIndex)
+  }
+
+  return newSelected
+}
+
+/**
+ * Create updated BezierShape with new point selection
+ * @param shape Current shape
+ * @param newSelectedIndices New selection indices
+ * @returns Updated shape object for editor.updateShape()
+ */
+export function updateShapeSelection(
+  shape: BezierShape, 
+  newSelectedIndices: number[]
+): Partial<BezierShape> {
+  return {
+    id: shape.id,
+    type: 'bezier' as const,
+    props: {
+      ...shape.props,
+      selectedPointIndices: newSelectedIndices
+    }
+  }
+}
+
+/**
+ * Handle complete point selection interaction
+ * @param shape Current shape
+ * @param pointIndex Index of clicked point
+ * @param shiftKey Whether shift was held
+ * @returns Updated shape object for editor.updateShape()
+ */
+export function handlePointSelection(
+  shape: BezierShape, 
+  pointIndex: number, 
+  shiftKey: boolean
+): Partial<BezierShape> {
+  const currentSelected = shape.props.selectedPointIndices || []
+  const newSelected = calculateNewSelection(currentSelected, pointIndex, shiftKey)
+  
+  bezierLog('Selection', 'Updating shape with selectedPointIndices:', newSelected)
+  return updateShapeSelection(shape, newSelected)
 }

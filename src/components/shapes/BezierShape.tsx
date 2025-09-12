@@ -1,7 +1,7 @@
 import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, useEditor, type TLResizeInfo } from 'tldraw'
 import { useEffect } from 'react'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
-import { getAccurateBounds, getClosestPointOnSegment, splitSegmentAtT } from './utils/bezierUtils'
+import { getAccurateBounds, getClosestPointOnSegment, splitSegmentAtT, getSegmentAtPosition } from './utils/bezierUtils'
 import { BEZIER_THRESHOLDS, BEZIER_STYLES, bezierLog } from './utils/bezierConstants'
 
 export interface BezierPoint {
@@ -90,7 +90,8 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     }
 
     // Helper methods for hover detection (defined before useEffect)
-    const getSegmentAtPosition = (localPoint: { x: number; y: number }): { segmentIndex: number; t: number } | null => {
+    const getSegmentAtPositionForHover = (localPoint: { x: number; y: number }): { segmentIndex: number; t: number } | null => {
+      // For hover, we use slightly different thresholds than click detection
       const threshold = BEZIER_THRESHOLDS.SEGMENT_HOVER / editor.getZoomLevel()
       const anchorThreshold = BEZIER_THRESHOLDS.ANCHOR_POINT_HOVER / editor.getZoomLevel()
 
@@ -107,30 +108,8 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
         }
       }
 
-      // Check each segment using precise bezier curve distance
-      for (let i = 0; i < points.length - 1; i++) {
-        const p1 = points[i]
-        const p2 = points[i + 1]
-        
-        const result = getClosestPointOnSegment(p1, p2, localPoint)
-        
-        if (result.distance < threshold) {
-          return { segmentIndex: i, t: result.t }
-        }
-      }
-
-      // Check closing segment if the path is closed
-      if (isClosed && points.length > 2) {
-        const p1 = points[points.length - 1]
-        const p2 = points[0]
-        const result = getClosestPointOnSegment(p1, p2, localPoint)
-        
-        if (result.distance < threshold) {
-          return { segmentIndex: points.length - 1, t: result.t }
-        }
-      }
-
-      return null
+      // Use shared utility for segment detection
+      return getSegmentAtPosition(points, localPoint, editor.getZoomLevel(), isClosed)
     }
 
     const updateHoverPreview = (segmentInfo: { segmentIndex: number; t: number }) => {
@@ -253,7 +232,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
           y: pagePoint.y - shapePageBounds.y
         }
 
-        const segmentInfo = getSegmentAtPosition(localPoint)
+        const segmentInfo = getSegmentAtPositionForHover(localPoint)
         if (segmentInfo) {
           // Always update preview when Alt is held - both segment changes and position changes along same segment
           updateHoverPreview(segmentInfo)
@@ -662,36 +641,6 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     return next
   }
 
-  // Handle point selection logic for clicks (not drags)
-  private handlePointSelection(shape: BezierShape, pointIndex: number, shiftKey: boolean): BezierShape {
-    const currentSelected = shape.props.selectedPointIndices || []
-    let newSelected: number[]
-
-    if (shiftKey) {
-      // Shift-click: toggle selection
-      if (currentSelected.includes(pointIndex)) {
-        // Remove from selection
-        newSelected = currentSelected.filter(i => i !== pointIndex)
-        bezierLog('Selection', 'Removed point', pointIndex, 'from selection. New selection:', newSelected)
-      } else {
-        // Add to selection
-        newSelected = [...currentSelected, pointIndex]
-        bezierLog('Selection', 'Added point', pointIndex, 'to selection. New selection:', newSelected)
-      }
-    } else {
-      // Regular click: select only this point
-      newSelected = [pointIndex]
-      bezierLog('Selection', 'Single-selected point', pointIndex)
-    }
-
-    return {
-      ...shape,
-      props: {
-        ...shape.props,
-        selectedPointIndices: newSelected
-      }
-    }
-  }
 
   // Delete selected points
   private deleteSelectedPoints(shape: BezierShape, selectedIndices: number[]): BezierShape {

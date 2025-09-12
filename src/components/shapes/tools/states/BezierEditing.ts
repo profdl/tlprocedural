@@ -5,7 +5,15 @@ import {
   type TLKeyboardEventInfo,
 } from 'tldraw'
 import { type BezierShape, type BezierPoint } from '../../BezierShape'
-import { getClosestPointOnSegment, splitSegmentAtT, getAccurateBounds } from '../../utils/bezierUtils'
+import { 
+  getClosestPointOnSegment, 
+  splitSegmentAtT, 
+  getAccurateBounds,
+  getAnchorPointAt,
+  getControlPointAt,
+  getSegmentAtPosition,
+  handlePointSelection
+} from '../../utils/bezierUtils'
 import { BEZIER_THRESHOLDS, BEZIER_HANDLES, bezierLog } from '../../utils/bezierConstants'
 
 export class BezierEditing extends StateNode {
@@ -52,22 +60,23 @@ export class BezierEditing extends StateNode {
     }
 
     // Check if clicking on an existing anchor point - handle selection directly
-    const anchorPointIndex = this.getAnchorPointAt(shape, localPoint)
+    const anchorPointIndex = getAnchorPointAt(shape.props.points, localPoint, this.editor.getZoomLevel())
     if (anchorPointIndex !== -1) {
       bezierLog('Selection', 'BezierEditing detected anchor point click:', anchorPointIndex, 'shiftKey:', this.editor.inputs.shiftKey)
-      this.handlePointSelection(shape, anchorPointIndex, this.editor.inputs.shiftKey)
+      const updatedShape = handlePointSelection(shape, anchorPointIndex, this.editor.inputs.shiftKey)
+      this.editor.updateShape(updatedShape)
       return // Selection handled, don't continue with other logic
     }
 
     // Check if clicking on a control point (do nothing - let handle system manage it)
-    const controlPointInfo = this.getControlPointAt(shape, localPoint)
+    const controlPointInfo = getControlPointAt(shape.props.points, localPoint, this.editor.getZoomLevel())
     if (controlPointInfo) {
       return // Let TLDraw's handle system manage control points
     }
 
     // Check for Alt+click to add point on path segment
     if (this.editor.inputs.altKey) {
-      const segmentInfo = this.getSegmentAtPosition(shape, localPoint)
+      const segmentInfo = getSegmentAtPosition(shape.props.points, localPoint, this.editor.getZoomLevel(), shape.props.isClosed)
       if (segmentInfo) {
         this.addPointToSegment(shape, segmentInfo)
         return // Point added, don't continue with other logic
@@ -112,7 +121,7 @@ export class BezierEditing extends StateNode {
     }
 
     // Check if double-clicking on an anchor point to toggle its type
-    const anchorPointIndex = this.getAnchorPointAt(shape, localPoint)
+    const anchorPointIndex = getAnchorPointAt(shape.props.points, localPoint, this.editor.getZoomLevel())
     if (anchorPointIndex !== -1) {
       this.togglePointType(shape, anchorPointIndex)
     }
@@ -129,99 +138,8 @@ export class BezierEditing extends StateNode {
     }
   }
 
-  private getAnchorPointAt(shape: BezierShape, localPoint: { x: number; y: number }): number {
-    const threshold = BEZIER_THRESHOLDS.ANCHOR_POINT / this.editor.getZoomLevel()
-    
-    for (let i = 0; i < shape.props.points.length; i++) {
-      const point = shape.props.points[i]
-      const distance = Math.sqrt(
-        Math.pow(localPoint.x - point.x, 2) + 
-        Math.pow(localPoint.y - point.y, 2)
-      )
-      
-      if (distance < threshold) {
-        return i
-      }
-    }
-    
-    return -1
-  }
 
-  private getControlPointAt(shape: BezierShape, localPoint: { x: number; y: number }): { pointIndex: number; type: 'cp1' | 'cp2' } | null {
-    const threshold = BEZIER_THRESHOLDS.CONTROL_POINT / this.editor.getZoomLevel()
-    
-    for (let i = 0; i < shape.props.points.length; i++) {
-      const point = shape.props.points[i]
-      
-      // Check cp1
-      if (point.cp1) {
-        const distance = Math.sqrt(
-          Math.pow(localPoint.x - point.cp1.x, 2) + 
-          Math.pow(localPoint.y - point.cp1.y, 2)
-        )
-        if (distance < threshold) {
-          return { pointIndex: i, type: 'cp1' }
-        }
-      }
-      
-      // Check cp2
-      if (point.cp2) {
-        const distance = Math.sqrt(
-          Math.pow(localPoint.x - point.cp2.x, 2) + 
-          Math.pow(localPoint.y - point.cp2.y, 2)
-        )
-        if (distance < threshold) {
-          return { pointIndex: i, type: 'cp2' }
-        }
-      }
-    }
-    
-    return null
-  }
 
-  private getSegmentAtPosition(shape: BezierShape, localPoint: { x: number; y: number }): { segmentIndex: number; t: number } | null {
-    const threshold = BEZIER_THRESHOLDS.SEGMENT_CLICK / this.editor.getZoomLevel()
-    const anchorThreshold = BEZIER_THRESHOLDS.SEGMENT_ANCHOR_EXCLUSION / this.editor.getZoomLevel()
-    const points = shape.props.points
-
-    // First check if we're too close to an existing anchor point
-    for (let i = 0; i < points.length; i++) {
-      const point = points[i]
-      const distance = Math.sqrt(
-        Math.pow(localPoint.x - point.x, 2) + 
-        Math.pow(localPoint.y - point.y, 2)
-      )
-      
-      if (distance < anchorThreshold) {
-        return null // Too close to existing anchor point
-      }
-    }
-
-    // Check each segment using precise bezier curve distance
-    for (let i = 0; i < points.length - 1; i++) {
-      const p1 = points[i]
-      const p2 = points[i + 1]
-      
-      const result = getClosestPointOnSegment(p1, p2, localPoint)
-      
-      if (result.distance < threshold) {
-        return { segmentIndex: i, t: result.t }
-      }
-    }
-
-    // Check closing segment if the path is closed
-    if (shape.props.isClosed && points.length > 2) {
-      const p1 = points[points.length - 1]
-      const p2 = points[0]
-      const result = getClosestPointOnSegment(p1, p2, localPoint)
-      
-      if (result.distance < threshold) {
-        return { segmentIndex: points.length - 1, t: result.t }
-      }
-    }
-
-    return null
-  }
 
 
   private addPointToSegment(shape: BezierShape, segmentInfo: { segmentIndex: number; t: number }) {
@@ -430,45 +348,6 @@ export class BezierEditing extends StateNode {
     }
   }
 
-  private handlePointSelection(shape: BezierShape, pointIndex: number, shiftKey: boolean) {
-    const currentSelected = shape.props.selectedPointIndices || []
-    let newSelected: number[]
-
-    if (shiftKey) {
-      // Shift-click: toggle selection
-      if (currentSelected.includes(pointIndex)) {
-        // Remove from selection
-        newSelected = currentSelected.filter(i => i !== pointIndex)
-        bezierLog('Selection', 'Removed point', pointIndex, 'from selection. New selection:', newSelected)
-      } else {
-        // Add to selection
-        newSelected = [...currentSelected, pointIndex]
-        bezierLog('Selection', 'Added point', pointIndex, 'to selection. New selection:', newSelected)
-      }
-    } else {
-      // Regular click: select only this point
-      newSelected = [pointIndex]
-      bezierLog('Selection', 'Single-selected point', pointIndex)
-    }
-
-    // Update the shape with new selection
-    const updatedShape = {
-      id: shape.id,
-      type: 'bezier' as const,
-      props: {
-        ...shape.props,
-        selectedPointIndices: newSelected
-      }
-    }
-    bezierLog('Selection', 'Updating shape with selectedPointIndices:', newSelected)
-    this.editor.updateShape(updatedShape)
-    
-    // Log the updated shape to verify the change took effect
-    setTimeout(() => {
-      const verifyShape = this.editor.getShape(shape.id) as BezierShape
-      bezierLog('Selection', 'Verified shape selectedPointIndices:', verifyShape?.props?.selectedPointIndices)
-    }, 10)
-  }
 
 
   private exitEditMode() {

@@ -72,13 +72,13 @@ export const BEZIER_HANDLES = {
 } as const
 
 // Utility functions for debug logging
-export function bezierLog(category: string, ...args: any[]) {
+export function bezierLog(category: string, ...args: unknown[]) {
   if (BEZIER_DEBUG) {
     console.log(`[Bezier:${category}]`, ...args)
   }
 }
 
-export function bezierWarn(category: string, ...args: any[]) {
+export function bezierWarn(category: string, ...args: unknown[]) {
   if (BEZIER_DEBUG) {
     console.warn(`[Bezier:${category}]`, ...args)
   }
