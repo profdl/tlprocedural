@@ -1,5 +1,6 @@
 import { Bezier } from 'bezier-js'
 import { type BezierPoint } from '../BezierShape'
+import { BEZIER_HANDLES } from './bezierConstants'
 
 /**
  * Utility functions for converting between our BezierPoint format and bezier-js Bezier objects
@@ -112,7 +113,7 @@ export function splitSegmentAtT(
   // Calculate handle length based on curve properties
   // Use 1/3 of the distance to neighboring control points for smooth continuity
   const segmentLength = bezier.length()
-  const baseHandleLength = segmentLength * 0.15 // 15% of segment length for balanced handles
+  const baseHandleLength = segmentLength * BEZIER_HANDLES.SEGMENT_HANDLE_LENGTH // Percentage of segment length for balanced handles
   
   // Normalize the derivative to get the tangent direction
   const tangentLength = Math.sqrt(derivative.x * derivative.x + derivative.y * derivative.y)

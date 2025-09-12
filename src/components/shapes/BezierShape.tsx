@@ -2,6 +2,7 @@ import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, us
 import { useEffect } from 'react'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 import { getAccurateBounds, getClosestPointOnSegment, splitSegmentAtT } from './utils/bezierUtils'
+import { BEZIER_THRESHOLDS, BEZIER_STYLES, bezierLog } from './utils/bezierConstants'
 
 export interface BezierPoint {
   x: number
@@ -85,13 +86,13 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     
     // Debug logging for selection state
     if (editMode && selectedPointIndices.length > 0) {
-      console.log('🔵 RENDER: BezierShape component rendering with selectedPointIndices:', selectedPointIndices)
+      bezierLog('Render', 'Component rendering with selectedPointIndices:', selectedPointIndices)
     }
 
     // Helper methods for hover detection (defined before useEffect)
     const getSegmentAtPosition = (localPoint: { x: number; y: number }): { segmentIndex: number; t: number } | null => {
-      const threshold = 8 / editor.getZoomLevel() // 8 pixels at current zoom
-      const anchorThreshold = 10 / editor.getZoomLevel() // Larger threshold for anchor points
+      const threshold = BEZIER_THRESHOLDS.SEGMENT_HOVER / editor.getZoomLevel()
+      const anchorThreshold = BEZIER_THRESHOLDS.ANCHOR_POINT_HOVER / editor.getZoomLevel()
 
       // First check if we're near an anchor point - if so, don't show segment hover
       for (let i = 0; i < points.length; i++) {
@@ -304,38 +305,38 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
               strokeWidth={strokeWidth}
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeDasharray={editMode ? '5 3' : undefined}
-              opacity={editMode ? 0.7 : 1}
+              strokeDasharray={editMode ? BEZIER_STYLES.EDIT_MODE_DASH : undefined}
+              opacity={editMode ? BEZIER_STYLES.EDIT_MODE_OPACITY : 1}
               style={{ cursor: editMode ? 'crosshair' : 'default' }}
             />
           )}
           
           {/* Show control points and connection lines when in edit mode only */}
           {editMode && (
-            <g opacity={0.8}>
+            <g opacity={BEZIER_STYLES.CONTROL_OPACITY}>
               {/* Show hover preview point (Alt+click to add) */}
               {hoverPoint && (
-                <g key="hover-preview" opacity={0.8}>
+                <g key="hover-preview" opacity={BEZIER_STYLES.CONTROL_OPACITY}>
                   {/* Simple preview dot - no control points for better performance */}
                   <circle
                     cx={hoverPoint.x}
                     cy={hoverPoint.y}
-                    r={4}
-                    fill="#00ff88"
+                    r={BEZIER_THRESHOLDS.HOVER_PREVIEW_RADIUS}
+                    fill={BEZIER_STYLES.HOVER_PREVIEW_COLOR}
                     stroke="white"
-                    strokeWidth={1.5}
-                    opacity={0.9}
+                    strokeWidth={BEZIER_STYLES.HOVER_PREVIEW_STROKE}
+                    opacity={BEZIER_STYLES.HOVER_OPACITY}
                     style={{ cursor: 'pointer' }}
                   />
                   {/* Small pulsing ring for visibility */}
                   <circle
                     cx={hoverPoint.x}
                     cy={hoverPoint.y}
-                    r={8}
+                    r={BEZIER_THRESHOLDS.HOVER_PREVIEW_RING}
                     fill="none"
-                    stroke="#00ff88"
-                    strokeWidth={1}
-                    opacity={0.4}
+                    stroke={BEZIER_STYLES.HOVER_PREVIEW_COLOR}
+                    strokeWidth={BEZIER_STYLES.HOVER_RING_STROKE}
+                    opacity={BEZIER_STYLES.HOVER_RING_OPACITY}
                   />
                 </g>
               )}
@@ -349,9 +350,9 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
                       y1={point.y}
                       x2={point.cp1.x}
                       y2={point.cp1.y}
-                      stroke="#0066ff"
-                      strokeWidth={1.5}
-                      strokeDasharray="2 2"
+                      stroke={BEZIER_STYLES.CONTROL_LINE_COLOR}
+                      strokeWidth={BEZIER_STYLES.CONTROL_LINE_WIDTH}
+                      strokeDasharray={BEZIER_STYLES.CONTROL_LINE_DASH}
                       opacity={0.5}
                     />
                   )}
@@ -361,9 +362,9 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
                       y1={point.y}
                       x2={point.cp2.x}
                       y2={point.cp2.y}
-                      stroke="#0066ff"
-                      strokeWidth={1.5}
-                      strokeDasharray="2 2"
+                      stroke={BEZIER_STYLES.CONTROL_LINE_COLOR}
+                      strokeWidth={BEZIER_STYLES.CONTROL_LINE_WIDTH}
+                      strokeDasharray={BEZIER_STYLES.CONTROL_LINE_DASH}
                       opacity={0.5}
                     />
                   )}
@@ -373,20 +374,20 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
                     <circle
                       cx={point.cp1.x}
                       cy={point.cp1.y}
-                      r={selectedPointIndices.includes(i) ? 5 : 4}
-                      fill={selectedPointIndices.includes(i) ? "#0099ff" : "#0066ff"}
+                      r={selectedPointIndices.includes(i) ? BEZIER_THRESHOLDS.CONTROL_RADIUS_SELECTED : BEZIER_THRESHOLDS.CONTROL_RADIUS}
+                      fill={selectedPointIndices.includes(i) ? BEZIER_STYLES.CONTROL_POINT_SELECTED : BEZIER_STYLES.CONTROL_POINT_COLOR}
                       stroke="white"
-                      strokeWidth={selectedPointIndices.includes(i) ? 2 : 1.5}
+                      strokeWidth={selectedPointIndices.includes(i) ? BEZIER_STYLES.CONTROL_STROKE_SELECTED : BEZIER_STYLES.CONTROL_STROKE}
                     />
                   )}
                   {point.cp2 && (
                     <circle
                       cx={point.cp2.x}
                       cy={point.cp2.y}
-                      r={selectedPointIndices.includes(i) ? 5 : 4}
-                      fill={selectedPointIndices.includes(i) ? "#0099ff" : "#0066ff"}
+                      r={selectedPointIndices.includes(i) ? BEZIER_THRESHOLDS.CONTROL_RADIUS_SELECTED : BEZIER_THRESHOLDS.CONTROL_RADIUS}
+                      fill={selectedPointIndices.includes(i) ? BEZIER_STYLES.CONTROL_POINT_SELECTED : BEZIER_STYLES.CONTROL_POINT_COLOR}
                       stroke="white"
-                      strokeWidth={selectedPointIndices.includes(i) ? 2 : 1.5}
+                      strokeWidth={selectedPointIndices.includes(i) ? BEZIER_STYLES.CONTROL_STROKE_SELECTED : BEZIER_STYLES.CONTROL_STROKE}
                     />
                   )}
                   
@@ -394,10 +395,10 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
                   <circle
                     cx={point.x}
                     cy={point.y}
-                    r={selectedPointIndices.includes(i) ? 8 : 5}
-                    fill={selectedPointIndices.includes(i) ? "#0066ff" : "white"}
-                    stroke={selectedPointIndices.includes(i) ? "#0066ff" : "#0066ff"}
-                    strokeWidth={selectedPointIndices.includes(i) ? 1 : 2}
+                    r={selectedPointIndices.includes(i) ? BEZIER_THRESHOLDS.ANCHOR_RADIUS_SELECTED : BEZIER_THRESHOLDS.ANCHOR_RADIUS}
+                    fill={selectedPointIndices.includes(i) ? BEZIER_STYLES.ANCHOR_POINT_SELECTED : BEZIER_STYLES.ANCHOR_POINT_COLOR}
+                    stroke={BEZIER_STYLES.CONTROL_POINT_COLOR}
+                    strokeWidth={selectedPointIndices.includes(i) ? BEZIER_STYLES.ANCHOR_STROKE_SELECTED : BEZIER_STYLES.ANCHOR_STROKE}
                     style={{ cursor: 'pointer' }}
                   />
                 </g>
@@ -549,7 +550,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   
   // Handle updates when handles are moved
   override onHandleDrag = (shape: BezierShape, { handle }: { handle: TLHandle }) => {
-    console.log('🎯 DRAG: onHandleDrag called for handle:', handle.id, 'shiftKey:', this.editor.inputs.shiftKey)
+    bezierLog('Drag', 'onHandleDrag called for handle:', handle.id, 'shiftKey:', this.editor.inputs.shiftKey)
     const newPoints = [...shape.props.points]
     const altKey = this.editor.inputs.altKey // Alt key breaks symmetry
     
@@ -671,16 +672,16 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
       if (currentSelected.includes(pointIndex)) {
         // Remove from selection
         newSelected = currentSelected.filter(i => i !== pointIndex)
-        console.log('🔵 SELECTION: Removed point', pointIndex, 'from selection. New selection:', newSelected)
+        bezierLog('Selection', 'Removed point', pointIndex, 'from selection. New selection:', newSelected)
       } else {
         // Add to selection
         newSelected = [...currentSelected, pointIndex]
-        console.log('🔵 SELECTION: Added point', pointIndex, 'to selection. New selection:', newSelected)
+        bezierLog('Selection', 'Added point', pointIndex, 'to selection. New selection:', newSelected)
       }
     } else {
       // Regular click: select only this point
       newSelected = [pointIndex]
-      console.log('🔵 SELECTION: Single-selected point', pointIndex)
+      bezierLog('Selection', 'Single-selected point', pointIndex)
     }
 
     return {
@@ -860,11 +861,11 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
           // Delete selected points if any are selected
           const selectedIndices = shape.props.selectedPointIndices || []
           if (selectedIndices.length > 0) {
-            console.log('🗑️ DELETE: Deleting selected points:', selectedIndices)
+            bezierLog('Delete', 'Deleting selected points:', selectedIndices)
             return this.deleteSelectedPoints(shape, selectedIndices)
           }
           // If no points selected, don't delete the shape - let TldrawCanvas handle this
-          console.log('🗑️ DELETE: No points selected, not deleting anything')
+          bezierLog('Delete', 'No points selected, not deleting anything')
           return shape
           
         case 'Escape':

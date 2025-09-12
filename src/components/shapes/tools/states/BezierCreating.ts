@@ -7,6 +7,7 @@ import {
   type TLShapePartial
 } from '@tldraw/editor'
 import { type BezierShape, type BezierPoint } from '../../BezierShape'
+import { BEZIER_THRESHOLDS, BEZIER_HANDLES } from '../../utils/bezierConstants'
 
 export class BezierCreating extends StateNode {
   static override id = 'creating'
@@ -24,9 +25,9 @@ export class BezierCreating extends StateNode {
   isCreatingFirstPoint = false
   initialDragOccurred = false
   stableOrigin?: Vec // Fixed origin point based on first point placement
-  readonly CORNER_POINT_THRESHOLD = 3 // pixels
-  readonly SNAP_THRESHOLD = 12 // pixels for entering snap zone
-  readonly RELEASE_THRESHOLD = 15 // pixels for exiting snap zone
+  readonly CORNER_POINT_THRESHOLD = BEZIER_THRESHOLDS.CORNER_POINT_DRAG // pixels
+  readonly SNAP_THRESHOLD = BEZIER_THRESHOLDS.SNAP_TO_START // pixels for entering snap zone
+  readonly RELEASE_THRESHOLD = BEZIER_THRESHOLDS.SNAP_RELEASE // pixels for exiting snap zone
 
   override onEnter(info: TLPointerEventInfo) {
     this.info = info
@@ -75,7 +76,7 @@ export class BezierCreating extends StateNode {
       const snapThreshold = this.SNAP_THRESHOLD / this.editor.getZoomLevel()
       const releaseThreshold = this.RELEASE_THRESHOLD / this.editor.getZoomLevel()
       
-      hoveringStart = distToFirst < 10 / this.editor.getZoomLevel()
+      hoveringStart = distToFirst < BEZIER_THRESHOLDS.CLOSE_CURVE / this.editor.getZoomLevel()
       
       // Snap logic
       if (!this.isSnappedToStart && distToFirst < snapThreshold) {
@@ -175,7 +176,7 @@ export class BezierCreating extends StateNode {
         const firstPoint = this.points[0]
         const distToFirst = Vec.Dist(currentPoint, { x: firstPoint.x, y: firstPoint.y })
         
-        if (distToFirst < 10 / this.editor.getZoomLevel()) {
+        if (distToFirst < BEZIER_THRESHOLDS.CLOSE_CURVE / this.editor.getZoomLevel()) {
           // Close the curve immediately (no drag)
           this.closeCurve()
           return
@@ -553,8 +554,8 @@ export class BezierCreating extends StateNode {
         }
         // Place the control point at about 1/3 of the distance in the incoming direction
         firstPoint.cp1 = {
-          x: firstPoint.x - normalizedDirection.x * (length * 0.3),
-          y: firstPoint.y - normalizedDirection.y * (length * 0.3)
+          x: firstPoint.x - normalizedDirection.x * (length * BEZIER_HANDLES.CONTROL_POINT_SCALE),
+          y: firstPoint.y - normalizedDirection.y * (length * BEZIER_HANDLES.CONTROL_POINT_SCALE)
         }
       }
     }
@@ -579,8 +580,8 @@ export class BezierCreating extends StateNode {
           y: direction.y / length
         }
         lastPoint.cp2 = {
-          x: lastPoint.x + normalizedDirection.x * (length * 0.3),
-          y: lastPoint.y + normalizedDirection.y * (length * 0.3)
+          x: lastPoint.x + normalizedDirection.x * (length * BEZIER_HANDLES.CONTROL_POINT_SCALE),
+          y: lastPoint.y + normalizedDirection.y * (length * BEZIER_HANDLES.CONTROL_POINT_SCALE)
         }
       }
     }
