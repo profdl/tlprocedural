@@ -77,6 +77,11 @@ export interface BezierPoint {
 - **Point Deletion**:
   - Select points and press `Delete` or `Backspace`
   - Maintains minimum 2 points per path
+- **Point Addition**:
+  - **Alt+click on path segments** to add new points
+  - Green preview dot shows insertion position when Alt is held
+  - Newly added points are automatically selected
+  - Works on both open and closed paths
 - **Point Type Toggle**:
   - **Double-click point** to toggle between corner and smooth
   - Corner → Smooth: Adds symmetric control handles
@@ -93,7 +98,7 @@ export interface BezierPoint {
 - **Edit Mode Indicators**:
   - Dashed stroke outline
   - Blue control point handles and connection lines
-  - Orange hover preview for point addition
+  - Green hover preview for point addition (Alt+hover)
   - Selected points highlighted in blue
 - **Creation Mode**:
   - Real-time curve preview
@@ -105,29 +110,28 @@ export interface BezierPoint {
 - **Flip Operations**: Proper coordinate flipping for bezier points
 - **Style Properties**: Color, stroke width, fill (for closed paths)
 
-## Known Issues & Limitations
+## Fixed Issues
 
-### ⚠️ Adding Points Functionality
-**Status**: Not working correctly - needs refactoring
+### ✅ Adding Points Functionality - RESOLVED
+**Status**: Working correctly with optimized performance
 
-The current point addition system has architectural problems:
+The point addition system has been successfully refactored and optimized:
 
-#### Current Implementation Problems
-1. **Segment Handle System**: Uses invisible TLDraw handles on path segments
-2. **Hover Preview Conflicts**: Preview system interferes with handle detection
-3. **State Synchronization**: Point addition triggers during drag operations unexpectedly
-4. **Performance Issues**: Continuous hover calculations affect responsiveness
+#### What Was Fixed
+1. **Removed Segment Handle System**: Eliminated problematic invisible TLDraw handles
+2. **Implemented Alt+Click Addition**: Direct click-based point addition in edit mode
+3. **Optimized Preview Performance**: Lightweight hover preview without expensive calculations
+4. **Improved User Experience**: Clear visual feedback with green preview indicator
 
-#### Files Affected
-- `BezierShape.tsx`: Lines 549-596 (segment handle generation)
-- `BezierShape.tsx`: Lines 622-693 (onHandleDrag point addition logic)
-- `BezierShape.tsx`: Lines 135-177 (hover preview system)
+#### New Implementation
+- **Alt+Click to Add Points**: Hold Alt and click on any path segment to add a point
+- **Smart Preview**: Green dot preview only appears when Alt key is held
+- **Performance Optimized**: Direct bezier curve evaluation instead of expensive splitting calculations
+- **Auto-Selection**: Newly added points are automatically selected for immediate editing
 
-#### Recommended Refactoring Approach
-1. **Remove Segment Handles**: Eliminate invisible TLDraw handles for point addition
-2. **Direct Click Detection**: Implement click-based point addition in `BezierEditing.ts`
-3. **Simplified Preview**: Use pure visual preview without handle system interference
-4. **Gesture-Based Addition**: Consider alt+click or dedicated modifier for point addition
+#### Files Updated
+- `BezierShape.tsx`: Removed segment handles, optimized hover preview system
+- `BezierEditing.ts`: Added Alt+click point addition logic with proper collision detection
 
 ## File Structure
 
@@ -185,8 +189,9 @@ hoverSegmentIndex?: number           // Segment being hovered for addition
 2. Click points to select (Shift for multi-select)
 3. Double-click points to toggle corner/smooth
 4. Drag handles to adjust curves
-5. Press Delete to remove selected points
-6. Escape or Enter to exit edit mode
+5. **Alt+click on path segments to add new points**
+6. Press Delete to remove selected points
+7. Escape or Enter to exit edit mode
 
 ## Development Notes
 

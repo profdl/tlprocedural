@@ -139,9 +139,38 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
         ? points[0] 
         : points[segmentIndex + 1]
 
-      // Use bezier.js to split the segment and get proper control points
-      const splitResult = splitSegmentAtT(p1, p2, t)
-      const newPoint = splitResult.splitPoint
+      // Lightweight preview - just calculate the point position without control points
+      let previewX: number, previewY: number
+      
+      if (p1.cp2 && p2.cp1) {
+        // Cubic bezier
+        const x = Math.pow(1-t, 3) * p1.x + 3 * Math.pow(1-t, 2) * t * p1.cp2.x + 3 * (1-t) * Math.pow(t, 2) * p2.cp1.x + Math.pow(t, 3) * p2.x
+        const y = Math.pow(1-t, 3) * p1.y + 3 * Math.pow(1-t, 2) * t * p1.cp2.y + 3 * (1-t) * Math.pow(t, 2) * p2.cp1.y + Math.pow(t, 3) * p2.y
+        previewX = x
+        previewY = y
+      } else if (p1.cp2) {
+        // Quadratic bezier using p1.cp2
+        const x = Math.pow(1-t, 2) * p1.x + 2 * (1-t) * t * p1.cp2.x + Math.pow(t, 2) * p2.x
+        const y = Math.pow(1-t, 2) * p1.y + 2 * (1-t) * t * p1.cp2.y + Math.pow(t, 2) * p2.y
+        previewX = x
+        previewY = y
+      } else if (p2.cp1) {
+        // Quadratic bezier using p2.cp1
+        const x = Math.pow(1-t, 2) * p1.x + 2 * (1-t) * t * p2.cp1.x + Math.pow(t, 2) * p2.x
+        const y = Math.pow(1-t, 2) * p1.y + 2 * (1-t) * t * p2.cp1.y + Math.pow(t, 2) * p2.y
+        previewX = x
+        previewY = y
+      } else {
+        // Linear interpolation
+        previewX = p1.x + (p2.x - p1.x) * t
+        previewY = p1.y + (p2.y - p1.y) * t
+      }
+
+      // Simple preview point without control points for performance
+      const simplePreviewPoint = {
+        x: previewX,
+        y: previewY
+      }
 
       // Get current shape state to preserve selection and other properties
       const currentShape = editor.getShape(shape.id) as BezierShape
@@ -152,7 +181,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
         type: 'bezier',
         props: {
           ...currentShape.props,
-          hoverPoint: newPoint,
+          hoverPoint: simplePreviewPoint,
           hoverSegmentIndex: segmentIndex
         }
       })
@@ -288,66 +317,26 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
               {/* Show hover preview point (Alt+click to add) */}
               {hoverPoint && (
                 <g key="hover-preview" opacity={0.8}>
-                  {/* Preview control point lines */}
-                  {hoverPoint.cp1 && (
-                    <line
-                      x1={hoverPoint.x}
-                      y1={hoverPoint.y}
-                      x2={hoverPoint.cp1.x}
-                      y2={hoverPoint.cp1.y}
-                      stroke="#00ff88"
-                      strokeWidth={1.5}
-                      strokeDasharray="3 3"
-                      opacity={0.7}
-                    />
-                  )}
-                  {hoverPoint.cp2 && (
-                    <line
-                      x1={hoverPoint.x}
-                      y1={hoverPoint.y}
-                      x2={hoverPoint.cp2.x}
-                      y2={hoverPoint.cp2.y}
-                      stroke="#00ff88"
-                      strokeWidth={1.5}
-                      strokeDasharray="3 3"
-                      opacity={0.7}
-                    />
-                  )}
-                  
-                  {/* Preview control point handles */}
-                  {hoverPoint.cp1 && (
-                    <circle
-                      cx={hoverPoint.cp1.x}
-                      cy={hoverPoint.cp1.y}
-                      r={3}
-                      fill="#00ff88"
-                      stroke="white"
-                      strokeWidth={1}
-                      opacity={0.8}
-                    />
-                  )}
-                  {hoverPoint.cp2 && (
-                    <circle
-                      cx={hoverPoint.cp2.x}
-                      cy={hoverPoint.cp2.y}
-                      r={3}
-                      fill="#00ff88"
-                      stroke="white"
-                      strokeWidth={1}
-                      opacity={0.8}
-                    />
-                  )}
-                  
-                  {/* Preview anchor point */}
+                  {/* Simple preview dot - no control points for better performance */}
                   <circle
                     cx={hoverPoint.x}
                     cy={hoverPoint.y}
-                    r={6}
-                    fill="#ff9900"
+                    r={4}
+                    fill="#00ff88"
                     stroke="white"
-                    strokeWidth={2}
-                    opacity={0.8}
+                    strokeWidth={1.5}
+                    opacity={0.9}
                     style={{ cursor: 'pointer' }}
+                  />
+                  {/* Small pulsing ring for visibility */}
+                  <circle
+                    cx={hoverPoint.x}
+                    cy={hoverPoint.y}
+                    r={8}
+                    fill="none"
+                    stroke="#00ff88"
+                    strokeWidth={1}
+                    opacity={0.4}
                   />
                 </g>
               )}
