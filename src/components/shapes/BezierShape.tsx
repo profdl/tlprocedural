@@ -1,6 +1,13 @@
 import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, useEditor, type TLResizeInfo } from 'tldraw'
+import { useMemo } from 'react'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
-import { getAccurateBounds } from './utils/bezierUtils'
+import { 
+  getAccurateBounds, 
+  generateBezierHandles, 
+  createHandleMemoKey,
+  updatePointsFromHandleDrag,
+  createHandleDragKey 
+} from './utils/bezierUtils'
 import { BEZIER_THRESHOLDS, BEZIER_STYLES, bezierLog } from './utils/bezierConstants'
 import { useBezierHover } from './hooks/useBezierHover'
 
@@ -307,131 +314,51 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     return points.map(p => ({ x: p.x, y: p.y }))
   }
 
+  // Memoized handle generation for performance optimization
+  private handleMemo = new Map<string, TLHandle[]>()
+  
   // Handle management for interactive bezier points
   override getHandles(shape: BezierShape): TLHandle[] {
-    // Only show basic handles for point and control point dragging in edit mode
-    if (!shape.props.editMode) return []
+    // Create memoization key based on points and edit mode
+    const memoKey = createHandleMemoKey(shape)
     
-    const handles: TLHandle[] = []
+    // Check if we have cached handles for this configuration
+    if (this.handleMemo.has(memoKey)) {
+      return this.handleMemo.get(memoKey)!
+    }
     
-    shape.props.points.forEach((point, i) => {
-      // Anchor point handle - needed for dragging functionality
-      // The visual styling is handled by our custom SVG, but TLDraw needs the handle for interaction
-      handles.push({
-        id: `anchor-${i}`,
-        type: 'vertex',
-        index: `a${i}` as any,
-        x: point.x,
-        y: point.y,
-        canSnap: true,
-      })
-      
-      // Control point handles
-      if (point.cp1) {
-        handles.push({
-          id: `cp1-${i}`,
-          type: 'virtual',
-          index: `cp1-${i}` as any,
-          x: point.cp1.x,
-          y: point.cp1.y,
-          canSnap: true,
-        })
-      }
-      
-      if (point.cp2) {
-        handles.push({
-          id: `cp2-${i}`,
-          type: 'virtual',
-          index: `cp2-${i}` as any,
-          x: point.cp2.x,
-          y: point.cp2.y,
-          canSnap: true,
-        })
-      }
-    })
+    // Generate new handles using utility function
+    const handles = generateBezierHandles(shape)
     
-    // Note: Point addition is now handled via direct clicks in BezierEditing state
-    // No longer using invisible segment handles which caused interference issues
+    // Cache the result (limit cache size to prevent memory leaks)
+    if (this.handleMemo.size > 50) {
+      this.handleMemo.clear() // Simple cache cleanup
+    }
+    this.handleMemo.set(memoKey, handles)
     
     return handles
   }
 
 
-  // Track initial handle positions for movement threshold detection
+  // Optimized handle drag tracking using Map for performance
   private handleDragStart = new Map<string, { x: number; y: number; deleted: boolean }>()
   
   // Handle updates when handles are moved
   override onHandleDrag = (shape: BezierShape, { handle }: { handle: TLHandle }) => {
     bezierLog('Drag', 'onHandleDrag called for handle:', handle.id, 'shiftKey:', this.editor.inputs.shiftKey)
-    const newPoints = [...shape.props.points]
+    
     const altKey = this.editor.inputs.altKey // Alt key breaks symmetry
     
     // Track initial position for movement threshold detection
-    const handleKey = `${shape.id}-${handle.id}`
+    const handleKey = createHandleDragKey(shape.id, handle.id)
     const isInitialDrag = !this.handleDragStart.has(handleKey)
     
     if (isInitialDrag) {
       this.handleDragStart.set(handleKey, { x: handle.x, y: handle.y, deleted: false })
     }
     
-    // Parse handle ID to determine what we're updating
-    if (handle.id.startsWith('anchor-')) {
-      const pointIndex = parseInt(handle.id.split('-')[1])
-      if (pointIndex >= 0 && pointIndex < newPoints.length) {
-        // Move the anchor point and mirror both control points relative to the new position
-        const oldPoint = newPoints[pointIndex]
-        const deltaX = handle.x - oldPoint.x
-        const deltaY = handle.y - oldPoint.y
-        
-        newPoints[pointIndex] = {
-          ...oldPoint,
-          x: handle.x,
-          y: handle.y,
-          cp1: oldPoint.cp1 ? { x: oldPoint.cp1.x + deltaX, y: oldPoint.cp1.y + deltaY } : undefined,
-          cp2: oldPoint.cp2 ? { x: oldPoint.cp2.x + deltaX, y: oldPoint.cp2.y + deltaY } : undefined,
-        }
-      }
-    } else if (handle.id.startsWith('cp1-')) {
-      const pointIndex = parseInt(handle.id.split('-')[1])
-      if (pointIndex >= 0 && pointIndex < newPoints.length) {
-        const anchorPoint = newPoints[pointIndex]
-        
-        // Update cp1
-        newPoints[pointIndex] = {
-          ...anchorPoint,
-          cp1: { x: handle.x, y: handle.y },
-        }
-        
-        // Mirror cp2 if it exists and Alt key is not pressed (Illustrator-style symmetric handles)
-        if (anchorPoint.cp2 && !altKey) {
-          const cp1Vector = { x: handle.x - anchorPoint.x, y: handle.y - anchorPoint.y }
-          newPoints[pointIndex].cp2 = {
-            x: anchorPoint.x - cp1Vector.x,
-            y: anchorPoint.y - cp1Vector.y,
-          }
-        }
-      }
-    } else if (handle.id.startsWith('cp2-')) {
-      const pointIndex = parseInt(handle.id.split('-')[1])
-      if (pointIndex >= 0 && pointIndex < newPoints.length) {
-        const anchorPoint = newPoints[pointIndex]
-        
-        // Update cp2
-        newPoints[pointIndex] = {
-          ...anchorPoint,
-          cp2: { x: handle.x, y: handle.y },
-        }
-        
-        // Mirror cp1 if it exists and Alt key is not pressed (Illustrator-style symmetric handles)
-        if (anchorPoint.cp1 && !altKey) {
-          const cp2Vector = { x: handle.x - anchorPoint.x, y: handle.y - anchorPoint.y }
-          newPoints[pointIndex].cp1 = {
-            x: anchorPoint.x - cp2Vector.x,
-            y: anchorPoint.y - cp2Vector.y,
-          }
-        }
-      }
-    }
+    // Use utility function to update points based on handle drag
+    const newPoints = updatePointsFromHandleDrag(shape.props.points, handle, altKey)
     
     // Clean up completed drag operations
     this.handleDragStart.delete(handleKey)

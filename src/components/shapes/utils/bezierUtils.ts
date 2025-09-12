@@ -1,4 +1,5 @@
 import { Bezier } from 'bezier-js'
+import { type TLHandle } from 'tldraw'
 import { type BezierPoint, type BezierShape } from '../BezierShape'
 import { BEZIER_HANDLES, BEZIER_THRESHOLDS, bezierLog } from './bezierConstants'
 
@@ -420,4 +421,166 @@ export function handlePointSelection(
   
   bezierLog('Selection', 'Updating shape with selectedPointIndices:', newSelected)
   return updateShapeSelection(shape, newSelected)
+}
+
+/**
+ * Handle generation utilities for TLDraw interaction
+ */
+
+/**
+ * Generate TLDraw handles for bezier shape interaction
+ * Only generates handles when in edit mode for performance
+ * @param shape BezierShape to generate handles for
+ * @returns Array of TLHandle objects for TLDraw
+ */
+export function generateBezierHandles(shape: BezierShape): TLHandle[] {
+  // Only show basic handles for point and control point dragging in edit mode
+  if (!shape.props.editMode) return []
+  
+  const handles: TLHandle[] = []
+  
+  shape.props.points.forEach((point, i) => {
+    // Anchor point handle - needed for dragging functionality
+    // The visual styling is handled by our custom SVG, but TLDraw needs the handle for interaction
+    handles.push({
+      id: `anchor-${i}`,
+      type: 'vertex',
+      index: `a${i}` as unknown as string,
+      x: point.x,
+      y: point.y,
+      canSnap: true,
+    })
+    
+    // Control point handles
+    if (point.cp1) {
+      handles.push({
+        id: `cp1-${i}`,
+        type: 'virtual',
+        index: `cp1-${i}` as unknown as string,
+        x: point.cp1.x,
+        y: point.cp1.y,
+        canSnap: true,
+      })
+    }
+    
+    if (point.cp2) {
+      handles.push({
+        id: `cp2-${i}`,
+        type: 'virtual',
+        index: `cp2-${i}` as unknown as string,
+        x: point.cp2.x,
+        y: point.cp2.y,
+        canSnap: true,
+      })
+    }
+  })
+  
+  return handles
+}
+
+/**
+ * Create a memoization key for handle generation
+ * Handles should only regenerate when points or edit mode changes
+ * @param shape BezierShape to create key for
+ * @returns String key for memoization
+ */
+export function createHandleMemoKey(shape: BezierShape): string {
+  if (!shape.props.editMode) return 'no-handles'
+  
+  // Create key based on points structure and edit mode
+  const pointsKey = shape.props.points.map((p, i) => {
+    const cp1Key = p.cp1 ? `${p.cp1.x.toFixed(1)},${p.cp1.y.toFixed(1)}` : 'null'
+    const cp2Key = p.cp2 ? `${p.cp2.x.toFixed(1)},${p.cp2.y.toFixed(1)}` : 'null'
+    return `${i}:${p.x.toFixed(1)},${p.y.toFixed(1)}|${cp1Key}|${cp2Key}`
+  }).join('|')
+  
+  return `edit-${pointsKey}`
+}
+
+/**
+ * Update bezier points based on handle drag
+ * This contains the core logic for updating points when handles are moved
+ * @param points Current bezier points array
+ * @param handle The handle being dragged
+ * @param altKey Whether Alt key is pressed (breaks symmetry)
+ * @returns Updated points array
+ */
+export function updatePointsFromHandleDrag(
+  points: BezierPoint[], 
+  handle: TLHandle, 
+  altKey: boolean
+): BezierPoint[] {
+  const newPoints = [...points]
+  
+  // Parse handle ID to determine what we're updating
+  if (handle.id.startsWith('anchor-')) {
+    const pointIndex = parseInt(handle.id.split('-')[1])
+    if (pointIndex >= 0 && pointIndex < newPoints.length) {
+      // Move the anchor point and mirror both control points relative to the new position
+      const oldPoint = newPoints[pointIndex]
+      const deltaX = handle.x - oldPoint.x
+      const deltaY = handle.y - oldPoint.y
+      
+      newPoints[pointIndex] = {
+        ...oldPoint,
+        x: handle.x,
+        y: handle.y,
+        cp1: oldPoint.cp1 ? { x: oldPoint.cp1.x + deltaX, y: oldPoint.cp1.y + deltaY } : undefined,
+        cp2: oldPoint.cp2 ? { x: oldPoint.cp2.x + deltaX, y: oldPoint.cp2.y + deltaY } : undefined,
+      }
+    }
+  } else if (handle.id.startsWith('cp1-')) {
+    const pointIndex = parseInt(handle.id.split('-')[1])
+    if (pointIndex >= 0 && pointIndex < newPoints.length) {
+      const anchorPoint = newPoints[pointIndex]
+      
+      // Update cp1
+      newPoints[pointIndex] = {
+        ...anchorPoint,
+        cp1: { x: handle.x, y: handle.y },
+      }
+      
+      // Mirror cp2 if it exists and Alt key is not pressed (Illustrator-style symmetric handles)
+      if (anchorPoint.cp2 && !altKey) {
+        const cp1Vector = { x: handle.x - anchorPoint.x, y: handle.y - anchorPoint.y }
+        newPoints[pointIndex].cp2 = {
+          x: anchorPoint.x - cp1Vector.x,
+          y: anchorPoint.y - cp1Vector.y,
+        }
+      }
+    }
+  } else if (handle.id.startsWith('cp2-')) {
+    const pointIndex = parseInt(handle.id.split('-')[1])
+    if (pointIndex >= 0 && pointIndex < newPoints.length) {
+      const anchorPoint = newPoints[pointIndex]
+      
+      // Update cp2
+      newPoints[pointIndex] = {
+        ...anchorPoint,
+        cp2: { x: handle.x, y: handle.y },
+      }
+      
+      // Mirror cp1 if it exists and Alt key is not pressed (Illustrator-style symmetric handles)
+      if (anchorPoint.cp1 && !altKey) {
+        const cp2Vector = { x: handle.x - anchorPoint.x, y: handle.y - anchorPoint.y }
+        newPoints[pointIndex].cp1 = {
+          x: anchorPoint.x - cp2Vector.x,
+          y: anchorPoint.y - cp2Vector.y,
+        }
+      }
+    }
+  }
+  
+  return newPoints
+}
+
+/**
+ * Create optimized handle drag tracking key
+ * Used to track handle drag operations efficiently
+ * @param shapeId Shape ID
+ * @param handleId Handle ID
+ * @returns Tracking key string
+ */
+export function createHandleDragKey(shapeId: string, handleId: string): string {
+  return `${shapeId}-${handleId}`
 }
