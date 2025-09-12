@@ -254,10 +254,9 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
 
         const segmentInfo = getSegmentAtPosition(localPoint)
         if (segmentInfo) {
-          if (lastHoverSegment !== segmentInfo.segmentIndex) {
-            updateHoverPreview(segmentInfo)
-            lastHoverSegment = segmentInfo.segmentIndex
-          }
+          // Always update preview when Alt is held - both segment changes and position changes along same segment
+          updateHoverPreview(segmentInfo)
+          lastHoverSegment = segmentInfo.segmentIndex
         } else {
           if (lastHoverSegment !== null) {
             clearHoverPreview()
