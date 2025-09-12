@@ -220,7 +220,7 @@ export class BezierCreating extends StateNode {
     if (this.dragDistance > this.CORNER_POINT_THRESHOLD) {
       // Calculate control points for curve
       let offset = Vec.Sub(currentPoint, startPoint)
-      const isAltPressed = this.editor.inputs.altKey
+      const isCtrlPressed = this.editor.inputs.ctrlKey
       const isShiftPressed = this.editor.inputs.shiftKey
       
       // Apply angle constraint if Shift is pressed
@@ -228,8 +228,8 @@ export class BezierCreating extends StateNode {
         offset = this.constrainAngle(offset)
       }
       
-      if (isAltPressed) {
-        // Alt key: create asymmetric handles - only outgoing handle for first point
+      if (isCtrlPressed) {
+        // Ctrl key: create asymmetric handles - only outgoing handle for first point
         const controlPoint2 = Vec.Add(startPoint, offset)
         firstPoint.cp1 = undefined // No incoming handle for first point
         firstPoint.cp2 = { x: controlPoint2.x, y: controlPoint2.y }
@@ -257,7 +257,7 @@ export class BezierCreating extends StateNode {
     if (this.dragDistance > this.CORNER_POINT_THRESHOLD) {
       // Calculate control points for curve
       let offset = Vec.Sub(currentPoint, startPoint)
-      const isAltPressed = this.editor.inputs.altKey
+      const isCtrlPressed = this.editor.inputs.ctrlKey
       const isShiftPressed = this.editor.inputs.shiftKey
       
       // Apply angle constraint if Shift is pressed
@@ -265,8 +265,8 @@ export class BezierCreating extends StateNode {
         offset = this.constrainAngle(offset)
       }
       
-      if (isAltPressed) {
-        // Alt key: create asymmetric handles - only outgoing handle
+      if (isCtrlPressed) {
+        // Ctrl key: create asymmetric handles - only outgoing handle
         const controlPoint2 = Vec.Add(startPoint, offset)
         lastPoint.cp1 = undefined // No incoming handle
         lastPoint.cp2 = { x: controlPoint2.x, y: controlPoint2.y }

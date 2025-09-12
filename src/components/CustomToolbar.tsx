@@ -82,7 +82,7 @@ export function CustomToolbar() {
       })}
 
       {/* Basic custom shapes */}
-      {['circle', 'polygon', 'triangle', 'custom-arrow'].map((id) => {
+      {['circle', 'polygon', 'triangle'].map((id) => {
         const item = tools[id]
         if (!item) return null
         const selected = useIsToolSelected(item)
@@ -90,7 +90,7 @@ export function CustomToolbar() {
       })}
 
       {/* Drawing and path tools */}
-      {['custom-line', 'custom-draw', 'bezier'].map((id) => {
+      {['custom-draw', 'bezier'].map((id) => {
         const item = tools[id]
         if (!item) return null
         const selected = useIsToolSelected(item)
@@ -98,7 +98,7 @@ export function CustomToolbar() {
       })}
 
       {/* Path editing tools */}
-      {['add-point', 'remove-point'].map((id) => {
+      {['add-point'].map((id) => {
         const item = tools[id]
         if (!item) return null
         const selected = useIsToolSelected(item)
@@ -113,26 +113,6 @@ export function CustomToolbar() {
         return <TldrawUiMenuItem key="sine-wave" {...item} isSelected={selected} />
       })()}
 
-      {/* Flip controls - only show when shapes are selected */}
-      {hasSelection && (
-        <>
-          <div className="tlui-toolbar__divider" />
-          <TldrawUiButton
-            type="tool"
-            onClick={flipShapesHorizontally}
-            title="Flip Horizontally"
-          >
-            ↔️
-          </TldrawUiButton>
-          <TldrawUiButton
-            type="tool" 
-            onClick={flipShapesVertically}
-            title="Flip Vertically"
-          >
-            ↕️
-          </TldrawUiButton>
-        </>
-      )}
     </DefaultToolbar>
   )
 }

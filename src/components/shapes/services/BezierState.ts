@@ -388,7 +388,7 @@ export class BezierState {
   static updatePointsFromHandleDrag(
     points: BezierPoint[], 
     handle: TLHandle, 
-    altKey: boolean
+    ctrlKey: boolean
   ): BezierPoint[] {
     const newPoints = [...points]
     
@@ -433,8 +433,8 @@ export class BezierState {
       if (handleType === 'cp1') {
         updatedPoint.cp1 = { x: handle.x, y: handle.y }
         
-        // Update symmetric control point unless Alt is pressed
-        if (!altKey && point.cp2) {
+        // Update symmetric control point unless Ctrl is pressed (break symmetry)
+        if (!ctrlKey && point.cp2) {
           const deltaX = handle.x - point.x
           const deltaY = handle.y - point.y
           updatedPoint.cp2 = {
@@ -445,8 +445,8 @@ export class BezierState {
       } else if (handleType === 'cp2') {
         updatedPoint.cp2 = { x: handle.x, y: handle.y }
         
-        // Update symmetric control point unless Alt is pressed
-        if (!altKey && point.cp1) {
+        // Update symmetric control point unless Ctrl is pressed (break symmetry)  
+        if (!ctrlKey && point.cp1) {
           const deltaX = handle.x - point.x
           const deltaY = handle.y - point.y
           updatedPoint.cp1 = {
