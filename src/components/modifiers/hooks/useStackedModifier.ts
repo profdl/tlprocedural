@@ -1,6 +1,7 @@
 import { useMemo, useCallback } from 'react'
 import { useEditor, type TLShape, type TLShapePartial, createShapeId, type TLShapeId } from 'tldraw'
 import { ModifierStack, extractShapesFromState } from '../../../store/modifiers'
+import { isPathModifierType } from '../../../store/modifiers/core/PathModifier'
 import type { TLModifier } from '../../../types/modifiers'
 import { 
   logShapeOperation 
@@ -87,18 +88,26 @@ function createRegularShape(
   index: number,
   modifiers: TLModifier[]
 ): TLShapePartial {
+  // Check if this is from path modifiers - they should not be locked
+  const hasPathModifiers = modifiers.some(m => m.enabled && isPathModifierType(m.type))
+  const hasOnlyPathModifiers = modifiers.every(m => !m.enabled || isPathModifierType(m.type))
+  
   const cloneShape: TLShapePartial = {
     id: cloneId,
     type: processedShape.type,
     x: processedShape.x,
     y: processedShape.y,
     rotation: processedShape.rotation,
-    isLocked: true,
-    opacity: processedShape.meta?.isFirstClone ? 0 : (processedShape.opacity || 1) * 0.75,
+    // Path modifiers with single output should not be locked, array modifiers should be
+    isLocked: hasOnlyPathModifiers ? false : true,
+    // Path modifiers show full opacity, array modifiers are semi-transparent
+    opacity: hasOnlyPathModifiers ? (processedShape.opacity || 1) : 
+             (processedShape.meta?.isFirstClone ? 0 : (processedShape.opacity || 1) * 0.75),
     props: { ...processedShape.props }, // Use processed shape props instead of original
     meta: {
       ...processedShape.meta,
-      isArrayClone: true,
+      isArrayClone: !hasOnlyPathModifiers, // Path-only modifiers are not array clones
+      isPathModified: hasPathModifiers,
       originalShapeId: processedShape.id,
       arrayIndex: index,
       stackProcessed: true,

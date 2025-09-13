@@ -40,7 +40,7 @@ export const NoiseOffsetProcessor = new class extends PathModifier<NoiseOffsetSe
             frequency, 
             octaves, 
             seed, 
-            direction
+            settings.direction
           )
           break
         case 'bezier':
@@ -50,7 +50,7 @@ export const NoiseOffsetProcessor = new class extends PathModifier<NoiseOffsetSe
             frequency, 
             octaves, 
             seed, 
-            direction
+            settings.direction
           )
           break
         case 'svg':
@@ -144,7 +144,7 @@ export const NoiseOffsetProcessor = new class extends PathModifier<NoiseOffsetSe
     frequency: number,
     octaves: number,
     seed: number,
-    direction: 'both' | 'normal' | 'tangent'
+    _direction: 'both' | 'normal' | 'tangent'
   ): BezierPathData {
     
     const points = pathData.data

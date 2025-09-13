@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { useEditor, type TLShape, type TLShapePartial, type Editor } from 'tldraw'
 import { ModifierStack, extractShapesFromState } from '../../../store/modifiers'
 import type { TLModifier } from '../../../types/modifiers'
+import { isPathModifierType } from '../../../store/modifiers/core/PathModifier'
 import { 
   getOriginalShapeId,
   logShapeOperation 
@@ -47,7 +48,27 @@ export function useCloneManager({
       cleanupGroupClones(editor, shape)
     }
 
-    // Keep original shape visible - don't hide it
+    // Hide original shape for path modifiers, keep visible for array modifiers
+    const hasPathModifiers = modifiers.some(m => m.enabled && isPathModifierType(m.type))
+    if (hasPathModifiers && processedShapesCount > 0) {
+      // Hide the original shape by setting opacity to 0
+      editor.run(() => {
+        editor.updateShape({
+          id: shape.id,
+          type: shape.type,
+          opacity: 0
+        })
+      }, { history: 'ignore' })
+    } else if (!hasPathModifiers) {
+      // Restore original opacity for non-path modifiers
+      editor.run(() => {
+        editor.updateShape({
+          id: shape.id,
+          type: shape.type,
+          opacity: shape.opacity || 1
+        })
+      }, { history: 'ignore' })
+    }
 
     // Create new clones if we have processed shapes
     if (processedShapesCount > 0) {
@@ -87,6 +108,18 @@ export function useCloneManager({
         editor.run(() => {
           editor.deleteShapes(clonesToCleanup.map((s: TLShape) => s.id))
         }, { ignoreShapeLock: true, history: 'ignore' })
+      }
+
+      // Restore original shape opacity when cleaning up
+      const hasPathModifiers = modifiers.some(m => m.enabled && isPathModifierType(m.type))
+      if (hasPathModifiers) {
+        editor.run(() => {
+          editor.updateShape({
+            id: shape.id,
+            type: shape.type,
+            opacity: 1 // Restore full opacity
+          })
+        }, { history: 'ignore' })
       }
 
       // For group modifiers, also clean up clones of all shapes in the group during cleanup

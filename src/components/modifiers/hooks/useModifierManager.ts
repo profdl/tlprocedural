@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react'
 import { useModifierStore } from '../../../store/modifierStore'
 import { ModifierStack, extractShapesFromState } from '../../../store/modifiers'
 import { DEFAULT_SETTINGS } from '../constants'
+import { getOriginalShapeId } from '../utils'
 import { useEditor } from 'tldraw'
 import type { TLShape } from 'tldraw'
 import type { TLModifier, TLModifierId } from '../../../types/modifiers'
@@ -34,7 +35,11 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
   const selectedShape = selectedShapes[0]
   
   const shapeModifiers = useMemo(() => {
-    return selectedShape ? store.getModifiersForShape(selectedShape.id) : []
+    if (!selectedShape) return []
+    
+    // For clones/processed shapes, we need to look up modifiers using the original shape ID
+    const originalShapeId = getOriginalShapeId(selectedShape) || selectedShape.id
+    return store.getModifiersForShape(originalShapeId)
   }, [store, selectedShape])
 
   // Check if there are any enabled modifiers that can be applied
@@ -58,19 +63,30 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
     }
     const storeType = typeMap[type]
     const settings = (DEFAULT_SETTINGS as any)[storeType] || {}
-    store.createModifier(selectedShape.id, storeType, settings)
+    
+    // Use original shape ID for clones/processed shapes
+    const originalShapeId = getOriginalShapeId(selectedShape) || selectedShape.id
+    store.createModifier(originalShapeId, storeType, settings)
   }, [selectedShape, store])
 
   const applyModifiers = useCallback(() => {
     if (!selectedShape || !editor) return
     
+    // Use original shape ID for clones/processed shapes
+    const originalShapeId = getOriginalShapeId(selectedShape) || selectedShape.id
+    
     // Get all enabled modifiers for this shape
-    const enabledModifiers = store.getEnabledModifiersForShape(selectedShape.id)
+    const enabledModifiers = store.getEnabledModifiersForShape(originalShapeId)
     if (enabledModifiers.length === 0) return
 
     try {
+      // Get the actual original shape for processing
+      const actualOriginalShape = originalShapeId !== selectedShape.id 
+        ? editor.getShape(originalShapeId) || selectedShape
+        : selectedShape
+      
       // Process the modifiers to get the transformed shapes
-      const result = ModifierStack.processModifiers(selectedShape, enabledModifiers, editor)
+      const result = ModifierStack.processModifiers(actualOriginalShape, enabledModifiers, editor)
       const transformedShapes = extractShapesFromState(result)
       
       // Create actual shapes from the transformed results (skip the first one as it's the original)
@@ -82,11 +98,11 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
           y: transformedShape.y,
           rotation: transformedShape.rotation,
           props: transformedShape.props,
-          parentId: selectedShape.parentId,
+          parentId: actualOriginalShape.parentId,
           meta: {
             ...transformedShape.meta,
             appliedFromModifier: true,
-            originalShapeId: selectedShape.id
+            originalShapeId: actualOriginalShape.id
           }
         }
       })
