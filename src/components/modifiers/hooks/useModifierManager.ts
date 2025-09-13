@@ -40,7 +40,7 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
     
     // For clones/processed shapes, we need to look up modifiers using the original shape ID
     const originalShapeId = getOriginalShapeId(selectedShape) || selectedShape.id
-    return store.getModifiersForShape(originalShapeId)
+    return store.getModifiersForShape(originalShapeId as any)
   }, [store, selectedShape])
 
   // Check if there are any enabled modifiers that can be applied
@@ -67,7 +67,7 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
     
     // Use original shape ID for clones/processed shapes
     const originalShapeId = getOriginalShapeId(selectedShape) || selectedShape.id
-    store.createModifier(originalShapeId, storeType, settings)
+    store.createModifier(originalShapeId as any, storeType, settings)
   }, [selectedShape, store])
 
   const applyModifiers = useCallback(() => {
@@ -77,13 +77,13 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
     const originalShapeId = getOriginalShapeId(selectedShape) || selectedShape.id
     
     // Get all enabled modifiers for this shape
-    const enabledModifiers = store.getEnabledModifiersForShape(originalShapeId)
+    const enabledModifiers = store.getEnabledModifiersForShape(originalShapeId as any)
     if (enabledModifiers.length === 0) return
 
     try {
       // Get the actual original shape for processing
       const actualOriginalShape = originalShapeId !== selectedShape.id 
-        ? editor.getShape(originalShapeId) || selectedShape
+        ? editor.getShape(originalShapeId as any) || selectedShape
         : selectedShape
       
       // Categorize modifiers
@@ -100,11 +100,25 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
           
           // Update the original shape with the modified data
           editor.run(() => {
-            editor.updateShape({
+            // Create update object preserving all properties
+            const updateData: any = {
               id: actualOriginalShape.id,
               type: actualOriginalShape.type,
-              props: modifiedShape.props
-            })
+              props: {
+                ...actualOriginalShape.props,
+                ...modifiedShape.props
+              }
+            }
+            
+            // Include metadata if the shape was path-modified
+            if (modifiedShape.meta?.pathModified) {
+              updateData.meta = {
+                ...actualOriginalShape.meta,
+                ...modifiedShape.meta
+              }
+            }
+            
+            editor.updateShape(updateData)
             
             // Clean up any existing clones from the modifier system
             const existingClones = editor.getCurrentPageShapes().filter((s: TLShape) => {

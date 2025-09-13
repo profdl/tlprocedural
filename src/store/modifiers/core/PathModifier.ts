@@ -15,6 +15,9 @@ import {
   pathToShapeUpdates, 
   pathDataToBounds 
 } from '../../../utils/pathExtractors'
+import { 
+  enhancedPathToShape
+} from '../../../utils/shapeConversion'
 import { canProcessShapeAsPaths } from '../../../types/pathTypes'
 
 /**
@@ -89,17 +92,26 @@ export abstract class PathModifier<TSettings extends PathModifierSettings = Path
         editor
       )
 
-      // Convert the modified path back to shape updates
-      const shapeUpdates = pathToShapeUpdates(result.pathData, instance.shape)
-      if (!shapeUpdates) {
-        console.warn(`Could not convert modified path back to ${instance.shape.type} shape`)
-        return [instance]
-      }
+      // Try enhanced path-to-shape conversion first
+      const enhancedResult = enhancedPathToShape(result.pathData, instance.shape, editor)
+      
+      let updatedShape: TLShape
+      
+      if (enhancedResult && 'type' in enhancedResult) {
+        // Full shape conversion (e.g., Triangle -> Bezier for complex paths)
+        updatedShape = enhancedResult as TLShape
+      } else {
+        // Standard property updates
+        const shapeUpdates = enhancedResult || pathToShapeUpdates(result.pathData, instance.shape)
+        if (!shapeUpdates) {
+          console.warn(`Could not convert modified path back to ${instance.shape.type} shape`)
+          return [instance]
+        }
 
-      // Create updated shape
-      const updatedShape: TLShape = {
-        ...instance.shape,
-        ...shapeUpdates
+        updatedShape = {
+          ...instance.shape,
+          ...shapeUpdates
+        }
       }
 
       // Update transform if bounds changed

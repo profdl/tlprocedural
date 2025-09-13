@@ -1,4 +1,4 @@
-import { HTMLContainer, T, type TLBaseShape, type RecordProps } from 'tldraw'
+import { HTMLContainer, T, type TLBaseShape, type RecordProps, type VecLike } from 'tldraw'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 
 export type CircleShape = TLBaseShape<
@@ -9,6 +9,8 @@ export type CircleShape = TLBaseShape<
     color: string
     strokeWidth: number
     fill: boolean
+    points?: VecLike[] // Optional path data for modified circles
+    renderAsPath?: boolean // Flag to render as path instead of geometry
   }
 >
 
@@ -21,6 +23,11 @@ export class CircleShapeUtil extends FlippableShapeUtil<CircleShape> {
     color: T.string,
     strokeWidth: T.number,
     fill: T.boolean,
+    points: T.optional(T.arrayOf(T.object({
+      x: T.number,
+      y: T.number,
+    }))),
+    renderAsPath: T.optional(T.boolean),
   }
 
   override getDefaultProps(): CircleShape['props'] {
@@ -34,38 +41,81 @@ export class CircleShapeUtil extends FlippableShapeUtil<CircleShape> {
   }
 
   override component(shape: CircleShape) {
-    const { w, h, color, strokeWidth, fill } = shape.props
+    const { w, h, color, strokeWidth, fill, points, renderAsPath } = shape.props
     
     // Get flip transform from the FlippableShapeUtil
     const flipTransform = this.getFlipTransform(shape)
     
-    const rx = w / 2
-    const ry = h / 2
-    const cx = rx
-    const cy = ry
+    if (renderAsPath && points && points.length >= 3) {
+      // Render from modified path points
+      const pathData = this.pointsToPath(points)
+      
+      return (
+        <HTMLContainer>
+          <svg 
+            width={w} 
+            height={h} 
+            style={{ 
+              overflow: 'visible',
+              ...flipTransform
+            }}
+          >
+            <path 
+              d={pathData} 
+              fill={fill ? color : 'none'} 
+              stroke={color} 
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </HTMLContainer>
+      )
+    } else {
+      // Render original circle geometry
+      const rx = w / 2
+      const ry = h / 2
+      const cx = rx
+      const cy = ry
+      
+      return (
+        <HTMLContainer>
+          <svg 
+            width={w} 
+            height={h} 
+            style={{ 
+              overflow: 'visible',
+              ...flipTransform
+            }}
+          >
+            <ellipse 
+              cx={cx}
+              cy={cy}
+              rx={rx}
+              ry={ry}
+              fill={fill ? color : 'none'} 
+              stroke={color} 
+              strokeWidth={strokeWidth}
+            />
+          </svg>
+        </HTMLContainer>
+      )
+    }
+  }
+
+  // Convert points array to SVG path string
+  private pointsToPath(points: VecLike[]): string {
+    if (points.length === 0) return ''
     
-    return (
-      <HTMLContainer>
-        <svg 
-          width={w} 
-          height={h} 
-          style={{ 
-            overflow: 'visible',
-            ...flipTransform
-          }}
-        >
-          <ellipse 
-            cx={cx}
-            cy={cy}
-            rx={rx}
-            ry={ry}
-            fill={fill ? color : 'none'} 
-            stroke={color} 
-            strokeWidth={strokeWidth}
-          />
-        </svg>
-      </HTMLContainer>
-    )
+    const commands: string[] = []
+    commands.push(`M ${points[0].x} ${points[0].y}`)
+    
+    for (let i = 1; i < points.length; i++) {
+      commands.push(`L ${points[i].x} ${points[i].y}`)
+    }
+    
+    commands.push('Z') // Close the path
+    return commands.join(' ')
   }
 
   override indicator(shape: CircleShape) {
@@ -97,24 +147,31 @@ export class CircleShapeUtil extends FlippableShapeUtil<CircleShape> {
   }
 
   getOutline(shape: CircleShape) {
-    const { w, h } = shape.props
+    const { w, h, points, renderAsPath } = shape.props
+    
+    if (renderAsPath && points && points.length >= 3) {
+      // Return the modified path points
+      return points
+    }
+    
+    // Return original circle outline
     const rx = w / 2
     const ry = h / 2
     const cx = rx
     const cy = ry
     
     // Approximate ellipse outline with points
-    const points = []
+    const outlinePoints = []
     const numPoints = 32
     
     for (let i = 0; i < numPoints; i++) {
       const angle = (i / numPoints) * 2 * Math.PI
       const x = cx + rx * Math.cos(angle)
       const y = cy + ry * Math.sin(angle)
-      points.push({ x, y })
+      outlinePoints.push({ x, y })
     }
     
-    return points
+    return outlinePoints
   }
 
   // Custom behavior for circle-specific properties

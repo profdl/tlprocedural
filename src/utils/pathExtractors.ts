@@ -323,7 +323,29 @@ function pathToSineWave(pathData: PathData, shape: SineWaveShape): Partial<SineW
 }
 
 function pathToTriangle(pathData: PathData, shape: TLShape): Partial<TLShape> | null {
-  if (pathData.bounds) {
+  if (pathData.type === 'points') {
+    const points = pathData.data as VecLike[]
+    if (points.length === 0) return null
+    
+    // Calculate bounds from the modified points
+    const bounds = pathData.bounds || calculatePathBounds(points)
+    
+    return {
+      props: {
+        ...shape.props,
+        w: bounds.w,
+        h: bounds.h,
+        points: points, // Store the modified path points
+        renderAsPath: true // Flag to render as path
+      },
+      meta: {
+        ...shape.meta,
+        pathModified: true,
+        originalBounds: { w: shape.props.w, h: shape.props.h }
+      }
+    }
+  } else if (pathData.bounds) {
+    // Fallback for other path types
     return {
       props: {
         ...shape.props,
@@ -337,7 +359,29 @@ function pathToTriangle(pathData: PathData, shape: TLShape): Partial<TLShape> | 
 }
 
 function pathToCircle(pathData: PathData, shape: TLShape): Partial<TLShape> | null {
-  if (pathData.bounds) {
+  if (pathData.type === 'points') {
+    const points = pathData.data as VecLike[]
+    if (points.length === 0) return null
+    
+    // Calculate bounds from the modified points
+    const bounds = pathData.bounds || calculatePathBounds(points)
+    
+    return {
+      props: {
+        ...shape.props,
+        w: bounds.w,
+        h: bounds.h,
+        points: points, // Store the modified path points
+        renderAsPath: true // Flag to render as path
+      },
+      meta: {
+        ...shape.meta,
+        pathModified: true,
+        originalBounds: { w: shape.props.w, h: shape.props.h }
+      }
+    }
+  } else if (pathData.bounds) {
+    // Fallback for other path types
     return {
       props: {
         ...shape.props,
