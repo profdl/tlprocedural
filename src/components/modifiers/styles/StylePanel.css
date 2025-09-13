@@ -72,8 +72,8 @@
   flex: 1;
   overflow-y: scroll !important; /* Always show scrollbar */
   overflow-x: hidden !important;
-  padding: 0;
-  padding-right: 4px; /* Space for scrollbar */
+  padding: 12px;
+  padding-right: 16px; /* Space for scrollbar */
   min-height: 0;
   height: 100%;
   /* Force scrollbar to always show - Firefox */
@@ -185,6 +185,23 @@
   grid-column: 1 / -1;
 }
 
+/* Style Controls in Modifier Layout */
+.modifier-controls__item .style-controls__label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-text-2);
+  margin-bottom: 4px;
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.modifier-controls__item .modifier-input {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .style-controls__empty,
 .style-controls__mixed {
   padding: 12px;
@@ -228,6 +245,7 @@
   cursor: pointer;
   background: none;
   padding: 0;
+  flex-shrink: 0;
 }
 
 .style-controls__color-text {
@@ -240,6 +258,7 @@
   color: var(--color-text-1);
   font-size: 10px;
   font-family: monospace;
+  min-width: 0;
 }
 
 .style-controls__checkbox-wrapper {
@@ -325,14 +344,29 @@
 .modifier-controls__list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
 .modifier-controls__item {
   background: var(--color-panel);
   border: 1px solid var(--color-panel-contrast);
-  border-radius: 6px;
+  border-radius: 8px;
   overflow: hidden;
+  margin-bottom: 8px;
+}
+
+/* Ensure borders show in custom style panel context */
+.custom-style-panel__content .modifier-controls__item {
+  background: var(--color-panel) !important;
+  border: 1px solid var(--color-panel-contrast, #ddd) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  margin-bottom: 8px !important;
+}
+
+/* Fallback for debugging - use fixed colors if CSS vars don't work */
+.custom-style-panel__content .modifier-controls__item {
+  border: 1px solid #e0e0e0 !important;
+  background: #f9f9f9 !important;
 }
 
 .modifier-controls__item-details {

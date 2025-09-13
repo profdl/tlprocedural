@@ -71,46 +71,38 @@ export const CustomStylePanel = (props: TLUiStylePanelProps) => {
           onWheel={handleWheel}
         >
           {/* Style Controls Section */}
-          <div className="custom-style-panel__section">
-            <h3 className="custom-style-panel__section-title">Style</h3>
-            <StyleControls selectedShapes={selectedShapes as TLShape[]} />
-          </div>
+          <StyleControls selectedShapes={selectedShapes as TLShape[]} />
 
           {/* Custom Shape Controls Section */}
           {(() => {
             const sineWaveShapes = selectedShapes.filter(shape => shape.type === 'sine-wave') as SineWaveShape[]
             const triangleShapes = selectedShapes.filter(shape => shape.type === 'triangle') as TriangleShape[]
             const polygonShapes = selectedShapes.filter(shape => shape.type === 'polygon') as PolygonShape[]
-            
+
             return (
               <>
                 {sineWaveShapes.length > 0 && (
-                  <div className="custom-style-panel__section">
+                  <>
                     <h3 className="custom-style-panel__section-title">Sine Wave</h3>
                     <SineWaveControls shapes={sineWaveShapes} />
-                  </div>
+                  </>
                 )}
                 {triangleShapes.length > 0 && (
-                  <div className="custom-style-panel__section">
+                  <>
                     <h3 className="custom-style-panel__section-title">Triangle</h3>
                     <TriangleControls shapes={triangleShapes} />
-                  </div>
+                  </>
                 )}
                 {polygonShapes.length > 0 && (
-                  <div className="custom-style-panel__section">
-                    <h3 className="custom-style-panel__section-title">Polygon</h3>
-                    <PolygonControls shapes={polygonShapes} />
-                  </div>
+                  <PolygonControls shapes={polygonShapes} />
                 )}
               </>
             )
           })()}
 
           {/* Modifier Controls Section */}
-          <div className="custom-style-panel__section">
-            <h3 className="custom-style-panel__section-title">Modifiers</h3>
-            <ModifierControls selectedShapes={selectedShapes as TLShape[]} />
-          </div>
+          <h3 className="custom-style-panel__section-title">Modifiers</h3>
+          <ModifierControls selectedShapes={selectedShapes as TLShape[]} />
       </div>
       </div>
     </DefaultStylePanel>

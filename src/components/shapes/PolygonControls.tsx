@@ -1,4 +1,5 @@
-import { useEditor } from 'tldraw'
+import { useEditor, TldrawUiButton, TldrawUiButtonIcon } from 'tldraw'
+import { useState, useCallback } from 'react'
 import type { PolygonShape } from './PolygonShape'
 import { EnhancedNumberInput } from '../modifiers/ui/EnhancedNumberInput'
 
@@ -6,8 +7,14 @@ interface PolygonControlsProps {
   shapes: PolygonShape[]
 }
 
+// Local stopEventPropagation implementation
+function stopEventPropagation(e: React.SyntheticEvent | Event) {
+  e.stopPropagation()
+}
+
 export const PolygonControls = ({ shapes }: PolygonControlsProps) => {
   const editor = useEditor()
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(false)
 
   if (shapes.length === 0) return null
 
@@ -19,25 +26,57 @@ export const PolygonControls = ({ shapes }: PolygonControlsProps) => {
       type: shape.type,
       props: { ...shape.props, sides: value }
     }))
-    
+
     editor.updateShapes(updatedShapes)
   }
 
+  const toggleCollapsed = useCallback(() => {
+    setIsCollapsed(prev => !prev)
+  }, [])
+
   return (
-    <div style={{ padding: '8px 0' }}>
-      <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '8px', color: '#666' }}>
-        Polygon Properties
+    <div className="modifier-controls__item">
+      <div className="modifier-controls__item-header">
+        <div className="modifier-controls__item-title">
+          <TldrawUiButton
+            type="icon"
+            onPointerDown={(e) => {
+              stopEventPropagation(e)
+              toggleCollapsed()
+            }}
+            title={isCollapsed ? "Expand" : "Collapse"}
+            className="modifier-controls__caret"
+          >
+            <TldrawUiButtonIcon
+              icon={isCollapsed ? "chevron-right" : "chevron-down"}
+            />
+          </TldrawUiButton>
+          <span className="modifier-controls__checkbox-text">
+            Shape Properties
+          </span>
+        </div>
       </div>
-      
-      <EnhancedNumberInput
-        label="Sides"
-        value={currentSides}
-        min={3}
-        max={12}
-        step={1}
-        precision={0}
-        onChange={handleSidesChange}
-      />
+
+      {!isCollapsed && (
+        <div className="modifier-controls__item-details">
+          <div className="modifier-controls__grid">
+            <div className="modifier-input">
+              <EnhancedNumberInput
+                label="Sides"
+                value={currentSides}
+                min={3}
+                max={12}
+                step={1}
+                precision={0}
+                onChange={handleSidesChange}
+              />
+            </div>
+            <div className="modifier-input">
+              {/* Empty column for spacing */}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
