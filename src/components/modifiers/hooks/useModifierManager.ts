@@ -3,6 +3,7 @@ import { useModifierStore } from '../../../store/modifierStore'
 import { ModifierStack, extractShapesFromState } from '../../../store/modifiers'
 import { DEFAULT_SETTINGS } from '../constants'
 import { getOriginalShapeId } from '../utils'
+import { isPathModifierType } from '../../../store/modifiers/core/PathModifier'
 import { useEditor } from 'tldraw'
 import type { TLShape } from 'tldraw'
 import type { TLModifier, TLModifierId } from '../../../types/modifiers'
@@ -85,37 +86,77 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
         ? editor.getShape(originalShapeId) || selectedShape
         : selectedShape
       
-      // Process the modifiers to get the transformed shapes
-      const result = ModifierStack.processModifiers(actualOriginalShape, enabledModifiers, editor)
-      const transformedShapes = extractShapesFromState(result)
+      // Categorize modifiers
+      const pathModifiers = enabledModifiers.filter(m => isPathModifierType(m.type))
+      const arrayModifiers = enabledModifiers.filter(m => !isPathModifierType(m.type))
       
-      // Create actual shapes from the transformed results (skip the first one as it's the original)
-      const shapesToCreate = transformedShapes.slice(1).map(transformedShape => {
-        // Create shape object without id, letting tldraw generate new IDs
-        return {
-          type: transformedShape.type,
-          x: transformedShape.x,
-          y: transformedShape.y,
-          rotation: transformedShape.rotation,
-          props: transformedShape.props,
-          parentId: actualOriginalShape.parentId,
-          meta: {
-            ...transformedShape.meta,
-            appliedFromModifier: true,
-            originalShapeId: actualOriginalShape.id
-          }
+      if (pathModifiers.length > 0) {
+        // Handle path modifiers: update the original shape with modified path data
+        const result = ModifierStack.processModifiers(actualOriginalShape, enabledModifiers, editor)
+        const transformedShapes = extractShapesFromState(result)
+        
+        if (transformedShapes.length > 0) {
+          const modifiedShape = transformedShapes[0] // For path modifiers, we want the modified original
+          
+          // Update the original shape with the modified data
+          editor.run(() => {
+            editor.updateShape({
+              id: actualOriginalShape.id,
+              type: actualOriginalShape.type,
+              props: modifiedShape.props
+            })
+            
+            // Clean up any existing clones from the modifier system
+            const existingClones = editor.getCurrentPageShapes().filter((s: TLShape) => {
+              const originalId = getOriginalShapeId(s)
+              return originalId === actualOriginalShape.id && s.meta?.stackProcessed
+            })
+            
+            if (existingClones.length > 0) {
+              editor.deleteShapes(existingClones.map((s: TLShape) => s.id))
+            }
+            
+            // Restore original shape visibility
+            editor.updateShape({
+              id: actualOriginalShape.id,
+              type: actualOriginalShape.type,
+              opacity: 1
+            })
+          }, { history: 'record' })
+          
+          // Remove applied path modifiers
+          pathModifiers.forEach(modifier => {
+            store.deleteModifier(modifier.id)
+          })
         }
-      })
-
-      if (shapesToCreate.length > 0) {
-        // Create the shapes in the editor
-        editor.createShapes(shapesToCreate)
+      } else if (arrayModifiers.length > 0) {
+        // Handle array modifiers: create new shapes (existing behavior)
+        const result = ModifierStack.processModifiers(actualOriginalShape, arrayModifiers, editor)
+        const transformedShapes = extractShapesFromState(result)
         
-        // Remove the modifiers from the original shape since they're now applied
-        enabledModifiers.forEach(modifier => {
-          store.deleteModifier(modifier.id)
+        // Create actual shapes from the transformed results (skip the first one as it's the original)
+        const shapesToCreate = transformedShapes.slice(1).map(transformedShape => {
+          return {
+            type: transformedShape.type,
+            x: transformedShape.x,
+            y: transformedShape.y,
+            rotation: transformedShape.rotation,
+            props: transformedShape.props,
+            parentId: actualOriginalShape.parentId,
+            meta: {
+              ...transformedShape.meta,
+              appliedFromModifier: true,
+              originalShapeId: actualOriginalShape.id
+            }
+          }
         })
-        
+
+        if (shapesToCreate.length > 0) {
+          editor.createShapes(shapesToCreate)
+          arrayModifiers.forEach(modifier => {
+            store.deleteModifier(modifier.id)
+          })
+        }
       }
     } catch (error) {
       console.error('Failed to apply modifiers:', error)

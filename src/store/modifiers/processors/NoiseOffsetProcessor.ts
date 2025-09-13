@@ -31,6 +31,13 @@ export const NoiseOffsetProcessor = new class extends PathModifier<NoiseOffsetSe
     try {
       let modifiedPath = this.clonePathData(pathData)
       
+      // Calculate normalized bounds for consistent noise generation
+      const bounds = pathData.bounds || this.calculatePathBounds(pathData)
+      const normalizeCoord = (x: number, y: number) => ({
+        x: bounds.w > 0 ? (x - bounds.x) / bounds.w : 0,
+        y: bounds.h > 0 ? (y - bounds.y) / bounds.h : 0
+      })
+      
       // Apply noise displacement based on path type
       switch (modifiedPath.type) {
         case 'points':
@@ -40,7 +47,8 @@ export const NoiseOffsetProcessor = new class extends PathModifier<NoiseOffsetSe
             frequency, 
             octaves, 
             seed, 
-            settings.direction
+            settings.direction,
+            normalizeCoord
           )
           break
         case 'bezier':
@@ -50,7 +58,8 @@ export const NoiseOffsetProcessor = new class extends PathModifier<NoiseOffsetSe
             frequency, 
             octaves, 
             seed, 
-            settings.direction
+            settings.direction,
+            normalizeCoord
           )
           break
         case 'svg':
@@ -80,7 +89,8 @@ export const NoiseOffsetProcessor = new class extends PathModifier<NoiseOffsetSe
     frequency: number,
     octaves: number,
     seed: number,
-    direction: 'both' | 'normal' | 'tangent'
+    direction: 'both' | 'normal' | 'tangent',
+    normalizeCoord: (x: number, y: number) => { x: number, y: number }
   ): PointsPathData {
     
     const points = pathData.data
@@ -91,10 +101,11 @@ export const NoiseOffsetProcessor = new class extends PathModifier<NoiseOffsetSe
     for (let i = 0; i < points.length; i++) {
       const point = points[i]
       
-      // Generate noise value based on position and seed
+      // Generate noise value based on normalized position and seed
+      const normalizedPoint = normalizeCoord(point.x, point.y)
       const noiseValue = this.generateNoise(
-        point.x * frequency, 
-        point.y * frequency, 
+        normalizedPoint.x * frequency, 
+        normalizedPoint.y * frequency, 
         octaves, 
         seed + i
       )
@@ -144,7 +155,8 @@ export const NoiseOffsetProcessor = new class extends PathModifier<NoiseOffsetSe
     frequency: number,
     octaves: number,
     seed: number,
-    _direction: 'both' | 'normal' | 'tangent'
+    _direction: 'both' | 'normal' | 'tangent',
+    normalizeCoord: (x: number, y: number) => { x: number, y: number }
   ): BezierPathData {
     
     const points = pathData.data
@@ -155,10 +167,11 @@ export const NoiseOffsetProcessor = new class extends PathModifier<NoiseOffsetSe
     for (let i = 0; i < points.length; i++) {
       const point = points[i]
       
-      // Generate noise for main point
+      // Generate noise for main point using normalized coordinates
+      const normalizedPoint = normalizeCoord(point.x, point.y)
       const noiseValue = this.generateNoise(
-        point.x * frequency, 
-        point.y * frequency, 
+        normalizedPoint.x * frequency, 
+        normalizedPoint.y * frequency, 
         octaves, 
         seed + i
       )
@@ -180,9 +193,10 @@ export const NoiseOffsetProcessor = new class extends PathModifier<NoiseOffsetSe
       
       // Apply smaller displacement to control points
       if (point.cp1) {
+        const normalizedCp1 = normalizeCoord(point.cp1.x, point.cp1.y)
         const cp1Noise = this.generateNoise(
-          point.cp1.x * frequency, 
-          point.cp1.y * frequency, 
+          normalizedCp1.x * frequency, 
+          normalizedCp1.y * frequency, 
           octaves, 
           seed + i + 1000
         )
@@ -195,9 +209,10 @@ export const NoiseOffsetProcessor = new class extends PathModifier<NoiseOffsetSe
       }
       
       if (point.cp2) {
+        const normalizedCp2 = normalizeCoord(point.cp2.x, point.cp2.y)
         const cp2Noise = this.generateNoise(
-          point.cp2.x * frequency, 
-          point.cp2.y * frequency, 
+          normalizedCp2.x * frequency, 
+          normalizedCp2.y * frequency, 
           octaves, 
           seed + i + 2000
         )
@@ -317,6 +332,68 @@ export const NoiseOffsetProcessor = new class extends PathModifier<NoiseOffsetSe
     // Simple hash-based noise
     const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453123
     return (n - Math.floor(n)) * 2 - 1 // Return value between -1 and 1
+  }
+
+  // Calculate bounds for a path (used for normalization)
+  private calculatePathBounds(pathData: PathData): { x: number, y: number, w: number, h: number } {
+    if (pathData.type === 'points') {
+      const points = pathData.data as VecLike[]
+      if (points.length === 0) return { x: 0, y: 0, w: 100, h: 100 }
+      
+      let minX = points[0].x, maxX = points[0].x
+      let minY = points[0].y, maxY = points[0].y
+      
+      for (const point of points) {
+        minX = Math.min(minX, point.x)
+        maxX = Math.max(maxX, point.x)
+        minY = Math.min(minY, point.y)
+        maxY = Math.max(maxY, point.y)
+      }
+      
+      return {
+        x: minX,
+        y: minY,
+        w: Math.max(1, maxX - minX), // Ensure non-zero width
+        h: Math.max(1, maxY - minY)  // Ensure non-zero height
+      }
+    } else if (pathData.type === 'bezier') {
+      const points = pathData.data as BezierPoint[]
+      if (points.length === 0) return { x: 0, y: 0, w: 100, h: 100 }
+      
+      let minX = points[0].x, maxX = points[0].x
+      let minY = points[0].y, maxY = points[0].y
+      
+      for (const point of points) {
+        minX = Math.min(minX, point.x)
+        maxX = Math.max(maxX, point.x)
+        minY = Math.min(minY, point.y)
+        maxY = Math.max(maxY, point.y)
+        
+        // Also consider control points
+        if (point.cp1) {
+          minX = Math.min(minX, point.cp1.x)
+          maxX = Math.max(maxX, point.cp1.x)
+          minY = Math.min(minY, point.cp1.y)
+          maxY = Math.max(maxY, point.cp1.y)
+        }
+        if (point.cp2) {
+          minX = Math.min(minX, point.cp2.x)
+          maxX = Math.max(maxX, point.cp2.x)
+          minY = Math.min(minY, point.cp2.y)
+          maxY = Math.max(maxY, point.cp2.y)
+        }
+      }
+      
+      return {
+        x: minX,
+        y: minY,
+        w: Math.max(1, maxX - minX),
+        h: Math.max(1, maxY - minY)
+      }
+    }
+    
+    // Fallback for unknown types
+    return { x: 0, y: 0, w: 100, h: 100 }
   }
 
   protected validateSettings(settings: NoiseOffsetSettings): boolean {
