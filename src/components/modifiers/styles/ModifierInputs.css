@@ -240,6 +240,10 @@
   user-select: none;
 }
 
+.enhanced-number-input__label:empty {
+  display: none;
+}
+
 .enhanced-number-input__container {
   position: relative;
   display: flex;

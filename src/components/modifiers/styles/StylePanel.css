@@ -53,69 +53,324 @@
   height: 14px;
 }
 
-/* Custom Style Panel */
-.custom-style-panel__tabs {
+/* Custom Style Panel Wrapper */
+.custom-style-panel__wrapper {
   display: flex;
-  border-bottom: 1px solid var(--color-panel-contrast);
-  margin: 0 -8px 8px -8px;
-  background: var(--color-panel);
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  pointer-events: all !important;
+  touch-action: pan-y !important;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
-.custom-style-panel__tab {
+/* Custom Style Panel */
+.custom-style-panel__content {
   flex: 1;
-  padding: 8px 12px;
-  border: none;
-  background: transparent;
-  color: #666666;
-  font-size: 11px;
-  font-weight: 500;
+  overflow-y: scroll !important; /* Always show scrollbar */
+  overflow-x: hidden !important;
+  padding: 0;
+  padding-right: 4px; /* Space for scrollbar */
+  min-height: 0;
+  height: 100%;
+  /* Force scrollbar to always show - Firefox */
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(0, 0, 0, 0.3) rgba(0, 0, 0, 0.05) !important;
+  /* Ensure scroll events are captured */
+  pointer-events: all !important;
+  touch-action: pan-y !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Force webkit scrollbar to always be visible */
+.custom-style-panel__content::-webkit-scrollbar {
+  width: 12px !important;
+  background: rgba(0, 0, 0, 0.02) !important;
+  display: block !important;
+  visibility: visible !important;
+}
+
+.custom-style-panel__content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border-radius: 6px !important;
+  margin: 8px 0 !important;
+  display: block !important;
+  visibility: visible !important;
+}
+
+.custom-style-panel__content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2) !important;
+  border-radius: 6px !important;
+  border: 2px solid transparent !important;
+  background-clip: padding-box !important;
+  min-height: 30px !important;
+  display: block !important;
+  visibility: visible !important;
+}
+
+.custom-style-panel__content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3) !important;
+  background-clip: padding-box !important;
+}
+
+/* Override any tldraw styles that might hide scrollbars */
+.tlui-style-panel .custom-style-panel__content {
+  overflow-y: scroll !important;
+}
+
+.tlui-style-panel *::-webkit-scrollbar {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.custom-style-panel__section {
+  padding: 16px 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.custom-style-panel__section:last-child {
+  border-bottom: none;
+  padding-bottom: 24px;
+}
+
+.custom-style-panel__section-title {
+  margin: 0 0 12px 0;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--color-text-1);
+}
+
+/* Style Controls */
+.style-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.style-controls__group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.style-controls__group-title {
+  margin: 0 0 8px 0;
+  font-size: 10px;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  cursor: pointer;
-  transition: all 0.1s ease;
-  border-radius: 0;
+  color: var(--color-text-1);
+}
+
+.style-controls__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.style-controls__col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.style-controls__col--full {
+  grid-column: 1 / -1;
+}
+
+.style-controls__empty,
+.style-controls__mixed {
+  padding: 12px;
   text-align: center;
-  height: 32px;
+  color: var(--color-text-2);
+  font-size: 12px;
+}
+
+.style-controls__empty p,
+.style-controls__mixed p {
+  margin: 4px 0;
+}
+
+.style-controls__label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-text-2);
+  margin-bottom: 2px;
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.style-controls__color-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.style-controls__color-input-container {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.style-controls__color-input {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-panel-contrast);
+  border-radius: 4px;
+  cursor: pointer;
+  background: none;
+  padding: 0;
+}
+
+.style-controls__color-text {
+  flex: 1;
+  height: 28px;
+  padding: 4px 6px;
+  border: 1px solid var(--color-panel-contrast);
+  border-radius: 4px;
+  background: var(--color-panel);
+  color: var(--color-text-1);
+  font-size: 10px;
+  font-family: monospace;
+}
+
+.style-controls__checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px; /* Match input height */
+  padding: 0 8px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-panel-contrast);
+  border-radius: 4px;
+}
+
+.style-controls__checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.style-controls__checkbox-text {
+  font-size: 11px;
+  color: var(--color-text-1);
+  user-select: none;
+}
+
+/* Drag and Drop Styles */
+.modifier-controls__drag-handle {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 20px;
+  height: 20px;
+  cursor: grab;
+  color: var(--color-text-2);
+  font-size: 12px;
+  line-height: 1;
+  border-radius: 3px;
+  transition: all 0.1s ease;
+  user-select: none;
 }
 
-/* Give MODIFIERS tab more space */
-.custom-style-panel__tab:last-child {
-  flex: 1.2;
-  padding-right: 20px;
-}
-
-.custom-style-panel__tab:hover {
+.modifier-controls__drag-handle:hover {
   background: var(--color-muted-1);
   color: var(--color-text-1);
 }
 
-.custom-style-panel__tab--active {
-  background: var(--color-selected);
-  color: white;
-  border-bottom: 2px solid var(--color-accent);
+.modifier-controls__drag-handle:active {
+  cursor: grabbing;
 }
 
-.custom-style-panel__content {
-  flex: 1;
-  overflow-y: auto;
+.modifier-controls__item--dragging {
+  opacity: 0.5;
+  transform: rotate(2deg);
+  background: var(--color-panel);
+  border: 1px solid var(--color-accent);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.modifier-controls__item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 8px;
-  min-height: 0;
-  max-height: calc(100vh - 200px);
+  border-bottom: 1px solid var(--color-panel-contrast);
+}
+
+.modifier-controls__item-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+/* Update modifier controls layout */
+.modifier-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modifier-controls__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modifier-controls__item {
+  background: var(--color-panel);
+  border: 1px solid var(--color-panel-contrast);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.modifier-controls__item-details {
+  padding: 12px;
+  border-top: 1px solid var(--color-panel-contrast);
+}
+
+.modifier-controls__empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--color-text-2);
+  font-size: 12px;
+  border: 1px dashed var(--color-panel-contrast);
+  border-radius: 6px;
+}
+
+.modifier-controls__empty p {
+  margin: 4px 0;
 }
 
 /* tldraw Style Panel Overrides */
 .tlui-style-panel {
   display: flex;
   flex-direction: column;
-  min-height: 500px !important;
-  max-height: 80vh !important;
-  width: 260px !important;
-  max-width: 260px !important;
+  min-height: 400px !important;
+  max-height: 85vh !important;
+  height: 85vh !important;
+  width: 280px !important;
+  max-width: 280px !important;
+  overflow: hidden;
   background: var(--color-panel);
   border-left: 1px solid var(--color-panel-contrast);
+  pointer-events: all !important;
+}
+
+/* Ensure the panel captures all events */
+.tlui-style-panel * {
+  pointer-events: inherit !important;
 }
 
 /* Modifier Virtual Shape */

@@ -1,5 +1,20 @@
 import React, { useState, useCallback } from 'react'
 import { TldrawUiButton, TldrawUiButtonIcon } from 'tldraw'
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import {
+  CSS,
+} from '@dnd-kit/utilities'
 import { MODIFIER_DISPLAY_NAMES } from '../constants'
 import { ModifierControlPanel } from '../controls/ModifierControlPanel'
 import type { 
@@ -22,15 +37,17 @@ interface ModifierListProps {
   modifiers: TLModifier[]
   onToggleModifier: (modifierId: string) => void
   onRemoveModifier: (modifierId: string) => void
+  shapeId: string
 }
 
 /**
  * Component for rendering the list of modifiers
  * Extracts the modifier list rendering logic from ModifierControls
  */
-export function ModifierList({ modifiers, onToggleModifier, onRemoveModifier }: ModifierListProps) {
+export function ModifierList({ modifiers, onToggleModifier, onRemoveModifier, shapeId }: ModifierListProps) {
   const store = useModifierStore()
   const [collapsedModifiers, setCollapsedModifiers] = useState<Set<string>>(new Set())
+  const [activeId, setActiveId] = useState<string | null>(null)
 
   const toggleCollapsed = useCallback((modifierId: string) => {
     setCollapsedModifiers(prev => {
@@ -44,6 +61,32 @@ export function ModifierList({ modifiers, onToggleModifier, onRemoveModifier }: 
     })
   }, [])
 
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(event.active.id as string)
+  }, [])
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event
+    
+    if (active.id !== over?.id) {
+      const oldIndex = modifiers.findIndex(m => m.id === active.id)
+      const newIndex = modifiers.findIndex(m => m.id === over?.id)
+      
+      if (oldIndex !== -1 && newIndex !== -1) {
+        // Create new order array
+        const newOrder = [...modifiers]
+        const [removed] = newOrder.splice(oldIndex, 1)
+        newOrder.splice(newIndex, 0, removed)
+        
+        // Update the order in the store
+        const newOrderIds = newOrder.map(m => m.id as TLModifierId)
+        store.reorderModifiers(shapeId as any, newOrderIds)
+      }
+    }
+    
+    setActiveId(null)
+  }, [modifiers, shapeId, store])
+
   if (modifiers.length === 0) {
     return (
       <div className="modifier-controls__empty">
@@ -54,28 +97,54 @@ export function ModifierList({ modifiers, onToggleModifier, onRemoveModifier }: 
   }
 
   return (
-    <div className="modifier-controls__list">
-      {modifiers.map((modifier) => {
-        const isCollapsed = collapsedModifiers.has(modifier.id)
-        const isEnabled = modifier.enabled
-        
-        return (
-          <ModifierItem
-            key={modifier.id}
-            modifier={modifier}
-            isCollapsed={isCollapsed}
-            isEnabled={isEnabled}
-            onToggleCollapsed={toggleCollapsed}
-            onToggleModifier={onToggleModifier}
-            onRemoveModifier={onRemoveModifier}
-            onUpdateSettings={(newSettings) => {
-              console.log(`${modifier.type} onChange:`, newSettings)
-              store.updateModifier(modifier.id as TLModifierId, { props: newSettings as any })
-            }}
-          />
-        )
-      })}
-    </div>
+    <DndContext
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <SortableContext
+        items={modifiers.map(m => m.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        <div className="modifier-controls__list">
+          {modifiers.map((modifier) => {
+            const isCollapsed = collapsedModifiers.has(modifier.id)
+            const isEnabled = modifier.enabled
+            
+            return (
+              <SortableModifierItem
+                key={modifier.id}
+                modifier={modifier}
+                isCollapsed={isCollapsed}
+                isEnabled={isEnabled}
+                onToggleCollapsed={toggleCollapsed}
+                onToggleModifier={onToggleModifier}
+                onRemoveModifier={onRemoveModifier}
+                onUpdateSettings={(newSettings) => {
+                  console.log(`${modifier.type} onChange:`, newSettings)
+                  store.updateModifier(modifier.id as TLModifierId, { props: newSettings as any })
+                }}
+              />
+            )
+          })}
+        </div>
+      </SortableContext>
+      
+      <DragOverlay>
+        {activeId ? (
+          <div className="modifier-controls__item modifier-controls__item--dragging">
+            <div className="modifier-controls__item-header">
+              <div className="modifier-controls__item-title">
+                <div className="modifier-controls__drag-handle">⋮⋮</div>
+                <span className="modifier-controls__checkbox-text">
+                  {MODIFIER_DISPLAY_NAMES[modifiers.find(m => m.id === activeId)?.type as keyof typeof MODIFIER_DISPLAY_NAMES] || 'Modifier'}
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   )
 }
 
@@ -90,6 +159,50 @@ interface ModifierItemProps {
 }
 
 /**
+ * Sortable wrapper for modifier items
+ */
+function SortableModifierItem(props: ModifierItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: props.modifier.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <ModifierItem
+        {...props}
+        dragAttributes={attributes}
+        dragListeners={listeners}
+        isDragging={isDragging}
+      />
+    </div>
+  )
+}
+
+interface ModifierItemProps {
+  modifier: TLModifier
+  isCollapsed: boolean
+  isEnabled: boolean
+  onToggleCollapsed: (modifierId: string) => void
+  onToggleModifier: (modifierId: string) => void
+  onRemoveModifier: (modifierId: string) => void
+  onUpdateSettings: (newSettings: LinearArraySettings | CircularArraySettings | GridArraySettings | MirrorSettings | LSystemSettings) => void
+  dragAttributes?: any
+  dragListeners?: any
+  isDragging?: boolean
+}
+
+/**
  * Component for rendering a single modifier item
  */
 function ModifierItem({
@@ -99,12 +212,23 @@ function ModifierItem({
   onToggleCollapsed,
   onToggleModifier,
   onRemoveModifier,
-  onUpdateSettings
+  onUpdateSettings,
+  dragAttributes,
+  dragListeners,
+  isDragging = false
 }: ModifierItemProps) {
   return (
-    <div className="modifier-controls__item">
+    <div className={`modifier-controls__item ${isDragging ? 'modifier-controls__item--dragging' : ''}`}>
       <div className="modifier-controls__item-header">
         <div className="modifier-controls__item-title">
+          <div
+            className="modifier-controls__drag-handle"
+            {...dragAttributes}
+            {...dragListeners}
+            title="Drag to reorder"
+          >
+            ⋮⋮
+          </div>
           <TldrawUiButton
             type="icon"
             onPointerDown={(e) => {
@@ -150,7 +274,7 @@ function ModifierItem({
           <ModifierControlPanel
             modifierType={modifier.type as any}
             settings={modifier.props}
-            onChange={onUpdateSettings}
+            onChange={onUpdateSettings as any}
           />
         </div>
       )}

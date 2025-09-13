@@ -6,7 +6,8 @@
       "Bash(npx tsc:*)",
       "Bash(npm run dev:*)",
       "Bash(npm run build:*)",
-      "Read(//Users/daniellefcourt/Desktop/**)"
+      "Read(//Users/daniellefcourt/Desktop/**)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

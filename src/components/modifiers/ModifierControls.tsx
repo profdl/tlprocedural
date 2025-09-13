@@ -46,6 +46,7 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
         modifiers={shapeModifiers}
         onToggleModifier={toggleModifier}
         onRemoveModifier={removeModifier}
+        shapeId={selectedShape.id}
       />
     </div>
   )
