@@ -53,7 +53,11 @@ export const CustomStylePanel = (props: TLUiStylePanelProps) => {
   }
 
   const handlePointerEvents = (e: React.PointerEvent) => {
-    e.stopPropagation()
+    // Only stop propagation if it's not a drag handle
+    const target = e.target as HTMLElement
+    if (!target.closest('.modifier-controls__drag-handle')) {
+      e.stopPropagation()
+    }
   }
 
   return (
@@ -65,9 +69,15 @@ export const CustomStylePanel = (props: TLUiStylePanelProps) => {
         onPointerMove={handlePointerEvents}
         onPointerUp={handlePointerEvents}
       >
-        <div 
-          className="custom-style-panel__content" 
-          onPointerDown={stopEventPropagation}
+        <div
+          className="custom-style-panel__content"
+          onPointerDown={(e) => {
+            // Allow drag handles to work properly
+            const target = e.target as HTMLElement
+            if (!target.closest('.modifier-controls__drag-handle')) {
+              stopEventPropagation(e)
+            }
+          }}
           onWheel={handleWheel}
         >
           {/* Style Controls Section */}
