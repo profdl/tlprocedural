@@ -77,10 +77,11 @@ export function ModifierSubPanel({
         <div className="modifier-sub-panel__header-left">
           {/* Drag handle */}
           <div
-            className="modifier-sub-panel__drag-handle"
+            className="tlui-button tlui-button__panel modifier-sub-panel__drag-handle"
             {...attributes}
             {...listeners}
             title="Drag to reorder"
+            style={{ cursor: 'grab' }}
           >
             ⋮⋮
           </div>
@@ -106,24 +107,25 @@ export function ModifierSubPanel({
 
         <div className="modifier-sub-panel__header-right">
           {/* Apply button */}
-          <button
-            className="modifier-sub-panel__apply-button"
+          <TldrawUiButton
+            type="normal"
             onClick={onToggle}
             onPointerDown={stopPropagation}
             title={modifier.enabled ? "Applied" : "Apply"}
+            className={`modifier-sub-panel__apply-button ${modifier.enabled ? 'modifier-sub-panel__apply-button--enabled' : ''}`}
           >
             {modifier.enabled ? "APPLIED" : "APPLY"}
-          </button>
+          </TldrawUiButton>
 
           {/* Remove button */}
-          <button
-            className="modifier-sub-panel__remove-button"
+          <TldrawUiButton
+            type="icon"
             onClick={onRemove}
             onPointerDown={stopPropagation}
             title="Remove modifier"
           >
             ×
-          </button>
+          </TldrawUiButton>
         </div>
       </div>
 

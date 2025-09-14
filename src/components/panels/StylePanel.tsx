@@ -107,101 +107,123 @@ export function StylePanel() {
         </div>
       ) : commonStyles ? (
         <div className="style-panel__content">
-          {/* Stroke Section */}
-          <div className="style-panel__section">
-            <div className="style-panel__row">
-              <div className="style-panel__field">
-                <label className="style-panel__label">Stroke Size</label>
-                <EnhancedNumberInput
-                  label=""
-                  value={commonStyles.strokeWidth}
-                  min={0}
-                  max={20}
-                  step={0.5}
-                  precision={1}
-                  unit="px"
-                  onChange={(value) => updateShapeStyles({ strokeWidth: value })}
+          {/* Stroke Size */}
+          <div className="modifier-input-row">
+            <label className="modifier-input-row__label">Stroke Size</label>
+            <div className="modifier-input-row__control">
+              <EnhancedNumberInput
+                value={commonStyles.strokeWidth}
+                min={0}
+                max={20}
+                step={0.5}
+                precision={1}
+                unit="px"
+                onChange={(value) => updateShapeStyles({ strokeWidth: value })}
+              />
+            </div>
+          </div>
+
+          {/* Stroke Color */}
+          <div className="modifier-input-row">
+            <label className="modifier-input-row__label">Stroke Color</label>
+            <div className="modifier-input-row__control">
+              <div className="color-input-compact__container">
+                <div
+                  className="color-input-compact__preview"
+                  style={{
+                    backgroundColor: commonStyles.strokeColor === 'black' ? '#000000' :
+                                   commonStyles.strokeColor === 'white' ? '#ffffff' :
+                                   commonStyles.strokeColor === 'red' ? '#ff0000' :
+                                   commonStyles.strokeColor === 'green' ? '#00ff00' :
+                                   commonStyles.strokeColor === 'blue' ? '#0000ff' :
+                                   commonStyles.strokeColor
+                  }}
+                  onClick={() => {
+                    const input = document.createElement('input')
+                    input.type = 'color'
+                    input.value = commonStyles.strokeColor === 'black' ? '#000000' :
+                                  commonStyles.strokeColor === 'white' ? '#ffffff' :
+                                  commonStyles.strokeColor === 'red' ? '#ff0000' :
+                                  commonStyles.strokeColor === 'green' ? '#00ff00' :
+                                  commonStyles.strokeColor === 'blue' ? '#0000ff' :
+                                  commonStyles.strokeColor
+                    input.onchange = (e) => updateShapeStyles({ strokeColor: (e.target as HTMLInputElement).value })
+                    input.click()
+                  }}
                 />
-              </div>
-              <div className="style-panel__field">
-                <label className="style-panel__label">Stroke Color</label>
-                <div className="style-panel__color-input-container">
-                  <input
-                    type="color"
-                    value={commonStyles.strokeColor === 'black' ? '#000000' :
-                           commonStyles.strokeColor === 'white' ? '#ffffff' :
-                           commonStyles.strokeColor === 'red' ? '#ff0000' :
-                           commonStyles.strokeColor === 'green' ? '#00ff00' :
-                           commonStyles.strokeColor === 'blue' ? '#0000ff' :
-                           commonStyles.strokeColor}
-                    onChange={(e) => updateShapeStyles({ strokeColor: e.target.value })}
-                    className="style-panel__color-input"
-                  />
-                  <input
-                    type="text"
-                    value={commonStyles.strokeColor}
-                    onChange={(e) => updateShapeStyles({ strokeColor: e.target.value })}
-                    className="style-panel__color-text"
-                    placeholder="#000000"
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={commonStyles.strokeColor}
+                  onChange={(e) => updateShapeStyles({ strokeColor: e.target.value })}
+                  className="color-input-compact__text"
+                  placeholder="#000000"
+                />
               </div>
             </div>
           </div>
 
-          {/* Fill Section */}
-          <div className="style-panel__section">
-            <div className="style-panel__row">
-              <div className="style-panel__field style-panel__field--full">
-                <label className="style-panel__label">Fill Color</label>
-                <div className="style-panel__color-input-container">
-                  <input
-                    type="color"
-                    value={commonStyles.fillColor === 'none' ? '#ffffff' :
-                           commonStyles.fillColor === 'black' ? '#000000' :
-                           commonStyles.fillColor === 'white' ? '#ffffff' :
-                           commonStyles.fillColor === 'red' ? '#ff0000' :
-                           commonStyles.fillColor === 'green' ? '#00ff00' :
-                           commonStyles.fillColor === 'blue' ? '#0000ff' :
-                           commonStyles.fillColor}
-                    onChange={(e) => updateShapeStyles({ fillColor: e.target.value })}
-                    className="style-panel__color-input"
-                  />
-                  <input
-                    type="text"
-                    value={commonStyles.fillColor}
-                    onChange={(e) => updateShapeStyles({ fillColor: e.target.value })}
-                    className="style-panel__color-text"
-                    placeholder="#FFFFFF"
-                  />
-                  <button
-                    className="style-panel__none-button"
-                    onClick={() => updateShapeStyles({ fillColor: 'none' })}
-                    title="No fill"
-                  >
-                    None
-                  </button>
-                </div>
+          {/* Fill Color */}
+          <div className="modifier-input-row">
+            <label className="modifier-input-row__label">Fill Color</label>
+            <div className="modifier-input-row__control">
+              <div className="color-input-compact__container">
+                <div
+                  className="color-input-compact__preview"
+                  style={{
+                    backgroundColor: commonStyles.fillColor === 'none' ? 'transparent' :
+                                   commonStyles.fillColor === 'black' ? '#000000' :
+                                   commonStyles.fillColor === 'white' ? '#ffffff' :
+                                   commonStyles.fillColor === 'red' ? '#ff0000' :
+                                   commonStyles.fillColor === 'green' ? '#00ff00' :
+                                   commonStyles.fillColor === 'blue' ? '#0000ff' :
+                                   commonStyles.fillColor,
+                    backgroundImage: commonStyles.fillColor === 'none' ?
+                      'linear-gradient(45deg, #ddd 25%, transparent 25%), linear-gradient(-45deg, #ddd 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ddd 75%), linear-gradient(-45deg, transparent 75%, #ddd 75%)' :
+                      undefined,
+                    backgroundSize: commonStyles.fillColor === 'none' ? '6px 6px' : undefined,
+                    backgroundPosition: commonStyles.fillColor === 'none' ? '0 0, 0 3px, 3px -3px, -3px 0px' : undefined
+                  }}
+                  onClick={() => {
+                    if (commonStyles.fillColor === 'none') {
+                      updateShapeStyles({ fillColor: '#ffffff' })
+                    } else {
+                      const input = document.createElement('input')
+                      input.type = 'color'
+                      input.value = commonStyles.fillColor === 'black' ? '#000000' :
+                                    commonStyles.fillColor === 'white' ? '#ffffff' :
+                                    commonStyles.fillColor === 'red' ? '#ff0000' :
+                                    commonStyles.fillColor === 'green' ? '#00ff00' :
+                                    commonStyles.fillColor === 'blue' ? '#0000ff' :
+                                    commonStyles.fillColor
+                      input.onchange = (e) => updateShapeStyles({ fillColor: (e.target as HTMLInputElement).value })
+                      input.click()
+                    }
+                  }}
+                />
+                <input
+                  type="text"
+                  value={commonStyles.fillColor}
+                  onChange={(e) => updateShapeStyles({ fillColor: e.target.value })}
+                  className="color-input-compact__text"
+                  placeholder="#FFFFFF"
+                />
               </div>
             </div>
           </div>
 
-          {/* Opacity Section */}
-          <div className="style-panel__section">
-            <div className="style-panel__row">
-              <div className="style-panel__field style-panel__field--full">
-                <label className="style-panel__label">Opacity</label>
-                <EnhancedNumberInput
-                  label=""
-                  value={commonStyles.opacity}
-                  min={0}
-                  max={100}
-                  step={5}
-                  precision={0}
-                  unit="%"
-                  onChange={(value) => updateShapeStyles({ opacity: value })}
-                />
-              </div>
+          {/* Opacity */}
+          <div className="modifier-input-row">
+            <label className="modifier-input-row__label">Opacity</label>
+            <div className="modifier-input-row__control">
+              <EnhancedNumberInput
+                value={commonStyles.opacity}
+                min={0}
+                max={100}
+                step={5}
+                precision={0}
+                unit="%"
+                onChange={(value) => updateShapeStyles({ opacity: value })}
+              />
             </div>
           </div>
         </div>

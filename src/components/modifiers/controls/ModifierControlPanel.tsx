@@ -32,50 +32,61 @@ export function ModifierControlPanel<T extends keyof ModifierSchemas>({
       <div className="modifier-controls__grid">
         {schema.inputs.map((inputConfig) => {
           const key = `${modifierType}-${inputConfig.field}`
-          const containerClass = inputConfig.fullWidth ? 'modifier-input--full-width' : ''
-          
+
           if (isNumberInputConfig(inputConfig)) {
             return (
-              <div key={key} className={containerClass}>
-                <EnhancedNumberInput
-                  label={inputConfig.label}
-                  value={settings[inputConfig.field] ?? 0}
-                  min={inputConfig.min}
-                  max={inputConfig.max}
-                  step={inputConfig.step}
-                  precision={inputConfig.precision ?? 0}
-                  unit={inputConfig.unit}
-                  onChange={(value) => updateSetting(inputConfig.field, value)}
-                />
+              <div key={key} className="modifier-input-row">
+                <label className="modifier-input-row__label">
+                  {inputConfig.label}
+                </label>
+                <div className="modifier-input-row__control">
+                  <EnhancedNumberInput
+                    value={settings[inputConfig.field] ?? 0}
+                    min={inputConfig.min}
+                    max={inputConfig.max}
+                    step={inputConfig.step}
+                    precision={inputConfig.precision ?? 0}
+                    unit={inputConfig.unit}
+                    onChange={(value) => updateSetting(inputConfig.field, value)}
+                  />
+                </div>
               </div>
             )
           }
-          
+
           if (isCheckboxInputConfig(inputConfig)) {
             return (
-              <div key={key} className={containerClass}>
-                <ModifierCheckboxInput
-                  label={inputConfig.label}
-                  checked={settings[inputConfig.field] ?? false}
-                  onChange={(checked) => updateSetting(inputConfig.field, checked)}
-                />
+              <div key={key} className="modifier-input-row">
+                <label className="modifier-input-row__label">
+                  {inputConfig.label}
+                </label>
+                <div className="modifier-input-row__control">
+                  <ModifierCheckboxInput
+                    checked={settings[inputConfig.field] ?? false}
+                    onChange={(checked) => updateSetting(inputConfig.field, checked)}
+                  />
+                </div>
               </div>
             )
           }
-          
+
           if (isSelectInputConfig(inputConfig)) {
             return (
-              <div key={key} className={containerClass}>
-                <ModifierSelectInput
-                  label={inputConfig.label}
-                  value={settings[inputConfig.field] ?? inputConfig.options[0]?.value}
-                  options={inputConfig.options}
-                  onChange={(value) => updateSetting(inputConfig.field, value)}
-                />
+              <div key={key} className="modifier-input-row">
+                <label className="modifier-input-row__label">
+                  {inputConfig.label}
+                </label>
+                <div className="modifier-input-row__control">
+                  <ModifierSelectInput
+                    value={settings[inputConfig.field] ?? inputConfig.options[0]?.value}
+                    options={inputConfig.options}
+                    onChange={(value) => updateSetting(inputConfig.field, value)}
+                  />
+                </div>
               </div>
             )
           }
-          
+
           return null
         })}
       </div>

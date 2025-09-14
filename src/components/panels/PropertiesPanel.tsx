@@ -127,86 +127,83 @@ export function PropertiesPanel() {
         </div>
       ) : shapeProperties ? (
         <div className="properties-panel__content">
-          {/* Position Section */}
-          <div className="properties-panel__section">
-            <div className="properties-panel__row">
-              <div className="properties-panel__field">
-                <label className="properties-panel__label">X Position</label>
-                <EnhancedNumberInput
-                  label=""
-                  value={shapeProperties.x}
-                  min={-10000}
-                  max={10000}
-                  step={1}
-                  precision={2}
-                  unit="px"
-                  onChange={(value) => updatePosition('x', value)}
-                />
-              </div>
-              <div className="properties-panel__field">
-                <label className="properties-panel__label">Y Position</label>
-                <EnhancedNumberInput
-                  label=""
-                  value={shapeProperties.y}
-                  min={-10000}
-                  max={10000}
-                  step={1}
-                  precision={2}
-                  unit="px"
-                  onChange={(value) => updatePosition('y', value)}
-                />
-              </div>
+          {/* X Position */}
+          <div className="modifier-input-row">
+            <label className="modifier-input-row__label">X Position</label>
+            <div className="modifier-input-row__control">
+              <EnhancedNumberInput
+                value={shapeProperties.x}
+                min={-10000}
+                max={10000}
+                step={1}
+                precision={2}
+                unit="px"
+                onChange={(value) => updatePosition('x', value)}
+              />
             </div>
           </div>
 
-          {/* Size Section */}
-          <div className="properties-panel__section">
-            <div className="properties-panel__row">
-              <div className="properties-panel__field">
-                <label className="properties-panel__label">Width</label>
-                <EnhancedNumberInput
-                  label=""
-                  value={shapeProperties.width}
-                  min={1}
-                  max={10000}
-                  step={1}
-                  precision={2}
-                  unit="px"
-                  onChange={(value) => updateSize('width', value)}
-                />
-              </div>
-              <div className="properties-panel__field">
-                <label className="properties-panel__label">Height</label>
-                <EnhancedNumberInput
-                  label=""
-                  value={shapeProperties.height}
-                  min={1}
-                  max={10000}
-                  step={1}
-                  precision={2}
-                  unit="px"
-                  onChange={(value) => updateSize('height', value)}
-                />
-              </div>
+          {/* Y Position */}
+          <div className="modifier-input-row">
+            <label className="modifier-input-row__label">Y Position</label>
+            <div className="modifier-input-row__control">
+              <EnhancedNumberInput
+                value={shapeProperties.y}
+                min={-10000}
+                max={10000}
+                step={1}
+                precision={2}
+                unit="px"
+                onChange={(value) => updatePosition('y', value)}
+              />
             </div>
           </div>
 
-          {/* Rotation Section */}
-          <div className="properties-panel__section">
-            <div className="properties-panel__row">
-              <div className="properties-panel__field properties-panel__field--full">
-                <label className="properties-panel__label">Rotation</label>
-                <EnhancedNumberInput
-                  label=""
-                  value={shapeProperties.rotation}
-                  min={-360}
-                  max={360}
-                  step={1}
-                  precision={1}
-                  unit="°"
-                  onChange={updateRotation}
-                />
-              </div>
+          {/* Width */}
+          <div className="modifier-input-row">
+            <label className="modifier-input-row__label">Width</label>
+            <div className="modifier-input-row__control">
+              <EnhancedNumberInput
+                value={shapeProperties.width}
+                min={1}
+                max={10000}
+                step={1}
+                precision={2}
+                unit="px"
+                onChange={(value) => updateSize('width', value)}
+              />
+            </div>
+          </div>
+
+          {/* Height */}
+          <div className="modifier-input-row">
+            <label className="modifier-input-row__label">Height</label>
+            <div className="modifier-input-row__control">
+              <EnhancedNumberInput
+                value={shapeProperties.height}
+                min={1}
+                max={10000}
+                step={1}
+                precision={2}
+                unit="px"
+                onChange={(value) => updateSize('height', value)}
+              />
+            </div>
+          </div>
+
+          {/* Rotation */}
+          <div className="modifier-input-row">
+            <label className="modifier-input-row__label">Rotation</label>
+            <div className="modifier-input-row__control">
+              <EnhancedNumberInput
+                value={shapeProperties.rotation}
+                min={-360}
+                max={360}
+                step={1}
+                precision={1}
+                unit="°"
+                onChange={updateRotation}
+              />
             </div>
           </div>
         </div>

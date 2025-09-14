@@ -125,10 +125,11 @@ export function PanelContainer({
         <div className="panel-container__header-left">
           {/* Drag handle */}
           <div
-            className="panel-container__drag-handle"
+            className="tlui-button tlui-button__panel panel-container__drag-handle"
             {...attributes}
             {...listeners}
             title="Drag to reorder"
+            style={{ cursor: 'grab' }}
           >
             ⋮⋮
           </div>
@@ -138,7 +139,6 @@ export function PanelContainer({
             type="icon"
             onClick={handleToggleCollapse}
             title={isCollapsed ? "Expand" : "Collapse"}
-            className="panel-container__collapse-button"
           >
             <TldrawUiButtonIcon
               icon={isCollapsed ? "chevron-right" : "chevron-down"}
@@ -152,13 +152,13 @@ export function PanelContainer({
         <div className="panel-container__header-right">
           {/* Close button (if enabled) */}
           {showClose && (
-            <button
-              className="panel-container__close-button"
+            <TldrawUiButton
+              type="icon"
               onClick={() => setPanelCollapsed(id, true)}
               title="Close panel"
             >
               ×
-            </button>
+            </TldrawUiButton>
           )}
         </div>
       </div>

@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { stopEventPropagation } from 'tldraw'
 
 interface EnhancedNumberInputProps {
-  label: string
+  label?: string // Now optional since labels are handled externally
   value: number
   min: number
   max: number
@@ -145,14 +145,15 @@ export function EnhancedNumberInput({
   }, [isDragging, handleMouseMove, handleMouseUp])
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className={`enhanced-number-input ${isDragging ? 'enhanced-number-input--dragging' : ''}`}
       onPointerDown={stopEventPropagation}
     >
-      <label className="enhanced-number-input__label">{label}</label>
-      
-      <div 
+      {/* Only show label if provided - for backwards compatibility */}
+      {label && <label className="enhanced-number-input__label">{label}</label>}
+
+      <div
         className="enhanced-number-input__container"
         onMouseDown={handleMouseDown}
       >
@@ -176,7 +177,7 @@ export function EnhancedNumberInput({
         <div className="enhanced-number-input__arrows">
           <button
             type="button"
-            className="enhanced-number-input__arrow enhanced-number-input__arrow--up"
+            className="tlui-button tlui-button__panel enhanced-number-input__arrow enhanced-number-input__arrow--up"
             onClick={handleIncrement}
             onPointerDown={stopEventPropagation}
             disabled={value >= max}
@@ -185,7 +186,7 @@ export function EnhancedNumberInput({
           </button>
           <button
             type="button"
-            className="enhanced-number-input__arrow enhanced-number-input__arrow--down"
+            className="tlui-button tlui-button__panel enhanced-number-input__arrow enhanced-number-input__arrow--down"
             onClick={handleDecrement}
             onPointerDown={stopEventPropagation}
             disabled={value <= min}

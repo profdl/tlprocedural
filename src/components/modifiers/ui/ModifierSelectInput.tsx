@@ -1,7 +1,7 @@
 import { stopEventPropagation } from 'tldraw'
 
 interface ModifierSelectInputProps {
-  label: string
+  label?: string // Now optional since labels are handled externally
   value: any
   options: Array<{ value: any; label: string }>
   onChange: (value: any) => void
@@ -15,7 +15,8 @@ export function ModifierSelectInput({
 }: ModifierSelectInputProps) {
   return (
     <div className="modifier-select-input" onPointerDown={stopEventPropagation}>
-      <label className="modifier-select-input__label">{label}</label>
+      {/* Only show label if provided - for backwards compatibility */}
+      {label && <label className="modifier-select-input__label">{label}</label>}
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}

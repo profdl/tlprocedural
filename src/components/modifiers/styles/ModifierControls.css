@@ -270,17 +270,16 @@
 }
 
 .modifier-controls__grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 8px 12px;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
   width: 100%;
   max-width: 100%;
 }
 
-/* Full width items that should span both columns */
+/* Remove full width distinction - all items are now full width in single column */
 .modifier-controls__grid > .modifier-input--full-width {
-  grid-column: 1 / -1;
+  /* No special styling needed - all items span full width */
 }
 
 .modifier-controls__square-button {
@@ -441,4 +440,30 @@
 .modifier-controls__collapse-btn svg {
   width: 10px !important;
   height: 10px !important;
+}
+
+/* Single-column input row layout */
+.modifier-input-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-1) 0;
+  min-height: var(--space-7); /* Consistent row height */
+}
+
+.modifier-input-row__label {
+  color: var(--color-text-3);
+  font-size: 12px;
+  font-weight: 500;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.modifier-input-row__control {
+  margin-left: auto;
+  min-width: 100px;
+  max-width: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 } 

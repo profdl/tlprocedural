@@ -225,10 +225,10 @@
 .enhanced-number-input {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   width: 100%;
-  max-width: 100%;
-  min-width: 0;
+  max-width: 100px; /* Compact width for single-column layout */
+  min-width: 80px;
 }
 
 .enhanced-number-input__label {
@@ -320,16 +320,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 12px;
-  background: transparent;
-  border: none;
-  color: var(--color-text-2);
-  cursor: pointer !important; /* Ensure arrow cursor on buttons */
+  width: var(--space-5);
+  height: var(--space-4);
   font-size: 8px;
   line-height: 1;
-  transition: all 0.1s ease;
   user-select: none;
+  /* Override tlui-button styles for compact arrow buttons */
+  min-width: var(--space-5) !important;
+  min-height: var(--space-4) !important;
+  padding: 0 !important;
 }
 
 .enhanced-number-input__arrow:hover:not(:disabled) {
@@ -348,12 +347,12 @@
 }
 
 .enhanced-number-input__arrow--up {
-  border-radius: 0 3px 0 0;
+  border-radius: 0 var(--radius-1) 0 0;
   border-bottom: 1px solid var(--color-panel-contrast);
 }
 
 .enhanced-number-input__arrow--down {
-  border-radius: 0 0 3px 0;
+  border-radius: 0 0 var(--radius-1) 0;
 }
 
 /* Dragging state styling */
@@ -411,20 +410,92 @@
   box-shadow: 0 0 0 1px var(--color-primary);
 }
 
+/* Compact Color Input Component - matches screenshot style */
+.color-input-compact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  max-width: 120px; /* Compact width for single-column layout */
+  min-width: 100px;
+}
+
+.color-input-compact__label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  user-select: none;
+}
+
+.color-input-compact__container {
+  display: flex;
+  align-items: center;
+  background: var(--color-panel);
+  border: 1px solid var(--color-panel-contrast);
+  border-radius: var(--radius-1);
+  transition: all 0.1s ease;
+  position: relative;
+}
+
+.color-input-compact__container:hover {
+  border-color: var(--color-text-3);
+}
+
+.color-input-compact__container:focus-within {
+  border-color: var(--color-selected);
+  box-shadow: 0 0 0 1px var(--color-selected);
+}
+
+.color-input-compact__preview {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-1);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.color-input-compact__text {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  background: transparent;
+  border: none;
+  color: var(--color-text-1);
+  font-size: 11px;
+  font-weight: 500;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  outline: none;
+}
+
+.color-input-compact__picker {
+  position: absolute;
+  top: -100px;
+  right: 0;
+  width: 40px;
+  height: 40px;
+  border: none;
+  cursor: pointer;
+  z-index: 1000;
+}
+
 /* Dark mode overrides */
 @media (prefers-color-scheme: dark) {
   .modifier-slider__input::-webkit-slider-thumb {
     border-color: var(--color-panel);
   }
-  
+
   .modifier-slider__input::-moz-range-thumb {
     border-color: var(--color-panel);
   }
-  
+
   .modifier-property-input__slider::-webkit-slider-thumb {
     border-color: var(--color-panel);
   }
-  
+
   .modifier-property-input__slider::-moz-range-thumb {
     border-color: var(--color-panel);
   }
