@@ -92,7 +92,6 @@ export const LSystemProcessor: ModifierProcessor = {
       branch(cx, cy, heading, Math.max(0, iterations), baseStep, 0, inst)
     })
 
-    console.log(`LSystemProcessor: Created ${newInstances.length} instances (${input.instances.length} originals + ${newInstances.length - input.instances.length} L-system branches) with ${iterations} iterations`)
     
     return { ...input, instances: newInstances }
   }

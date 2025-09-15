@@ -40,7 +40,6 @@ export const SimplifyProcessor = new class extends PathModifier<SimplifySettings
           modifiedPath = this.simplifyBezier(modifiedPath as BezierPathData, tolerance, minPoints)
           break
         case 'svg':
-          console.warn('SVG path simplification not implemented yet')
           break
       }
       
@@ -53,8 +52,7 @@ export const SimplifyProcessor = new class extends PathModifier<SimplifySettings
         newBounds: updatedPath.bounds
       }
       
-    } catch (error) {
-      console.error('Error in SimplifyProcessor:', error)
+    } catch {
       return { pathData, boundsChanged: false }
     }
   }
@@ -311,17 +309,14 @@ export const SimplifyProcessor = new class extends PathModifier<SimplifySettings
     const { tolerance, preserveCorners, minPoints } = settings
     
     if (typeof tolerance !== 'number' || tolerance < 0) {
-      console.warn('Invalid tolerance for simplify:', tolerance)
       return false
     }
     
     if (typeof preserveCorners !== 'boolean') {
-      console.warn('Invalid preserveCorners for simplify:', preserveCorners)
       return false
     }
     
     if (typeof minPoints !== 'number' || minPoints < 2) {
-      console.warn('Invalid minPoints for simplify (minimum 2):', minPoints)
       return false
     }
     

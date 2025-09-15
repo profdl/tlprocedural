@@ -88,7 +88,6 @@ export const GridArrayProcessor: ModifierProcessor = {
       }
     })
     
-    console.log(`GridArrayProcessor: Created ${newInstances.length} instances for ${rows}x${columns} grid`)
     
     return {
       ...input,
@@ -192,7 +191,6 @@ function processGroupGridArray(
     }
   })
   
-  console.log(`GridArrayProcessor (Group): Created ${newInstances.length} instances for ${rows}x${columns} grid`)
   
   return {
     ...input,

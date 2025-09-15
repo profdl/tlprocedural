@@ -5,8 +5,6 @@ export class RemovePointIdle extends StateNode {
   static override id = 'idle'
 
   override onPointerDown(info: TLPointerEventInfo) {
-    console.log('RemovePointTool - onPointerDown called, target:', info.target, 'shape type:', info.target === 'shape' ? info.shape.type : 'N/A')
-    console.log('Full info object:', Object.keys(info))
     
     // Try different ways to get the page point
     let pagePoint = info.currentPagePoint || this.editor.inputs.currentPagePoint
@@ -14,32 +12,26 @@ export class RemovePointIdle extends StateNode {
     // If still no point, try getting from editor inputs
     if (!pagePoint) {
       const inputs = this.editor.inputs
-      console.log('Editor inputs:', Object.keys(inputs))
       pagePoint = inputs.currentPagePoint
     }
     
-    console.log('Attempting to get page point:', pagePoint)
     
     if (!pagePoint || typeof pagePoint.x !== 'number' || typeof pagePoint.y !== 'number') {
-      console.log('Invalid page point:', pagePoint)
       return
     }
     
-    console.log('Valid page point:', pagePoint)
     
     const hitShape = this.editor.getShapeAtPoint(pagePoint, { 
       hitInside: true,
       margin: 0,
     })
     
-    console.log('Hit shape:', hitShape?.type || 'none')
     
     if (hitShape && hitShape.type === 'bezier') {
       const shape = hitShape as BezierShape
       
       // Only work with shapes in edit mode
       if (!shape.props.editMode) {
-        console.log('Shape not in edit mode. Double-click to enter edit mode first.')
         return
       }
 
@@ -52,19 +44,15 @@ export class RemovePointIdle extends StateNode {
         y: pagePoint.y - shapePageBounds.y
       }
 
-      console.log('Checking for point to remove at local position:', localPoint)
 
       // Check if clicking on an anchor point
       const anchorPointIndex = this.getAnchorPointAt(shape, localPoint)
       if (anchorPointIndex !== -1) {
         if (shape.props.points.length > 2) {
-          console.log('Removing point at index:', anchorPointIndex)
           this.removePointFromShape(shape, anchorPointIndex)
         } else {
-          console.log('Cannot remove point - minimum 2 points required')
         }
       } else {
-        console.log('No anchor point found near click position')
       }
     }
   }
@@ -149,12 +137,10 @@ export class RemovePointTool extends StateNode {
   }
 
   override onEnter() {
-    console.log('RemovePointTool activated!')
     // Clear selection to avoid transform controls interfering
     this.editor.setSelectedShapes([])
   }
 
   override onExit() {
-    console.log('RemovePointTool deactivated')
   }
 }

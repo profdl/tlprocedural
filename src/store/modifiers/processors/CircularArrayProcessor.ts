@@ -105,7 +105,6 @@ export const CircularArrayProcessor: ModifierProcessor = {
       }
     })
     
-    console.log(`CircularArrayProcessor: Created ${newInstances.length} instances for count=${count}`)
     
     return {
       ...input,
@@ -184,7 +183,6 @@ function processGroupCircularArray(
     }
   })
   
-  console.log(`CircularArrayProcessor (Group): Created ${newInstances.length} instances for count=${count}`)
   
   return {
     ...input,

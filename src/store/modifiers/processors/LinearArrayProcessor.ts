@@ -93,7 +93,6 @@ export const LinearArrayProcessor: ModifierProcessor = {
       }
     })
     
-    console.log(`LinearArrayProcessor: Created ${newInstances.length} instances for count=${count}`)
     
     return {
       ...input,

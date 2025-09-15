@@ -25,8 +25,7 @@ export function CustomToolbar() {
       // Try both possible API signatures for flipShapes
       try {
         ;(editor as any).flipShapes(selectedShapeIds, 'horizontal')
-      } catch (e) {
-        console.log('Horizontal flip via flipShapes failed, trying custom implementation', e)
+      } catch {
         // Fallback to our custom flip implementation
         const shapes = selectedShapeIds.map(id => editor.getShape(id)).filter(Boolean)
         shapes.forEach(shape => {
@@ -49,8 +48,7 @@ export function CustomToolbar() {
       // Try both possible API signatures for flipShapes
       try {
         ;(editor as any).flipShapes(selectedShapeIds, 'vertical')
-      } catch (e) {
-        console.log('Vertical flip via flipShapes failed, trying custom implementation', e)
+      } catch {
         // Fallback to our custom flip implementation
         const shapes = selectedShapeIds.map(id => editor.getShape(id)).filter(Boolean)
         shapes.forEach(shape => {

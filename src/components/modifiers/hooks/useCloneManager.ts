@@ -202,34 +202,22 @@ function cleanupGroupClones(editor: Editor, shape: TLShape) {
  */
 function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModifier[], existingClones: TLShape[]) {
   // Debug: Log when this function is called
-  console.log(`updateExistingClones called for shape ${shape.id}, rotation: ${shape.rotation ? (shape.rotation * 180 / Math.PI).toFixed(1) + '°' : '0°'}, existing clones: ${existingClones.length}`)
   
   // Recalculate positions based on current shape state
   const result = ModifierStack.processModifiers(shape, modifiers, editor)
   const updatedShapes = extractShapesFromState(result)
   
-  console.log(`ModifierStack result: ${result.instances.length} instances, extractedShapes: ${updatedShapes.length}`)
   
-  // Debug: Log existing clones metadata
-  existingClones.forEach((clone, i) => {
-    console.log(`Existing clone ${i}: id=${clone.id}, arrayIndex=${clone.meta?.arrayIndex}`)
-  })
   
-  // Debug: Log updated shapes metadata  
-  updatedShapes.forEach((shape, i) => {
-    console.log(`Updated shape ${i}: id=${shape.id}, arrayIndex=${shape.meta?.arrayIndex}`)
-  })
 
   // Update existing clones with new positions
   const updatedClones = existingClones.map((clone: TLShape) => {
     const cloneIndex = clone.meta?.arrayIndex as number
     const updatedShape = updatedShapes.find(s => s.meta?.arrayIndex === cloneIndex)
     
-    console.log(`Looking for clone index ${cloneIndex}, found: ${!!updatedShape}`)
     
     if (!updatedShape) return null
 
-    console.log(`Clone ${clone.id} (index ${cloneIndex}): current rotation ${clone.rotation ? (clone.rotation * 180 / Math.PI).toFixed(1) + '°' : '0°'}, target rotation ${updatedShape.rotation ? (updatedShape.rotation * 180 / Math.PI).toFixed(1) + '°' : '0°'}`)
 
     // Store the target rotation separately
     return {
@@ -260,7 +248,6 @@ function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModif
         const rotationDelta = targetRotation - currentRotation
         
         if (Math.abs(rotationDelta) > 0.001) { // Only rotate if there's a meaningful difference
-          console.log(`Rotating clone ${update.id} from ${(currentRotation * 180 / Math.PI).toFixed(1)}° to ${(targetRotation * 180 / Math.PI).toFixed(1)}° (delta: ${(rotationDelta * 180 / Math.PI).toFixed(1)}°)`)
           editor.rotateShapesBy([update.id], rotationDelta)
         }
       })

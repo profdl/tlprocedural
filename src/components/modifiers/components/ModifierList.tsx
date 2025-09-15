@@ -121,7 +121,6 @@ export function ModifierList({ modifiers, onToggleModifier, onRemoveModifier, sh
                 onToggleModifier={onToggleModifier}
                 onRemoveModifier={onRemoveModifier}
                 onUpdateSettings={(newSettings) => {
-                  console.log(`${modifier.type} onChange:`, newSettings)
                   store.updateModifier(modifier.id as TLModifierId, { props: newSettings as any })
                 }}
               />

@@ -63,7 +63,6 @@ export const NoiseOffsetProcessor = new class extends PathModifier<NoiseOffsetSe
           )
           break
         case 'svg':
-          console.warn('SVG path noise not implemented yet')
           break
       }
       
@@ -76,8 +75,7 @@ export const NoiseOffsetProcessor = new class extends PathModifier<NoiseOffsetSe
         newBounds: updatedPath.bounds
       }
       
-    } catch (error) {
-      console.error('Error in NoiseOffsetProcessor:', error)
+    } catch {
       return { pathData, boundsChanged: false }
     }
   }
@@ -402,27 +400,22 @@ export const NoiseOffsetProcessor = new class extends PathModifier<NoiseOffsetSe
     const { amplitude, frequency, octaves, seed, direction } = settings
     
     if (typeof amplitude !== 'number' || amplitude < 0) {
-      console.warn('Invalid amplitude for noise offset:', amplitude)
       return false
     }
     
     if (typeof frequency !== 'number' || frequency <= 0) {
-      console.warn('Invalid frequency for noise offset:', frequency)
       return false
     }
     
     if (typeof octaves !== 'number' || octaves < 1 || octaves > 8) {
-      console.warn('Invalid octaves for noise offset (1-8):', octaves)
       return false
     }
     
     if (typeof seed !== 'number') {
-      console.warn('Invalid seed for noise offset:', seed)
       return false
     }
     
     if (!['both', 'normal', 'tangent'].includes(direction)) {
-      console.warn('Invalid direction for noise offset:', direction)
       return false
     }
     

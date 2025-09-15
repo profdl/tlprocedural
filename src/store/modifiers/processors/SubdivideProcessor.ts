@@ -49,8 +49,7 @@ export const SubdivideProcessor = new class extends PathModifier<SubdivideSettin
         newBounds: updatedPath.bounds
       }
       
-    } catch (error) {
-      console.error('Error in SubdivideProcessor:', error)
+    } catch {
       return { pathData, boundsChanged: false }
     }
   }
@@ -64,7 +63,6 @@ export const SubdivideProcessor = new class extends PathModifier<SubdivideSettin
         return this.subdivideBezier(pathData as BezierPathData, factor)
       case 'svg':
         // For SVG paths, we'd need to parse and convert - skip for now
-        console.warn('SVG path subdivision not implemented yet')
         return pathData
       default:
         return pathData
@@ -213,17 +211,14 @@ export const SubdivideProcessor = new class extends PathModifier<SubdivideSettin
     const { iterations, factor, smooth } = settings
     
     if (typeof iterations !== 'number' || iterations < 0 || iterations > 10) {
-      console.warn('Invalid iterations for subdivide:', iterations)
       return false
     }
     
     if (typeof factor !== 'number' || factor <= 0 || factor >= 1) {
-      console.warn('Invalid factor for subdivide (must be 0-1):', factor)
       return false
     }
     
     if (typeof smooth !== 'boolean') {
-      console.warn('Invalid smooth setting for subdivide:', smooth)
       return false
     }
     

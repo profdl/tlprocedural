@@ -45,8 +45,7 @@ export const SmoothProcessor = new class extends PathModifier<SmoothSettings> {
         newBounds: updatedPath.bounds
       }
       
-    } catch (error) {
-      console.error('Error in SmoothProcessor:', error)
+    } catch {
       return { pathData, boundsChanged: false }
     }
   }
@@ -64,7 +63,6 @@ export const SmoothProcessor = new class extends PathModifier<SmoothSettings> {
       case 'bezier':
         return this.smoothBezier(pathData as BezierPathData, factor)
       case 'svg':
-        console.warn('SVG path smoothing not implemented yet')
         return pathData
       default:
         return pathData
@@ -245,22 +243,18 @@ export const SmoothProcessor = new class extends PathModifier<SmoothSettings> {
     const { iterations, factor, preserveCorners, cornerThreshold } = settings
     
     if (typeof iterations !== 'number' || iterations < 1 || iterations > 10) {
-      console.warn('Invalid iterations for smooth (1-10):', iterations)
       return false
     }
     
     if (typeof factor !== 'number' || factor < 0 || factor > 1) {
-      console.warn('Invalid factor for smooth (0-1):', factor)
       return false
     }
     
     if (typeof preserveCorners !== 'boolean') {
-      console.warn('Invalid preserveCorners for smooth:', preserveCorners)
       return false
     }
     
     if (typeof cornerThreshold !== 'number' || cornerThreshold < 0 || cornerThreshold > 180) {
-      console.warn('Invalid cornerThreshold for smooth (0-180):', cornerThreshold)
       return false
     }
     
