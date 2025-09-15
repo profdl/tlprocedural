@@ -1,7 +1,7 @@
 import { type TLUiStylePanelProps } from 'tldraw'
-import { StackedPanelSystem } from './panels/StackedPanelSystem'
+import { FloatingPanelSystem } from './panels/FloatingPanelSystem'
 
 export const CustomStylePanel = (props: TLUiStylePanelProps) => {
   console.log('CustomStylePanel props:', props)
-  return <StackedPanelSystem />
+  return <FloatingPanelSystem />
 }

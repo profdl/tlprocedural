@@ -13,15 +13,30 @@ export interface PanelSize {
   height: number
 }
 
+export interface PanelSnapState {
+  snappedToBrowser: ('top' | 'bottom' | 'left' | 'right')[]
+  snappedToPanels: Array<{
+    panelId: PanelId
+    edge: 'top' | 'bottom' | 'left' | 'right'
+  }>
+}
+
 export interface PanelState {
   id: PanelId
   isCollapsed: boolean
   position: PanelPosition
   size: PanelSize
-  order: number // For stacking order
+  order: number // For stacking order (z-index)
+  isDragging?: boolean
+  isResizing?: boolean
+
+  // Legacy docking (for compatibility)
   isDocked: boolean
   dockedTo?: PanelId // Which panel this is docked to
   dockPosition?: 'above' | 'below' | 'left' | 'right'
+
+  // New snap state
+  snapState?: PanelSnapState
 }
 
 interface PanelStoreState {
@@ -37,6 +52,16 @@ interface PanelStoreState {
   setPanelPosition: (id: PanelId, position: PanelPosition) => void
   setPanelSize: (id: PanelId, size: Partial<PanelSize>) => void
   setActivePanel: (id: PanelId | null) => void
+
+  // Floating panel state
+  setPanelDragging: (id: PanelId, isDragging: boolean) => void
+  setPanelResizing: (id: PanelId, isResizing: boolean) => void
+  setPanelSnapState: (id: PanelId, snapState: PanelSnapState) => void
+  clearPanelSnapState: (id: PanelId) => void
+
+  // Layout management
+  resetPanelLayout: () => void
+  bringPanelToFront: (id: PanelId) => void
 
   // Stacked panel ordering
   setPanelOrder: (order: PanelId[]) => void
@@ -61,26 +86,44 @@ const defaultPanels: Record<PanelId, PanelState> = {
   properties: {
     id: 'properties',
     isCollapsed: false,
-    position: { x: 5, y: 20 },
+    position: { x: 20, y: 60 },
     size: { width: 280, height: 200 },
     order: 0,
-    isDocked: false
+    isDragging: false,
+    isResizing: false,
+    isDocked: false,
+    snapState: {
+      snappedToBrowser: [],
+      snappedToPanels: []
+    }
   },
   style: {
     id: 'style',
     isCollapsed: false,
-    position: { x: 5, y: 240 },
+    position: { x: 20, y: 280 },
     size: { width: 280, height: 250 },
     order: 1,
-    isDocked: false
+    isDragging: false,
+    isResizing: false,
+    isDocked: false,
+    snapState: {
+      snappedToBrowser: [],
+      snappedToPanels: []
+    }
   },
   modifiers: {
     id: 'modifiers',
     isCollapsed: false,
-    position: { x: 5, y: 510 },
+    position: { x: 20, y: 550 },
     size: { width: 280, height: 400 },
     order: 2,
-    isDocked: false
+    isDragging: false,
+    isResizing: false,
+    isDocked: false,
+    snapState: {
+      snappedToBrowser: [],
+      snappedToPanels: []
+    }
   }
 }
 
@@ -163,6 +206,82 @@ export const usePanelStore = create<PanelStoreState>()(
     // Set panel order for stacked layout
     setPanelOrder: (order: PanelId[]) => {
       set({ panelOrder: order })
+    },
+
+    // Set panel dragging state
+    setPanelDragging: (id: PanelId, isDragging: boolean) => {
+      set(state => ({
+        panels: {
+          ...state.panels,
+          [id]: {
+            ...state.panels[id],
+            isDragging
+          }
+        }
+      }))
+    },
+
+    // Set panel resizing state
+    setPanelResizing: (id: PanelId, isResizing: boolean) => {
+      set(state => ({
+        panels: {
+          ...state.panels,
+          [id]: {
+            ...state.panels[id],
+            isResizing
+          }
+        }
+      }))
+    },
+
+    // Set panel snap state
+    setPanelSnapState: (id: PanelId, snapState: PanelSnapState) => {
+      set(state => ({
+        panels: {
+          ...state.panels,
+          [id]: {
+            ...state.panels[id],
+            snapState
+          }
+        }
+      }))
+    },
+
+    // Clear panel snap state
+    clearPanelSnapState: (id: PanelId) => {
+      set(state => ({
+        panels: {
+          ...state.panels,
+          [id]: {
+            ...state.panels[id],
+            snapState: {
+              snappedToBrowser: [],
+              snappedToPanels: []
+            }
+          }
+        }
+      }))
+    },
+
+    // Reset panel layout to defaults
+    resetPanelLayout: () => {
+      set({ panels: defaultPanels })
+    },
+
+    // Bring panel to front (highest z-index)
+    bringPanelToFront: (id: PanelId) => {
+      const panels = get().panels
+      const maxOrder = Math.max(...Object.values(panels).map(p => p.order))
+
+      set(state => ({
+        panels: {
+          ...state.panels,
+          [id]: {
+            ...state.panels[id],
+            order: maxOrder + 1
+          }
+        }
+      }))
     },
 
     // Start dragging a panel
