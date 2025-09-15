@@ -209,9 +209,26 @@
 
 .modifiers-panel__actions {
   flex-shrink: 0;
-  padding: 8px;
+  padding: 4px 8px;
   border-bottom: 1px solid var(--color-muted-1);
   background: var(--color-panel);
+}
+
+/* Override the modifier-controls__buttons styling for the panel context */
+.modifiers-panel__actions .modifier-controls__buttons {
+  padding: 0;
+  margin-bottom: 0;
+  gap: 4px;
+  justify-content: flex-start;
+}
+
+/* Make the Add Modifier button smaller in the panel context */
+.modifiers-panel__actions .modifier-controls__add-button {
+  padding: 4px 8px;
+  height: 24px;
+  min-height: 24px;
+  font-size: 10px;
+  font-weight: 500;
 }
 
 .modifiers-panel__scroll-container {
