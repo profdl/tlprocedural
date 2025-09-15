@@ -122,6 +122,7 @@ export function ModifierSubPanel({
             onClick={onRemove}
             onPointerDown={stopPropagation}
             title="Remove modifier"
+            className="modifier-sub-panel__remove-button"
           >
             ×
           </TldrawUiButton>
