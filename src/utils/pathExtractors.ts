@@ -146,8 +146,8 @@ function extractSineWavePath(shape: SineWaveShape): PointsPathData {
 }
 
 function extractTrianglePath(shape: TLShape): PointsPathData | null {
-  const w = (shape.props as any).w || 100
-  const h = (shape.props as any).h || 100
+  const w = (shape.props as { w?: number }).w || 100
+  const h = (shape.props as { h?: number }).h || 100
   
   const points: VecLike[] = [
     { x: w / 2, y: 0 },     // Top
@@ -164,8 +164,8 @@ function extractTrianglePath(shape: TLShape): PointsPathData | null {
 }
 
 function extractCirclePath(shape: TLShape): PointsPathData | null {
-  const w = (shape.props as any).w || 100
-  const h = (shape.props as any).h || 100
+  const w = (shape.props as { w?: number }).w || 100
+  const h = (shape.props as { h?: number }).h || 100
   const centerX = w / 2
   const centerY = h / 2
   const radiusX = w / 2
@@ -193,14 +193,14 @@ function extractCirclePath(shape: TLShape): PointsPathData | null {
 // TLDraw built-in shape extractors (simplified)
 function extractDrawPath(shape: TLShape, editor?: Editor): PointsPathData | null {
   // TLDraw draw shapes already have point data
-  const segments = (shape.props as any).segments
+  const segments = (shape.props as { segments?: unknown[] }).segments
   if (!segments) return null
   
   const points: VecLike[] = []
-  segments.forEach((segment: any) => {
-    if (segment.points) {
-      segment.points.forEach((point: any) => {
-        points.push({ x: point.x, y: point.y })
+  segments.forEach((segment: Record<string, unknown>) => {
+    if (segment.points && Array.isArray(segment.points)) {
+      segment.points.forEach((point: Record<string, unknown>) => {
+        points.push({ x: point.x as number, y: point.y as number })
       })
     }
   })
@@ -216,12 +216,12 @@ function extractDrawPath(shape: TLShape, editor?: Editor): PointsPathData | null
 }
 
 function extractLinePath(shape: TLShape, editor?: Editor): PointsPathData | null {
-  const points = (shape.props as any).points
+  const points = (shape.props as { points?: VecLike[] }).points
   if (!points || !Array.isArray(points)) return null
   
   return {
     type: 'points',
-    data: points.map((p: any) => ({ x: p.x, y: p.y })),
+    data: points.map((p: VecLike) => ({ x: p.x, y: p.y })),
     isClosed: false,
     bounds: editor ? 
       editor.getShapePageBounds(shape.id) || { x: 0, y: 0, w: 100, h: 100 } :
@@ -231,8 +231,8 @@ function extractLinePath(shape: TLShape, editor?: Editor): PointsPathData | null
 
 function extractArrowPath(shape: TLShape, editor?: Editor): PointsPathData | null {
   // Simplified arrow path extraction
-  const start = (shape.props as any).start
-  const end = (shape.props as any).end
+  const start = (shape.props as { start?: VecLike }).start
+  const end = (shape.props as { end?: VecLike }).end
   
   if (!start || !end) return null
   
@@ -249,7 +249,7 @@ function extractArrowPath(shape: TLShape, editor?: Editor): PointsPathData | nul
   }
 }
 
-function extractGeoPath(shape: TLShape, editor?: Editor): SvgPathData | null {
+function extractGeoPath(_shape: TLShape, editor?: Editor): SvgPathData | null {
   // For geo shapes, we'd need to use TLDraw's geometry system
   // This is a placeholder for now
   if (editor) {
@@ -341,7 +341,7 @@ function pathToTriangle(pathData: PathData, shape: TLShape): Partial<TLShape> | 
       meta: {
         ...shape.meta,
         pathModified: true,
-        originalBounds: { w: shape.props.w, h: shape.props.h }
+        originalBounds: { w: (shape.props as Record<string, unknown>).w, h: (shape.props as Record<string, unknown>).h }
       }
     }
   } else if (pathData.bounds) {
@@ -377,7 +377,7 @@ function pathToCircle(pathData: PathData, shape: TLShape): Partial<TLShape> | nu
       meta: {
         ...shape.meta,
         pathModified: true,
-        originalBounds: { w: shape.props.w, h: shape.props.h }
+        originalBounds: { w: (shape.props as Record<string, unknown>).w, h: (shape.props as Record<string, unknown>).h }
       }
     }
   } else if (pathData.bounds) {

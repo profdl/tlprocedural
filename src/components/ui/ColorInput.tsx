@@ -8,20 +8,20 @@ interface ColorInputProps {
 }
 
 export function ColorInput({
-  label: _label,
+  label,
   value,
   onChange,
-  allowNone: _allowNone = false
+  // allowNone = false
 }: ColorInputProps) {
   const [isPickerOpen, setIsPickerOpen] = useState(false)
 
-  const _handleColorChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange(e.target.value)
-  }, [onChange])
+  // const _handleColorChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  //   onChange(e.target.value)
+  // }, [onChange])
 
-  const _handleNoneClick = useCallback(() => {
-    onChange('none')
-  }, [onChange])
+  // const _handleNoneClick = useCallback(() => {
+  //   onChange('none')
+  // }, [onChange])
 
   const handleTextChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     onChange(e.target.value)

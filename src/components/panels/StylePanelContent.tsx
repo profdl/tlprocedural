@@ -19,7 +19,7 @@ export function StylePanelContent() {
       if (selectedShapes.length === 0) return null
 
       const firstShape = selectedShapes[0]
-      const firstProps = firstShape.props as any
+      const firstProps = firstShape.props as Record<string, unknown>
 
       const styles = {
         strokeWidth: firstProps.strokeWidth ?? 2,
@@ -30,7 +30,7 @@ export function StylePanelContent() {
 
       // Check if all shapes have the same values
       const allSame = selectedShapes.every(shape => {
-        const props = shape.props as any
+        const props = shape.props as Record<string, unknown>
         return (
           (props.strokeWidth ?? 2) === styles.strokeWidth &&
           (props.color ?? 'black') === styles.strokeColor &&
@@ -45,11 +45,11 @@ export function StylePanelContent() {
   )
 
   // Update shape styles
-  const updateShapeStyles = useCallback((updates: Record<string, any>) => {
+  const updateShapeStyles = useCallback((updates: Record<string, unknown>) => {
     if (selectedShapes.length === 0) return
 
     const shapesToUpdate = selectedShapes.map(shape => {
-      const newProps = { ...shape.props } as any
+      const newProps = { ...shape.props } as Record<string, unknown>
       const newShape = { ...shape }
 
       // Handle opacity separately as it's a shape property, not a prop

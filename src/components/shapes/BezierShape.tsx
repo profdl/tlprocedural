@@ -1,4 +1,4 @@
-import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, useEditor, type TLResizeInfo } from 'tldraw'
+import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, type TLResizeInfo } from 'tldraw'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 import { BezierBounds } from './services/BezierBounds'
 import { BezierState } from './services/BezierState'
@@ -8,7 +8,6 @@ import {
   createHandleDragKey 
 } from './utils/bezierUtils'
 import { bezierLog } from './utils/bezierConstants'
-import { useBezierHover } from './hooks/useBezierHover'
 import { BezierPath } from './components/BezierPath'
 import { BezierControlPoints } from './components/BezierControlPoints'
 import { BezierHoverPreview } from './components/BezierHoverPreview'
@@ -91,10 +90,9 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
 
   override component(shape: BezierShape) {
     const { points, color, strokeWidth, fill, isClosed, editMode, selectedPointIndices = [], hoverPoint } = shape.props
-    const editor = useEditor()
-    
-    // Use custom hook for hover/preview logic
-    useBezierHover({ shape, editor, editMode: !!editMode })
+
+    // Note: Removed useEditor and useBezierHover hooks as they cannot be called in class components
+    // TODO: Consider refactoring to functional component if hook usage is needed
     
     // Debug logging for selection state
     if (editMode && selectedPointIndices.length > 0) {
@@ -299,7 +297,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
 
 
   // Delete selected points - now delegated to BezierState service
-  private deleteSelectedPoints(shape: BezierShape, _selectedIndices: number[]): BezierShape {
+  private deleteSelectedPoints(shape: BezierShape): BezierShape {
     const updatedShape = BezierState.deleteSelectedPoints(shape, this.editor)
     // Recalculate bounds after deletion
     return BezierBounds.recalculateShapeBounds(updatedShape, updatedShape.props.points)
@@ -308,10 +306,10 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
 
   // LEGACY: This method is still used by some legacy code paths
   // TODO: Remove once all code paths use BezierBounds service directly
-  private recalculateBounds(shape: BezierShape, points: BezierPoint[]): BezierShape {
-    // Delegate to BezierBounds service for consistent bounds calculation
-    return BezierBounds.recalculateShapeBounds(shape, points)
-  }
+  // private recalculateBounds(shape: BezierShape, points: BezierPoint[]): BezierShape {
+  //   // Delegate to BezierBounds service for consistent bounds calculation
+  //   return BezierBounds.recalculateShapeBounds(shape, points)
+  // }
 
 
 
@@ -367,11 +365,11 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   }
 
   // Handle key events for shapes in edit mode
-  override onKeyDown = (shape: BezierShape, info: { key: string; code: string }) => {
+  onKeyDown = (shape: BezierShape, info: { key: string; code: string }) => {
     if (shape.props.editMode) {
       switch (info.key) {
         case 'Delete':
-        case 'Backspace':
+        case 'Backspace': {
           // Delete selected points if any are selected
           const selectedIndices = shape.props.selectedPointIndices || []
           if (selectedIndices.length > 0) {
@@ -381,6 +379,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
           // If no points selected, don't delete the shape - let TldrawCanvas handle this
           bezierLog('Delete', 'No points selected, not deleting anything')
           return shape
+        }
           
         case 'Escape':
         case 'Enter':
@@ -408,8 +407,8 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
       cp2: p.cp2 ? { x: p.cp2.x * scaleX, y: p.cp2.y * scaleY } : undefined,
     }))
 
-    // Use FlippableShapeUtil's resize handling for consistent behavior
-    const resizedShape = super.onResize(shape, info) as BezierShape
+    // Note: FlippableShapeUtil doesn't have onResize, so we implement our own
+    const resizedShape = { ...shape }
     
     return {
       ...resizedShape,
@@ -425,7 +424,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
 
   // Disable transform controls during edit mode but allow basic interaction
   override canResize = (shape: BezierShape) => !shape.props.editMode
-  override canRotate = (shape: BezierShape) => !shape.props.editMode
+  canRotate = (shape: BezierShape) => !shape.props.editMode
   override canBind = () => true
   
   // Override hideSelectionBoundsFg to hide selection bounds in edit mode

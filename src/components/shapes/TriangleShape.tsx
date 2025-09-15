@@ -141,9 +141,9 @@ export class TriangleShapeUtil extends FlippableShapeUtil<TriangleShape> {
   // Custom flip behavior for triangle-specific properties
   protected override onFlipCustom(
     shape: TriangleShape, 
-    _direction: 'horizontal' | 'vertical',
-    _isFlippedX: boolean, 
-    _isFlippedY: boolean
+    // _direction: 'horizontal' | 'vertical',
+    // _isFlippedX: boolean,
+    // _isFlippedY: boolean
   ): TriangleShape {
     // For triangles, we don't want to adjust any properties during flipping
     // Just return the shape as-is with the flip metadata already set by FlippableShapeUtil

@@ -41,7 +41,7 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
     
     // For clones/processed shapes, we need to look up modifiers using the original shape ID
     const originalShapeId = getOriginalShapeId(selectedShape) || selectedShape.id
-    return store.getModifiersForShape(originalShapeId as any)
+    return store.getModifiersForShape(originalShapeId as import('tldraw').TLShapeId)
   }, [store, selectedShape])
 
   // Check if there are any enabled modifiers that can be applied
@@ -64,11 +64,11 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
       simplify: 'simplify'
     }
     const storeType = typeMap[type]
-    const settings = (DEFAULT_SETTINGS as any)[storeType] || {}
+    const settings = (DEFAULT_SETTINGS as Record<string, unknown>)[storeType] || {}
     
     // Use original shape ID for clones/processed shapes
     const originalShapeId = getOriginalShapeId(selectedShape) || selectedShape.id
-    store.createModifier(originalShapeId as any, storeType, settings)
+    store.createModifier(originalShapeId as import('tldraw').TLShapeId, storeType, settings)
   }, [selectedShape, store])
 
   const applyModifiers = useCallback(() => {
@@ -78,13 +78,13 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
     const originalShapeId = getOriginalShapeId(selectedShape) || selectedShape.id
     
     // Get all enabled modifiers for this shape
-    const enabledModifiers = store.getEnabledModifiersForShape(originalShapeId as any)
+    const enabledModifiers = store.getEnabledModifiersForShape(originalShapeId as import('tldraw').TLShapeId)
     if (enabledModifiers.length === 0) return
 
     try {
       // Get the actual original shape for processing
-      const actualOriginalShape = originalShapeId !== selectedShape.id 
-        ? editor.getShape(originalShapeId as any) || selectedShape
+      const actualOriginalShape = originalShapeId !== selectedShape.id
+        ? editor.getShape(originalShapeId as import('tldraw').TLShapeId) || selectedShape
         : selectedShape
       
       // Categorize modifiers
@@ -102,7 +102,7 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
           // Update the original shape with the modified data
           editor.run(() => {
             // Create update object preserving all properties
-            const updateData: any = {
+            const updateData: Partial<TLShape> = {
               id: actualOriginalShape.id,
               type: actualOriginalShape.type,
               props: {
@@ -233,7 +233,7 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
     try {
       // Get the actual original shape for processing
       const actualOriginalShape = originalShapeId !== selectedShape.id
-        ? editor.getShape(originalShapeId as any) || selectedShape
+        ? editor.getShape(originalShapeId as import('tldraw').TLShapeId) || selectedShape
         : selectedShape
 
       // Process only this specific modifier
@@ -252,7 +252,7 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
 
           // Update the original shape with the modified data
           editor.run(() => {
-            const updateData: any = {
+            const updateData: Partial<TLShape> = {
               id: actualOriginalShape.id,
               type: actualOriginalShape.type,
               props: {

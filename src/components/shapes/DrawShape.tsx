@@ -213,7 +213,7 @@ export class DrawShapeUtil extends FlippableShapeUtil<DrawShape> {
       handles.push({
         id: `point-${i}`,
         type: 'vertex',
-        index: `a${i}` as any,
+        index: `a${i}` as const,
         x: segment.x,
         y: segment.y,
         canSnap: true,

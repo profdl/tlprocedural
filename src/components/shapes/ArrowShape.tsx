@@ -145,9 +145,9 @@ export class CustomArrowShapeUtil extends FlippableShapeUtil<CustomArrowShape> {
   // Custom flip behavior for arrow-specific properties
   protected override onFlipCustom(
     shape: CustomArrowShape, 
-    _direction: 'horizontal' | 'vertical',
-    _isFlippedX: boolean, 
-    _isFlippedY: boolean
+    // _direction: 'horizontal' | 'vertical',
+    // _isFlippedX: boolean,
+    // _isFlippedY: boolean
   ): CustomArrowShape {
     // For arrows, we don't need to adjust any internal properties
     // The CSS transform handles the visual flipping perfectly

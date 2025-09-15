@@ -37,14 +37,14 @@ export interface SelectInputConfig {
   type: 'select'
   label: string
   field: string
-  options: Array<{ value: any; label: string }>
+  options: Array<{ value: unknown; label: string }>
   fullWidth?: boolean
 }
 
 export type InputConfig = NumberInputConfig | CheckboxInputConfig | SelectInputConfig
 
 // Schema type for modifier UI configuration
-export interface ModifierSchema<T = any> {
+export interface ModifierSchema<T = Record<string, unknown>> {
   inputs: InputConfig[]
   validate?: (settings: T) => boolean
 }

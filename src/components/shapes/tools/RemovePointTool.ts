@@ -4,10 +4,10 @@ import { type BezierShape, type BezierPoint } from '../BezierShape'
 export class RemovePointIdle extends StateNode {
   static override id = 'idle'
 
-  override onPointerDown(info: TLPointerEventInfo) {
+  override onPointerDown(_info: TLPointerEventInfo) {
     
     // Try different ways to get the page point
-    let pagePoint = info.currentPagePoint || this.editor.inputs.currentPagePoint
+    let pagePoint = this.editor.inputs.currentPagePoint
     
     // If still no point, try getting from editor inputs
     if (!pagePoint) {
@@ -51,8 +51,10 @@ export class RemovePointIdle extends StateNode {
         if (shape.props.points.length > 2) {
           this.removePointFromShape(shape, anchorPointIndex)
         } else {
+          // Cannot remove point - minimum of 2 points required
         }
       } else {
+        // No anchor point found at click location
       }
     }
   }

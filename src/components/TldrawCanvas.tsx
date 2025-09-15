@@ -350,7 +350,7 @@ export function TldrawCanvas() {
         return false
       }
       // Allow deletion for all other shapes
-      return shape
+      return
     })
 
     // Prevent array clones from being selected by select-all
@@ -494,8 +494,8 @@ export function TldrawCanvas() {
                 let cp2: { x: number; y: number } | undefined
                 
                 // Calculate control points based on neighbors
-                const prevIndex = i === 0 ? (editingBezierShape.props.isClosed ? points.length - 1 : -1) : i - 1
-                const nextIndex = i === points.length - 1 ? (editingBezierShape.props.isClosed ? 0 : -1) : i + 1
+                const prevIndex = i === 0 ? ((editingBezierShape.props as Record<string, unknown>).isClosed ? points.length - 1 : -1) : i - 1
+                const nextIndex = i === points.length - 1 ? ((editingBezierShape.props as Record<string, unknown>).isClosed ? 0 : -1) : i + 1
                 
                 if (prevIndex >= 0 && nextIndex >= 0) {
                   const prevPoint = points[prevIndex]
@@ -573,14 +573,14 @@ export function TldrawCanvas() {
             if (distance < threshold) {
               
               // Handle point selection
-              const currentSelected = editingBezierShape.props.selectedPointIndices || []
+              const currentSelected = (editingBezierShape.props as Record<string, unknown>).selectedPointIndices as number[] || []
               let newSelected: number[]
 
               if (e.shiftKey) {
                 // Shift-click: toggle selection
                 if (currentSelected.includes(i)) {
                   // Remove from selection
-                  newSelected = currentSelected.filter(idx => idx !== i)
+                  newSelected = currentSelected.filter((idx: number) => idx !== i)
                 } else {
                   // Add to selection
                   newSelected = [...currentSelected, i]
@@ -610,7 +610,7 @@ export function TldrawCanvas() {
       // Check if clicking on hover preview location to add a point
       if (clickingOnEditingShape && !clickingOnHandle && !clickingOnAnchorPoint) {
         // Check if we have a hover preview and are clicking near it
-        if (editingBezierShape.props.hoverPoint && typeof editingBezierShape.props.hoverSegmentIndex === 'number') {
+        if ((editingBezierShape.props as Record<string, unknown>).hoverPoint && typeof (editingBezierShape.props as Record<string, unknown>).hoverSegmentIndex === 'number') {
           const shapePageBounds = editor.getShapePageBounds(editingBezierShape.id)
           if (shapePageBounds) {
             const localPoint = {
@@ -619,7 +619,7 @@ export function TldrawCanvas() {
             }
             
             // Check if clicking near the hover preview point
-            const hoverPoint = editingBezierShape.props.hoverPoint
+            const hoverPoint = (editingBezierShape.props as Record<string, unknown>).hoverPoint as { x: number; y: number }
             const distanceToHoverPoint = Math.sqrt(
               Math.pow(localPoint.x - hoverPoint.x, 2) + 
               Math.pow(localPoint.y - hoverPoint.y, 2)
@@ -630,12 +630,12 @@ export function TldrawCanvas() {
             if (distanceToHoverPoint < clickThreshold) {
               
               // Add the point using hover preview data
-              const segmentIndex = editingBezierShape.props.hoverSegmentIndex
-              const newPoints = [...editingBezierShape.props.points]
+              const segmentIndex = (editingBezierShape.props as Record<string, unknown>).hoverSegmentIndex as number
+              const newPoints = [...((editingBezierShape.props as Record<string, unknown>).points as unknown[])]
               
               // Insert the new point with the hover preview data
               const insertIndex = segmentIndex + 1
-              if (segmentIndex === newPoints.length - 1 && editingBezierShape.props.isClosed) {
+              if (segmentIndex === newPoints.length - 1 && (editingBezierShape.props as Record<string, unknown>).isClosed) {
                 // Inserting in closing segment
                 newPoints.push(hoverPoint)
               } else {
@@ -689,7 +689,7 @@ export function TldrawCanvas() {
         }
         
         // If not clicking on hover preview, clear point selection
-        const hasSelection = editingBezierShape.props.selectedPointIndices && editingBezierShape.props.selectedPointIndices.length > 0
+        const hasSelection = (editingBezierShape.props as Record<string, unknown>).selectedPointIndices && ((editingBezierShape.props as Record<string, unknown>).selectedPointIndices as number[]).length > 0
         if (hasSelection) {
           editor.updateShape({
             id: editingBezierShape.id,
@@ -721,7 +721,7 @@ export function TldrawCanvas() {
     
     // Handle keyboard events for bezier edit mode
     const handleKeyDown = (e: KeyboardEvent) => {
-      const editingBezierShape = editor.getOnlySelectedShape() as any
+      const editingBezierShape = editor.getOnlySelectedShape() as TLShape | null
       if (!editingBezierShape || editingBezierShape.type !== 'bezier' || !editingBezierShape.props.editMode) {
         return
       }

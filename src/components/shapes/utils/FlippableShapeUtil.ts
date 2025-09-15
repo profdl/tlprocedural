@@ -9,7 +9,7 @@ import { BaseBoxShapeUtil, type TLResizeInfo, type TLBaseShape } from 'tldraw'
  *   // Your shape implementation
  * }
  */
-export abstract class FlippableShapeUtil<T extends TLBaseShape<string, { w: number; h: number } & Record<string, any>>> extends BaseBoxShapeUtil<T> {
+export abstract class FlippableShapeUtil<T extends TLBaseShape<string, { w: number; h: number } & Record<string, unknown>>> extends BaseBoxShapeUtil<T> {
   
   override onResize = (shape: T, info: TLResizeInfo<T>) => {
     // First, let the base class handle the resize using tldraw's native resizeBox
@@ -143,7 +143,7 @@ export abstract class FlippableShapeUtil<T extends TLBaseShape<string, { w: numb
  *   return addFlippingSupport(shape, info)
  * }
  */
-export function addFlippingSupport<T extends TLBaseShape<string, { w: number; h: number } & Record<string, any>>>(
+export function addFlippingSupport<T extends TLBaseShape<string, { w: number; h: number } & Record<string, unknown>>>(
   shape: T, 
   info: TLResizeInfo<T>
 ): T {

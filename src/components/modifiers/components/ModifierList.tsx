@@ -6,6 +6,7 @@ import {
   closestCenter,
   type DragEndEvent,
   type DragStartEvent,
+  type DraggableAttributes,
 } from '@dnd-kit/core'
 import {
   SortableContext,
@@ -17,14 +18,9 @@ import {
 } from '@dnd-kit/utilities'
 import { MODIFIER_DISPLAY_NAMES } from '../constants'
 import { ModifierControlPanel } from '../controls/ModifierControlPanel'
-import type { 
-  TLModifier, 
-  TLModifierId,
-  LinearArraySettings,
-  CircularArraySettings,
-  GridArraySettings,
-  MirrorSettings,
-  LSystemSettings
+import type {
+  TLModifier,
+  TLModifierId
 } from '../../../types/modifiers'
 import { useModifierStore } from '../../../store/modifierStore'
 
@@ -121,7 +117,7 @@ export function ModifierList({ modifiers, onToggleModifier, onRemoveModifier, sh
                 onToggleModifier={onToggleModifier}
                 onRemoveModifier={onRemoveModifier}
                 onUpdateSettings={(newSettings) => {
-                  store.updateModifier(modifier.id as TLModifierId, { props: newSettings })
+                  store.updateModifier(modifier.id as TLModifierId, { props: newSettings } as unknown as Partial<TLModifier>)
                 }}
               />
             )
@@ -154,7 +150,7 @@ interface ModifierItemProps {
   onToggleCollapsed: (modifierId: string) => void
   onToggleModifier: (modifierId: string) => void
   onRemoveModifier: (modifierId: string) => void
-  onUpdateSettings: (newSettings: LinearArraySettings | CircularArraySettings | GridArraySettings | MirrorSettings | LSystemSettings) => void
+  onUpdateSettings: (newSettings: Record<string, unknown>) => void
 }
 
 /**
@@ -195,8 +191,8 @@ interface ModifierItemProps {
   onToggleCollapsed: (modifierId: string) => void
   onToggleModifier: (modifierId: string) => void
   onRemoveModifier: (modifierId: string) => void
-  onUpdateSettings: (newSettings: LinearArraySettings | CircularArraySettings | GridArraySettings | MirrorSettings | LSystemSettings) => void
-  dragAttributes?: Record<string, unknown>
+  onUpdateSettings: (newSettings: Record<string, unknown>) => void
+  dragAttributes?: DraggableAttributes
   dragListeners?: Record<string, unknown>
   isDragging?: boolean
 }
@@ -272,7 +268,7 @@ function ModifierItem({
         <div className="modifier-controls__item-details">
           <ModifierControlPanel
             modifierType={modifier.type}
-            settings={modifier.props}
+            settings={modifier.props as unknown as Record<string, unknown>}
             onChange={onUpdateSettings}
           />
         </div>

@@ -1,4 +1,4 @@
-import type { TLShape, VecLike } from 'tldraw'
+import type { TLShape, VecLike, Editor } from 'tldraw'
 import type { PathData } from '../types/pathTypes'
 import type { BezierShape, BezierPoint } from '../components/shapes/BezierShape'
 import { calculatePathBounds } from './pathExtractors'
@@ -17,7 +17,7 @@ export interface ConvertToPathResult {
  * and returns the converted shape if needed
  */
 export function convertShapeForPathModification(
-  shape: TLShape, 
+  shape: TLShape,
   pathData: PathData,
   editor?: Editor
 ): ConvertToPathResult {
@@ -102,9 +102,9 @@ function convertToBezierShape(
     props: {
       w: bounds.w,
       h: bounds.h,
-      color: (originalShape.props as any).color || '#000000',
-      strokeWidth: (originalShape.props as any).strokeWidth || 2,
-      fill: (originalShape.props as any).fill || false,
+      color: (originalShape.props as Record<string, unknown>).color as string || '#000000',
+      strokeWidth: (originalShape.props as Record<string, unknown>).strokeWidth as number || 2,
+      fill: (originalShape.props as Record<string, unknown>).fill as boolean || false,
       points: bezierPoints,
       isClosed: true, // Most shapes we convert are closed
       editMode: false
@@ -114,8 +114,8 @@ function convertToBezierShape(
       convertedFromType: originalShape.type,
       pathModified: true,
       originalBounds: { 
-        w: (originalShape.props as any).w, 
-        h: (originalShape.props as any).h 
+        w: (originalShape.props as Record<string, unknown>).w as number,
+        h: (originalShape.props as Record<string, unknown>).h as number 
       }
     }
   } as BezierShape

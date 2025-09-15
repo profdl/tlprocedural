@@ -37,9 +37,9 @@ export abstract class PathModifier<TSettings extends PathModifierSettings = Path
 
   // Main processor interface implementation
   process(
-    input: ShapeState, 
-    settings: TSettings, 
-    groupContext?: GroupContext, 
+    input: ShapeState,
+    settings: TSettings,
+    _groupContext?: GroupContext,
     editor?: Editor
   ): ShapeState {
     
@@ -64,9 +64,9 @@ export abstract class PathModifier<TSettings extends PathModifierSettings = Path
 
   // Process a single shape instance
   private processInstance(
-    instance: ShapeInstance, 
+    instance: ShapeInstance,
     settings: TSettings,
-    totalInstances: number,
+    _totalInstances: number,
     editor?: Editor
   ): ShapeInstance[] {
     
@@ -166,7 +166,7 @@ export abstract class PathModifier<TSettings extends PathModifierSettings = Path
     return {
       ...pathData,
       data: Array.isArray(pathData.data) 
-        ? [...pathData.data as any[]] 
+        ? [...pathData.data as unknown[]] 
         : pathData.data,
       bounds: pathData.bounds ? { ...pathData.bounds } : undefined
     }

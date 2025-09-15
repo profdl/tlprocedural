@@ -8,7 +8,7 @@ interface ModifierCheckboxInputProps {
 }
 
 export const ModifierCheckboxInput = memo(function ModifierCheckboxInput({
-  label: _label,
+  // label: _label,
   checked,
   onChange
 }: ModifierCheckboxInputProps) {

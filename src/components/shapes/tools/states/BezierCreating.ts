@@ -115,7 +115,7 @@ export class BezierCreating extends StateNode {
     
     if (this.isHoveringStart !== hoveringStart || shouldSnapToStart) {
       this.isHoveringStart = hoveringStart
-      this.editor.setCursor({ type: cursorType as any })
+      this.editor.setCursor({ type: cursorType as 'cross' | 'default' })
     }
     
     if (this.isDragging) {
@@ -394,7 +394,7 @@ export class BezierCreating extends StateNode {
           w,
           h,
           points: normalizedPoints,
-          color: this.editor.getStyleForNextShape('color' as any) || '#000000',
+          color: (this.editor.getStyleForNextShape('color' as const) as string) || '#000000',
           strokeWidth: 2,
           fill: false,
           isClosed: isClosed,
@@ -456,7 +456,7 @@ export class BezierCreating extends StateNode {
         w,
         h,
         points: normalizedPoints,
-        color: this.editor.getStyleForNextShape('color' as any) || '#000000',
+        color: (this.editor.getStyleForNextShape('color' as const) as string) || '#000000',
         strokeWidth: 2,
         fill: false,
         isClosed: isClosed,
@@ -488,21 +488,21 @@ export class BezierCreating extends StateNode {
     this.updateShapeWithPoints(previewPoints)
   }
 
-  private closeCurveWithExistingPoints() {
-    if (this.points.length < 3) return
-    
-    // Use existing points array directly (control points already set during drag)
-    this.updateShapeWithPointsAndClosed(this.points, true)
-    
-    this.editor.setCurrentTool('select')
-    this.editor.setSelectedShapes([this.shapeId])
-    
-    // Force transform controls to update properly for the closed shape
-    setTimeout(() => {
-      this.editor.setSelectedShapes([])
-      this.editor.setSelectedShapes([this.shapeId])
-    }, 50)
-  }
+  // private closeCurveWithExistingPoints() {
+  //   if (this.points.length < 3) return
+  //
+  //   // Use existing points array directly (control points already set during drag)
+  //   this.updateShapeWithPointsAndClosed(this.points, true)
+  //
+  //   this.editor.setCurrentTool('select')
+  //   this.editor.setSelectedShapes([this.shapeId])
+  //
+  //   // Force transform controls to update properly for the closed shape
+  //   setTimeout(() => {
+  //     this.editor.setSelectedShapes([])
+  //     this.editor.setSelectedShapes([this.shapeId])
+  //   }, 50)
+  // }
 
   private closeCurve() {
     if (this.points.length < 3) return

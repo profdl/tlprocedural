@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import { useCallback } from 'react'
 import { AddButton, type AddButtonOption } from './AddButton'
 import { ModifierButton } from './ModifierButton'
 

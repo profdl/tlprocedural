@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useEditor, type TLShape, type TLShapePartial, type Editor } from 'tldraw'
 import { ModifierStack, extractShapesFromState } from '../../../store/modifiers'
 import type { TLModifier } from '../../../types/modifiers'
@@ -20,42 +20,56 @@ interface UseCloneManagerProps {
  * Custom hook for managing shape clones in the editor
  * Extracts the clone management logic from StackedModifier
  */
-export function useCloneManager({ 
-  shape, 
-  modifiers, 
-  processedShapes, 
-  shapeKey, 
-  modifiersKey 
+export function useCloneManager({
+  shape,
+  modifiers,
+  processedShapes,
+  shapeKey,
+  modifiersKey
 }: UseCloneManagerProps) {
   const editor = useEditor()
-  
+
   // Memoize processedShapes count to avoid dependency issues
   const processedShapesCount = useMemo(() => processedShapes.length, [processedShapes.length])
+
+  // Use refs to store current values without triggering re-renders
+  const modifiersRef = useRef(modifiers)
+  const processedShapesRef = useRef(processedShapes)
+  const shapeRef = useRef(shape)
+
+  // Update refs when values change
+  modifiersRef.current = modifiers
+  processedShapesRef.current = processedShapes
+  shapeRef.current = shape
 
   // Create and manage shape clones
   useEffect(() => {
     if (!editor) return
 
-    logShapeOperation('useCloneManager Effect', shape.id, {
+    const currentShape = shapeRef.current
+    const currentModifiers = modifiersRef.current
+    const currentProcessedShapes = processedShapesRef.current
+
+    logShapeOperation('useCloneManager Effect', currentShape.id, {
       processedShapes: processedShapesCount
     })
 
     // Clean up existing clones for this shape
-    cleanupExistingClones(editor, shape)
+    cleanupExistingClones(editor, currentShape)
 
     // For group modifiers, also clean up clones of all shapes in the group
-    if (shape.type === 'group' && processedShapesCount > 0) {
-      cleanupGroupClones(editor, shape)
+    if (currentShape.type === 'group' && processedShapesCount > 0) {
+      cleanupGroupClones(editor, currentShape)
     }
 
     // Hide original shape for path modifiers, keep visible for array modifiers
-    const hasPathModifiers = modifiers.some(m => m.enabled && isPathModifierType(m.type))
+    const hasPathModifiers = currentModifiers.some(m => m.enabled && isPathModifierType(m.type))
     if (hasPathModifiers && processedShapesCount > 0) {
       // Hide the original shape by setting opacity to 0
       editor.run(() => {
         editor.updateShape({
-          id: shape.id,
-          type: shape.type,
+          id: currentShape.id,
+          type: currentShape.type,
           opacity: 0
         })
       }, { history: 'ignore' })
@@ -63,30 +77,30 @@ export function useCloneManager({
       // Restore original opacity for non-path modifiers
       editor.run(() => {
         editor.updateShape({
-          id: shape.id,
-          type: shape.type,
-          opacity: shape.opacity || 1
+          id: currentShape.id,
+          type: currentShape.type,
+          opacity: currentShape.opacity || 1
         })
       }, { history: 'ignore' })
     }
 
     // Create new clones if we have processed shapes
     if (processedShapesCount > 0) {
-      logShapeOperation('useCloneManager Create', shape.id, {
-        newClones: processedShapes.length
+      logShapeOperation('useCloneManager Create', currentShape.id, {
+        newClones: currentProcessedShapes.length
       })
-      
+
       editor.run(() => {
         // Create shapes at their target positions with rotation set to 0
-        const shapesToCreate = processedShapes.map(s => ({
+        const shapesToCreate = currentProcessedShapes.map(s => ({
           ...s,
           rotation: 0  // Always create with 0 rotation
         }))
-        
+
         editor.createShapes(shapesToCreate)
-        
+
         // Apply rotation using rotateShapesBy for center-based rotation
-        processedShapes.forEach((processedShape, index) => {
+        currentProcessedShapes.forEach((processedShape, index) => {
           if (processedShape.rotation && processedShape.rotation !== 0) {
             const shapeId = shapesToCreate[index].id
             editor.rotateShapesBy([shapeId], processedShape.rotation)
@@ -98,10 +112,10 @@ export function useCloneManager({
     // Cleanup function
     return () => {
       if (!editor) return
-      
+
       const clonesToCleanup = editor.getCurrentPageShapes().filter((s: TLShape) => {
         const originalId = getOriginalShapeId(s)
-        return originalId === shape.id && s.meta?.stackProcessed
+        return originalId === currentShape.id && s.meta?.stackProcessed
       })
 
       if (clonesToCleanup.length > 0) {
@@ -111,38 +125,40 @@ export function useCloneManager({
       }
 
       // Restore original shape opacity when cleaning up
-      const hasPathModifiers = modifiers.some(m => m.enabled && isPathModifierType(m.type))
+      const hasPathModifiers = currentModifiers.some(m => m.enabled && isPathModifierType(m.type))
       if (hasPathModifiers) {
         editor.run(() => {
           editor.updateShape({
-            id: shape.id,
-            type: shape.type,
+            id: currentShape.id,
+            type: currentShape.type,
             opacity: 1 // Restore full opacity
           })
         }, { history: 'ignore' })
       }
 
       // For group modifiers, also clean up clones of all shapes in the group during cleanup
-      if (shape.type === 'group') {
-        cleanupGroupClones(editor, shape)
+      if (currentShape.type === 'group') {
+        cleanupGroupClones(editor, currentShape)
       }
     }
-  }, [editor, shapeKey, processedShapesCount])
+  }, [editor, shapeKey, processedShapesCount, modifiersKey])
 
   // Update existing clones when original shape changes (second effect for live updates)
   useEffect(() => {
     if (!editor || !processedShapesCount) return
-    
+
+    const currentShape = shapeRef.current
+    const currentModifiers = modifiersRef.current
 
     const existingClones = editor.getCurrentPageShapes().filter((s: TLShape) => {
       const originalId = getOriginalShapeId(s)
-      return originalId === shape.id && s.meta?.stackProcessed
+      return originalId === currentShape.id && s.meta?.stackProcessed
     })
 
     if (existingClones.length > 0) {
-      updateExistingClones(editor, shape, modifiers, existingClones)
+      updateExistingClones(editor, currentShape, currentModifiers, existingClones)
     }
-  }, [editor, shapeKey, modifiersKey])
+  }, [editor, shapeKey, modifiersKey, processedShapesCount])
 
   // TODO: Implement transform synchronization from clone back to original
   // This would allow users to transform clones and have changes reflect in the original

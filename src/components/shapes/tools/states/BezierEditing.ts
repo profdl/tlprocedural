@@ -1,10 +1,11 @@
-import { 
-  StateNode, 
-  type TLPointerEventInfo, 
+import {
+  StateNode,
+  type TLPointerEventInfo,
   type TLClickEventInfo,
   type TLKeyboardEventInfo,
+  type TLShapeId,
 } from 'tldraw'
-import { type BezierShape, type BezierPoint } from '../../BezierShape'
+import { type BezierShape } from '../../BezierShape'
 import { BezierState } from '../../services/BezierState'
 import { BezierBounds } from '../../services/BezierBounds'
 import { bezierLog } from '../../utils/bezierConstants'
@@ -12,7 +13,7 @@ import { bezierLog } from '../../utils/bezierConstants'
 export class BezierEditing extends StateNode {
   static override id = 'editing'
 
-  private targetShapeId?: string
+  private targetShapeId?: TLShapeId
   private targetShape?: BezierShape
 
   override onEnter(info: TLPointerEventInfo & { target: 'shape'; shape: BezierShape }) {
@@ -39,7 +40,7 @@ export class BezierEditing extends StateNode {
       return
     }
 
-    const shape = this.editor.getShape(this.targetShapeId as any) as BezierShape
+    const shape = this.editor.getShape(this.targetShapeId!) as BezierShape
     if (!shape || !shape.props.editMode) return
 
     // Convert page point to local shape coordinates
@@ -99,7 +100,7 @@ export class BezierEditing extends StateNode {
   override onDoubleClick(_info: TLClickEventInfo) {
     if (!this.targetShape || !this.targetShapeId) return
 
-    const shape = this.editor.getShape(this.targetShapeId as any) as BezierShape
+    const shape = this.editor.getShape(this.targetShapeId!) as BezierShape
     if (!shape || !shape.props.editMode) return
 
     // Convert page point to local shape coordinates
@@ -154,7 +155,7 @@ export class BezierEditing extends StateNode {
     }
 
     // Use BezierState service to exit edit mode
-    const shape = this.editor.getShape(this.targetShapeId as any) as BezierShape
+    const shape = this.editor.getShape(this.targetShapeId!) as BezierShape
     if (shape) {
       BezierState.exitEditMode(shape, this.editor)
     }

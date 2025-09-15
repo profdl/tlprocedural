@@ -15,7 +15,7 @@ export const GridArrayProcessor: ModifierProcessor = {
     
     // Check if this is a group modifier
     if (groupContext) {
-      return processGroupGridArray(input, settings, groupContext, editor)
+      return processGroupGridArray(input, settings, groupContext)
     }
     
     const newInstances: ShapeInstance[] = []

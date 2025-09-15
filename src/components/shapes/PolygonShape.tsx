@@ -37,7 +37,7 @@ export class PolygonShapeUtil extends FlippableShapeUtil<PolygonShape> {
   }
 
   override component(shape: PolygonShape) {
-    const { w, h, sides, color, strokeWidth, fill } = shape.props
+    const { w, h, color, strokeWidth, fill } = shape.props
     
     // Get flip transform from the FlippableShapeUtil
     const flipTransform = this.getFlipTransform(shape)
@@ -70,7 +70,7 @@ export class PolygonShapeUtil extends FlippableShapeUtil<PolygonShape> {
     )
   }
 
-  override indicator(shape: PolygonShape) {
+  override indicator(_shape: PolygonShape) {
     return null
   }
 
@@ -129,10 +129,10 @@ export class PolygonShapeUtil extends FlippableShapeUtil<PolygonShape> {
   // Custom behavior for polygon-specific properties
   protected override onFlip(
     shape: PolygonShape, 
-    _isFlippedX: boolean, 
-    _isFlippedY: boolean, 
-    _scaleX: number, 
-    _scaleY: number
+    // _isFlippedX: boolean,
+    // _isFlippedY: boolean,
+    // _scaleX: number,
+    // _scaleY: number
   ): PolygonShape {
     // For polygons, we don't need to adjust any properties during flipping
     // The flip is handled by CSS transform in the component

@@ -22,7 +22,7 @@ export function StyleControls({ selectedShapes }: StyleControlsProps) {
 
     // Check if all shapes have the same style properties
     const firstShape = selectedShapes[0]
-    const firstProps = firstShape.props as any
+    const firstProps = firstShape.props as Record<string, unknown>
 
     const styles = {
       strokeWidth: firstProps.strokeWidth ?? 2,
@@ -33,7 +33,7 @@ export function StyleControls({ selectedShapes }: StyleControlsProps) {
 
     // Check if all shapes have the same values
     const allSame = selectedShapes.every(shape => {
-      const props = shape.props as any
+      const props = shape.props as Record<string, unknown>
       return (
         (props.strokeWidth ?? 2) === styles.strokeWidth &&
         (props.color ?? '#000000') === styles.color &&
@@ -47,7 +47,7 @@ export function StyleControls({ selectedShapes }: StyleControlsProps) {
 
   const styles = commonStyles()
 
-  const updateShapeStyles = useCallback((updates: Record<string, any>) => {
+  const updateShapeStyles = useCallback((updates: Record<string, unknown>) => {
     if (selectedShapes.length === 0) return
 
     const shapesToUpdate = selectedShapes.map(shape => {
@@ -62,7 +62,7 @@ export function StyleControls({ selectedShapes }: StyleControlsProps) {
       // Handle other style properties
       Object.keys(updates).forEach(key => {
         if (key !== 'opacity') {
-          (newProps as any)[key] = updates[key]
+          (newProps as Record<string, unknown>)[key] = updates[key]
         }
       })
 

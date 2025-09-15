@@ -283,7 +283,7 @@ export function useSnapDetection({
       const verticalOverlap = !(rect.y + rect.height < panelRect.y || rect.y > panelRect.y + panelRect.height)
 
       if (horizontalOverlap) {
-        const snapIntent = getSnapIntent(panel, mousePosition)
+        // const snapIntent = getSnapIntent(panel, mousePosition)
 
         // Snap to top edge (dragging panel will be above target)
         if (Math.abs((rect.y + rect.height) - panelRect.y) <= panelSnapThreshold) {
@@ -342,7 +342,7 @@ export function useSnapDetection({
     }
 
     return guides
-  }, [otherPanels, browserSnapThreshold, panelSnapThreshold, viewport, getEffectivePanelSize, getSnapIntent, mousePosition])
+  }, [otherPanels, browserSnapThreshold, panelSnapThreshold, viewport, getEffectivePanelSize])
 
   const detectSnapping = useCallback((
     position: PanelPosition,

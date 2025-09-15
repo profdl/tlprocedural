@@ -85,7 +85,7 @@ export function PropertiesPanelContent() {
 
       // For now, we'll update the shape's props if it has w/h
       // This is a simplified approach - proper scaling would need shape-specific handling
-      const props = shape.props as any
+      const props = shape.props as Record<string, unknown>
       if ('w' in props && 'h' in props) {
         editor.updateShape({
           ...shape,

@@ -12,8 +12,8 @@ import { ModifierSelectInput } from '../ui/ModifierSelectInput'
 
 interface ModifierControlPanelProps<T extends keyof ModifierSchemas> {
   modifierType: T
-  settings: Record<string, any>
-  onChange: (settings: Record<string, any>) => void
+  settings: Record<string, unknown>
+  onChange: (settings: Record<string, unknown>) => void
 }
 
 export function ModifierControlPanel<T extends keyof ModifierSchemas>({ 
@@ -23,7 +23,7 @@ export function ModifierControlPanel<T extends keyof ModifierSchemas>({
 }: ModifierControlPanelProps<T>) {
   const schema = getModifierSchema(modifierType)
   
-  const updateSetting = useCallback((field: string, value: any) => {
+  const updateSetting = useCallback((field: string, value: unknown) => {
     onChange({ ...settings, [field]: value })
   }, [settings, onChange])
 

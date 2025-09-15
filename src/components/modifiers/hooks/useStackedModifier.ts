@@ -59,7 +59,7 @@ export function useStackedModifier({ shape, modifiers }: UseStackedModifierProps
     })
     
     return shapePartials
-  }, [shapeKey, modifiersKey, editor])
+  }, [editor, modifiers, shape])
   
   // Process all modifiers using the stable callback
   const processedShapes = useMemo(() => {

@@ -16,6 +16,10 @@ export const PolygonControls = ({ shapes }: PolygonControlsProps) => {
   const editor = useEditor()
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false)
 
+  const toggleCollapsed = useCallback(() => {
+    setIsCollapsed(prev => !prev)
+  }, [])
+
   if (shapes.length === 0) return null
 
   const currentSides = shapes[0].props.sides
@@ -29,10 +33,6 @@ export const PolygonControls = ({ shapes }: PolygonControlsProps) => {
 
     editor.updateShapes(updatedShapes)
   }
-
-  const toggleCollapsed = useCallback(() => {
-    setIsCollapsed(prev => !prev)
-  }, [])
 
   return (
     <div className="modifier-controls__item">
