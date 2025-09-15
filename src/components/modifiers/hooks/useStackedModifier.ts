@@ -29,8 +29,6 @@ export function useStackedModifier({ shape, modifiers }: UseStackedModifierProps
   const shapeKey = `${shape.id}-${shape.x}-${shape.y}-${shape.rotation}-${JSON.stringify(shape.props)}`
   const modifiersKey = modifiers.map(m => `${m.id}-${m.enabled}-${JSON.stringify(m.props)}`).join('|')
   
-  // Debug: Log when shape rotation changes
-  console.log(`Shape ${shape.id} rotation: ${shape.rotation ? (shape.rotation * 180 / Math.PI).toFixed(1) + '°' : '0°'}`)
   
   // Create a stable callback for processing modifiers
   const getProcessedShapes = useCallback(() => {
@@ -51,7 +49,6 @@ export function useStackedModifier({ shape, modifiers }: UseStackedModifierProps
       isGroupModifier: result.metadata?.isGroupModifier
     })
     
-    console.log(`useStackedModifier: Converting ${shapes.length} processed shapes to TLShapePartial`)
     
     // Convert to TLShapePartial for tldraw, including all shapes
     const shapePartials = shapes.map((processedShape, index) => {
@@ -61,7 +58,6 @@ export function useStackedModifier({ shape, modifiers }: UseStackedModifierProps
       return createRegularShape(processedShape, cloneId, index, modifiers)
     })
     
-    console.log(`useStackedModifier: Created ${shapePartials.length} TLShapePartials`)
     return shapePartials
   }, [shapeKey, modifiersKey, editor])
   
