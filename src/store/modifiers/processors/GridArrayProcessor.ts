@@ -10,7 +10,7 @@ import { getShapeDimensions } from '../../../components/modifiers/utils'
 
 // Grid Array Processor implementation
 export const GridArrayProcessor: ModifierProcessor = {
-  process(input: ShapeState, settings: GridArraySettings, groupContext?: GroupContext, editor?: any): ShapeState {
+  process(input: ShapeState, settings: GridArraySettings, groupContext?: GroupContext, editor?: import('tldraw').Editor): ShapeState {
     const { rows, columns, spacingX, spacingY, offsetX, offsetY } = settings
     
     // Check if this is a group modifier

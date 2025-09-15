@@ -48,7 +48,7 @@ export class DrawCreating extends StateNode {
     }
   }
 
-  override onPointerDown(info: TLPointerEventInfo) {
+  override onPointerDown(_info: TLPointerEventInfo) {
     // This is for potential multi-segment drawing in the future
     // For now, we complete on mouse up
   }

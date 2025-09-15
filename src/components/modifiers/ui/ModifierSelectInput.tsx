@@ -2,9 +2,9 @@ import { stopEventPropagation } from 'tldraw'
 
 interface ModifierSelectInputProps {
   label?: string // Now optional since labels are handled externally
-  value: any
-  options: Array<{ value: any; label: string }>
-  onChange: (value: any) => void
+  value: string | number
+  options: Array<{ value: string | number; label: string }>
+  onChange: (value: string | number) => void
 }
 
 export function ModifierSelectInput({ 

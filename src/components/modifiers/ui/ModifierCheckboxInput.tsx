@@ -7,10 +7,10 @@ interface ModifierCheckboxInputProps {
   onChange: (checked: boolean) => void
 }
 
-export const ModifierCheckboxInput = memo(function ModifierCheckboxInput({ 
-  label, 
-  checked, 
-  onChange 
+export const ModifierCheckboxInput = memo(function ModifierCheckboxInput({
+  label: _label,
+  checked,
+  onChange
 }: ModifierCheckboxInputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange(e.target.checked)

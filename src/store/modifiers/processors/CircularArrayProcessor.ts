@@ -10,7 +10,7 @@ import { calculateCircularPosition, getShapeDimensions } from '../../../componen
 
 // Circular Array Processor implementation
 export const CircularArrayProcessor: ModifierProcessor = {
-  process(input: ShapeState, settings: CircularArraySettings, groupContext?: GroupContext, editor?: any): ShapeState {
+  process(input: ShapeState, settings: CircularArraySettings, groupContext?: GroupContext, editor?: import('tldraw').Editor): ShapeState {
     const { count, radius, startAngle, endAngle, centerX, centerY, rotateAll, rotateEach, alignToTangent } = settings
     
     const newInstances: ShapeInstance[] = []
@@ -115,10 +115,10 @@ export const CircularArrayProcessor: ModifierProcessor = {
 
 // Process circular array for groups
 function processGroupCircularArray(
-  input: ShapeState, 
-  settings: CircularArraySettings, 
+  input: ShapeState,
+  settings: CircularArraySettings,
   groupContext: GroupContext,
-  editor?: any
+  editor?: import('tldraw').Editor
 ): ShapeState {
   const { count, radius, startAngle, endAngle, centerX, centerY, rotateAll, rotateEach, alignToTangent } = settings
   const { groupTransform } = groupContext

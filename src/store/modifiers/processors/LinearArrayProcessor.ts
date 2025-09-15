@@ -10,7 +10,7 @@ import { calculateLinearPosition, getShapeDimensions, degreesToRadians } from '.
 
 // Linear Array Processor implementation  
 export const LinearArrayProcessor: ModifierProcessor = {
-  process(input: ShapeState, settings: LinearArraySettings, groupContext?: GroupContext, editor?: any): ShapeState {
+  process(input: ShapeState, settings: LinearArraySettings, groupContext?: GroupContext, editor?: import('tldraw').Editor): ShapeState {
     const { count, offsetX, offsetY, rotation, scaleStep } = settings
     
     // If processing in group context, use group dimensions
