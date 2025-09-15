@@ -27,6 +27,7 @@ export interface PanelState {
 interface PanelStoreState {
   // State
   panels: Record<PanelId, PanelState>
+  panelOrder: PanelId[] // Order for stacked panels
   activePanelId: PanelId | null
   draggedPanelId: PanelId | null
 
@@ -37,12 +38,15 @@ interface PanelStoreState {
   setPanelSize: (id: PanelId, size: Partial<PanelSize>) => void
   setActivePanel: (id: PanelId | null) => void
 
-  // Drag and drop
+  // Stacked panel ordering
+  setPanelOrder: (order: PanelId[]) => void
+
+  // Drag and drop (legacy - for compatibility)
   startDragging: (id: PanelId) => void
   stopDragging: () => void
   reorderPanels: (fromId: PanelId, toId: PanelId, position: 'above' | 'below') => void
 
-  // Docking
+  // Docking (legacy - for compatibility)
   dockPanel: (panelId: PanelId, targetId: PanelId, position: 'above' | 'below' | 'left' | 'right') => void
   undockPanel: (panelId: PanelId) => void
 
@@ -84,6 +88,7 @@ export const usePanelStore = create<PanelStoreState>()(
   subscribeWithSelector((set, get) => ({
     // Initial state
     panels: defaultPanels,
+    panelOrder: ['properties', 'style', 'modifiers'], // Default stacked order
     activePanelId: null,
     draggedPanelId: null,
 
@@ -153,6 +158,11 @@ export const usePanelStore = create<PanelStoreState>()(
           }
         }))
       }
+    },
+
+    // Set panel order for stacked layout
+    setPanelOrder: (order: PanelId[]) => {
+      set({ panelOrder: order })
     },
 
     // Start dragging a panel

@@ -1,0 +1,213 @@
+/* Stacked Panel System Styles */
+
+.stacked-panel-system {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 300px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.stacked-panel-system__container {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: var(--color-panel);
+  border: 1px solid var(--color-panel-contrast);
+  border-radius: var(--radius-3);
+  box-shadow: 0 var(--space-1) var(--space-3) rgba(0, 0, 0, 0.1);
+  pointer-events: all;
+  min-width: 280px;
+  max-width: 400px;
+}
+
+.stacked-panel-system__container:hover {
+  box-shadow: 0 var(--space-2) var(--space-4) rgba(0, 0, 0, 0.15);
+}
+
+/* Panel Item Styles */
+
+.panel-item {
+  background: var(--color-panel);
+  border-bottom: 1px solid var(--color-panel-contrast);
+  transition: all 0.2s ease;
+}
+
+.panel-item:last-child {
+  border-bottom: none;
+  border-radius: 0 0 var(--radius-3) var(--radius-3);
+}
+
+.panel-item:first-child {
+  border-radius: var(--radius-3) var(--radius-3) 0 0;
+}
+
+.panel-item:first-child:last-child {
+  border-radius: var(--radius-3);
+}
+
+.panel-item--dragging {
+  opacity: 0.9;
+  box-shadow: 0 var(--space-3) var(--space-7) rgba(0, 0, 0, 0.2);
+  z-index: 1001;
+  cursor: grabbing;
+}
+
+.panel-item--collapsed {
+  background: var(--color-panel);
+}
+
+.panel-item--drop-target {
+  background: var(--color-muted-1);
+  border-color: var(--color-blue);
+}
+
+/* Panel Item Header */
+
+.panel-item__header {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  background: var(--color-panel);
+  border-bottom: 1px solid var(--color-panel-contrast);
+  cursor: default;
+  user-select: none;
+  min-height: 28px;
+}
+
+.panel-item--collapsed .panel-item__header {
+  border-bottom: none;
+}
+
+.panel-item__drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px !important;
+  min-width: 24px !important;
+  max-width: 24px !important;
+  height: 28px;
+  color: var(--color-text-1);
+  cursor: grab;
+  user-select: none;
+  border-radius: var(--radius-0);
+  transition: all 0.1s ease;
+  font-size: 18px;
+  padding: 0;
+  margin-left: 2px;
+  margin-right: 2px;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.panel-item__drag-handle:hover {
+  color: var(--color-blue);
+}
+
+.panel-item__drag-handle:active {
+  cursor: grabbing;
+}
+
+.panel-item__title {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-1);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+}
+
+.panel-item__toggle {
+  margin-left: auto;
+}
+
+/* Panel Item Content */
+
+.panel-item__content {
+  flex: 1 1 auto;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  transition: padding 0.2s ease;
+  background: var(--color-panel);
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+/* Drag Overlay */
+
+.panel-item--drag-overlay {
+  background: var(--color-panel);
+  border: 1px solid var(--color-panel-contrast);
+  border-radius: var(--radius-3);
+  box-shadow: 0 var(--space-3) var(--space-7) rgba(0, 0, 0, 0.2);
+  opacity: 0.8;
+  width: 280px;
+}
+
+.panel-item--drag-overlay .panel-item__header {
+  background: var(--color-panel);
+  border-bottom: 1px solid var(--color-panel-contrast);
+}
+
+.panel-item--drag-overlay .panel-item__title {
+  color: var(--color-text-1);
+}
+
+.panel-item--drag-overlay .panel-item__drag-handle {
+  color: var(--color-text-1);
+}
+
+/* Responsive adjustments */
+
+@media (max-width: 768px) {
+  .stacked-panel-system {
+    width: 280px;
+    right: 10px;
+    top: 10px;
+    max-height: calc(100vh - 20px);
+  }
+
+  .panel-item__content {
+    max-height: 300px;
+  }
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .stacked-panel-system__container {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+
+  .panel-item--dragging {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Scrollbar styling for webkit browsers */
+.stacked-panel-system::-webkit-scrollbar,
+.panel-item__content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.stacked-panel-system::-webkit-scrollbar-track,
+.panel-item__content::-webkit-scrollbar-track {
+  background: var(--color-muted-1);
+  border-radius: 3px;
+}
+
+.stacked-panel-system::-webkit-scrollbar-thumb,
+.panel-item__content::-webkit-scrollbar-thumb {
+  background: var(--color-text-3);
+  border-radius: 3px;
+}
+
+.stacked-panel-system::-webkit-scrollbar-thumb:hover,
+.panel-item__content::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-2);
+}
