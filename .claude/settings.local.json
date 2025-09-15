@@ -9,7 +9,9 @@
       "Read(//Users/daniellefcourt/Desktop/**)",
       "Bash(npm install:*)",
       "Bash(npm run lint:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)"
     ],
     "deny": [],
     "ask": []
