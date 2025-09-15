@@ -25,7 +25,7 @@ export function FloatingPanel({
     panel,
     isDragging,
     isResizing,
-    showSnapGuides,
+    activeSnapGuides,
     handleDragStart,
     handleDrag,
     handleDragStop,
@@ -155,9 +155,35 @@ export function FloatingPanel({
         )}
 
         {/* Snap guides overlay */}
-        {showSnapGuides && (
+        {isDragging && activeSnapGuides.length > 0 && (
           <div className="floating-panel__snap-guides">
-            {/* Snap guide lines would be rendered here */}
+            {activeSnapGuides.map((guide, index) => (
+              <div
+                key={index}
+                className={`snap-guide snap-guide--${guide.type} ${
+                  guide.isActive ? 'snap-guide--active' : ''
+                }`}
+                style={{
+                  position: 'fixed',
+                  ...(guide.type === 'vertical'
+                    ? {
+                        left: guide.position,
+                        top: guide.start,
+                        height: guide.end - guide.start,
+                        width: 2
+                      }
+                    : {
+                        top: guide.position,
+                        left: guide.start,
+                        width: guide.end - guide.start,
+                        height: 2
+                      }
+                  ),
+                  pointerEvents: 'none',
+                  zIndex: 10000
+                }}
+              />
+            ))}
           </div>
         )}
       </div>

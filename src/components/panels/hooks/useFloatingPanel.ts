@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { type DraggableData, type ResizableDelta } from 'react-rnd'
 import { usePanelStore, type PanelId, type PanelPosition, type PanelSize } from '../../../store/panelStore'
-import { useSnapDetection } from './useSnapDetection'
+import { useSnapDetection, type SnapGuide } from './useSnapDetection'
 import { usePanelConstraints } from './usePanelConstraints'
 
 interface UseFloatingPanelProps {
@@ -32,8 +32,9 @@ export function useFloatingPanel({
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const [showSnapGuides, setShowSnapGuides] = useState(false)
+  const [activeSnapGuides, setActiveSnapGuides] = useState<SnapGuide[]>([])
 
-  const { detectSnapping } = useSnapDetection({ panelId })
+  const { detectSnapping, generateSnapGuides } = useSnapDetection({ panelId })
   const { constrainPosition, constrainSize, getDefaultConstraints } = usePanelConstraints()
 
   // Store original position for snap breaking
@@ -57,19 +58,27 @@ export function useFloatingPanel({
     // Constrain to viewport
     const constrainedPosition = constrainPosition(newPosition, panel.size, 10)
 
+    // Generate snap guides for real-time feedback
+    const snapGuides = generateSnapGuides(constrainedPosition, panel.size)
+    setActiveSnapGuides(snapGuides)
+
+    // Apply soft snapping during drag (visual feedback only)
+    // const snapResult = detectSnapping(constrainedPosition, panel.size, true)
+
     // Update position in store for real-time snapping detection
     setPanelPosition(panelId, constrainedPosition)
-  }, [panelId, panel.size, constrainPosition, setPanelPosition])
+  }, [panelId, panel.size, constrainPosition, setPanelPosition, generateSnapGuides])
 
   const handleDragStop = useCallback((_e: any, data: DraggableData) => {
     setIsDragging(false)
     setShowSnapGuides(false)
+    setActiveSnapGuides([])
     setPanelDragging(panelId, false)
 
     const newPosition: PanelPosition = { x: data.x, y: data.y }
 
-    // Check for snapping
-    const snapResult = detectSnapping(newPosition, panel.size)
+    // Apply hard snapping on drop (with collision prevention)
+    const snapResult = detectSnapping(newPosition, panel.size, false)
 
     // Apply snapped position
     const finalPosition = constrainPosition(snapResult.position, panel.size, 10)
@@ -158,7 +167,7 @@ export function useFloatingPanel({
     panel,
     isDragging,
     isResizing,
-    showSnapGuides,
+    activeSnapGuides,
 
     // Event handlers
     handleDragStart,
