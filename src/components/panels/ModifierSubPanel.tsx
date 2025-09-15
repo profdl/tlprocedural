@@ -83,21 +83,8 @@ export function ModifierSubPanel({
             title="Drag to reorder"
             style={{ cursor: 'grab' }}
           >
-            ⋮⋮
+            ⋮
           </div>
-
-          {/* Collapse/Expand button */}
-          <TldrawUiButton
-            type="icon"
-            onClick={handleToggleCollapse}
-            onPointerDown={stopPropagation}
-            title={isCollapsed ? "Expand" : "Collapse"}
-            className="modifier-sub-panel__collapse-button"
-          >
-            <TldrawUiButtonIcon
-              icon={isCollapsed ? "chevron-right" : "chevron-down"}
-            />
-          </TldrawUiButton>
 
           {/* Modifier name */}
           <span className="modifier-sub-panel__title">
@@ -115,6 +102,19 @@ export function ModifierSubPanel({
             className={`modifier-sub-panel__apply-button ${modifier.enabled ? 'modifier-sub-panel__apply-button--enabled' : ''}`}
           >
             {modifier.enabled ? "APPLIED" : "APPLY"}
+          </TldrawUiButton>
+
+          {/* Collapse/Expand button */}
+          <TldrawUiButton
+            type="icon"
+            onClick={handleToggleCollapse}
+            onPointerDown={stopPropagation}
+            title={isCollapsed ? "Expand" : "Collapse"}
+            className="modifier-sub-panel__collapse-button"
+          >
+            <TldrawUiButtonIcon
+              icon={isCollapsed ? "chevron-right" : "chevron-down"}
+            />
           </TldrawUiButton>
 
           {/* Remove button */}

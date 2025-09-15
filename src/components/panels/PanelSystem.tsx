@@ -226,7 +226,7 @@ export function PanelSystem() {
             <div className="panel-container panel-container--drag-overlay">
               <div className="panel-container__header">
                 <span className="panel-container__title">
-                  {activeDragId === 'properties' && 'Shape Properties'}
+                  {activeDragId === 'properties' && 'Properties'}
                   {activeDragId === 'style' && 'Style'}
                   {activeDragId === 'modifiers' && 'Modifiers'}
                 </span>

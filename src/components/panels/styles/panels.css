@@ -20,7 +20,7 @@
   display: flex;
   flex-direction: column;
   pointer-events: all;
-  transition: all 0.2s ease;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
   min-width: 280px;
   max-width: 400px;
 }
@@ -40,16 +40,7 @@
 }
 
 .panel-container--collapsed .panel-container__content {
-  opacity: 0;
-  max-height: 0;
-  overflow: hidden;
-  transition: opacity 0.2s ease, max-height 0.3s ease;
-}
-
-.panel-container:not(.panel-container--collapsed) .panel-container__content {
-  opacity: 1;
-  max-height: 1000px;
-  transition: opacity 0.3s ease 0.1s, max-height 0.3s ease;
+  display: none;
 }
 
 /* Panel Header */
@@ -57,43 +48,46 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-3);
+  padding: 0;
   border-bottom: 1px solid var(--color-panel-contrast);
   background: var(--color-panel);
   border-radius: var(--radius-3) var(--radius-3) 0 0;
   cursor: move;
   user-select: none;
+  min-height: 28px;
 }
 
 .panel-container__header-left {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  flex: 1;
+  gap: 2px;
+  flex: 0;
+  margin-right: auto;
+  padding-left: 2px;
 }
 
 .panel-container__header-right {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .panel-container__drag-handle {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-6);
-  height: var(--space-6);
-  color: var(--color-text-3);
-  font-size: 12px;
-  line-height: 1;
-  border-radius: var(--radius-1);
+  color: var(--color-text-1);
+  font-size: 18px;
+  border-radius: var(--radius-0);
   transition: all 0.1s ease;
+  padding: 10;
+  width: 16px !important;
+  min-width: 16px !important;
+  max-width: 16px !important;
 }
 
 .panel-container__drag-handle:hover {
-  background: var(--color-muted-1);
-  color: var(--color-text-1);
+  color: var(--color-blue);
 }
 
 .panel-container__drag-handle:active {
@@ -103,11 +97,12 @@
 /* Remove custom button sizing - let tlui-button handle it */
 
 .panel-container__title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--color-text-1);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  line-height: 1.2;
 }
 
 /* Remove custom close button styling - using TldrawUiButton now */
@@ -116,11 +111,12 @@
 
 /* Panel Content */
 .panel-container__content {
-  flex: 1;
-  overflow: hidden;
+  flex: 1 1 auto;
+  overflow: visible;
   display: flex;
   flex-direction: column;
-  padding: var(--space-3);
+  padding: 4px;
+  transition: padding 0.2s ease;
 }
 
 /* Panel Resize Handle */
@@ -149,8 +145,13 @@
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 0.2; }
-  50% { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 /* Drag Overlay */
@@ -161,23 +162,34 @@
 
 /* Empty State */
 .panel-empty-state {
-  padding: var(--space-7);
+  padding: var(--space-5) var(--space-4);
   text-align: center;
   color: var(--color-text-3);
   font-size: 12px;
 }
 
 .panel-empty-state--small {
-  padding: var(--space-5);
+  padding: var(--space-3) var(--space-2);
 }
 
 .panel-empty-state p {
-  margin: var(--space-2) 0;
+  margin: var(--space-1) 0;
+}
+
+.panel-empty-state p:first-child {
+  margin-top: 0;
+}
+
+.panel-empty-state p:last-child {
+  margin-bottom: 0;
 }
 
 /* Properties Panel Specific Styles */
 .properties-panel__content {
-  padding: 12px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .properties-panel__section {
@@ -214,7 +226,10 @@
 
 /* Style Panel Specific Styles */
 .style-panel__content {
-  padding: 12px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .style-panel__section {
@@ -303,7 +318,7 @@
 }
 
 .modifiers-panel__actions {
-  padding: 12px;
+  padding: 4px;
   border-bottom: 1px solid var(--color-panel-contrast, #e0e0e0);
   flex-shrink: 0;
 }
@@ -312,7 +327,7 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 12px;
+  padding: 4px;
   min-height: 0;
 
   /* Custom scrollbar */
@@ -372,33 +387,38 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-3);
+  padding: 0;
   background: var(--color-muted-0);
   border-bottom: 1px solid var(--color-panel-contrast);
+  min-height: 24px;
 }
 
 .modifier-sub-panel__header-left {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 2px;
   flex: 1;
+  padding-left: 2px;
 }
 
 .modifier-sub-panel__header-right {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .modifier-sub-panel__drag-handle {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-5);
-  height: var(--space-5);
-  color: var(--color-text-3);
-  font-size: 10px;
+  width: 14px !important;
+  min-width: 14px !important;
+  max-width: 14px !important;
+  height: 8px;
+  color: var(--color-text-1);
+  font-size: 12px;
   line-height: 1;
+  padding: 0;
 }
 
 .modifier-sub-panel__drag-handle:active {
@@ -408,9 +428,10 @@
 /* Remove custom collapse button sizing - let tlui-button handle it */
 
 .modifier-sub-panel__title {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--color-text-1);
+  line-height: 1.2;
 }
 
 .modifier-sub-panel__apply-button {
@@ -429,5 +450,5 @@
 /* Remove custom remove button hover styling - using TldrawUiButton now */
 
 .modifier-sub-panel__content {
-  padding: var(--space-4);
+  padding: 4px;
 }

@@ -118,8 +118,10 @@ export function PropertiesPanel() {
   return (
     <PanelContainer
       id="properties"
-      title="Shape Properties"
+      title="Properties"
       className="properties-panel"
+      autoHeight={true}
+      resizable={false}
     >
       {selectedShapes.length === 0 ? (
         <div className="panel-empty-state">

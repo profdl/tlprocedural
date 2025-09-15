@@ -57,7 +57,7 @@ const defaultPanels: Record<PanelId, PanelState> = {
   properties: {
     id: 'properties',
     isCollapsed: false,
-    position: { x: 20, y: 20 },
+    position: { x: 5, y: 20 },
     size: { width: 280, height: 200 },
     order: 0,
     isDocked: false
@@ -65,7 +65,7 @@ const defaultPanels: Record<PanelId, PanelState> = {
   style: {
     id: 'style',
     isCollapsed: false,
-    position: { x: 20, y: 240 },
+    position: { x: 5, y: 240 },
     size: { width: 280, height: 250 },
     order: 1,
     isDocked: false
@@ -73,7 +73,7 @@ const defaultPanels: Record<PanelId, PanelState> = {
   modifiers: {
     id: 'modifiers',
     isCollapsed: false,
-    position: { x: 20, y: 510 },
+    position: { x: 5, y: 510 },
     size: { width: 280, height: 400 },
     order: 2,
     isDocked: false

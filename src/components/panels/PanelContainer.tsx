@@ -12,6 +12,7 @@ interface PanelContainerProps {
   minHeight?: number
   maxHeight?: number
   resizable?: boolean
+  autoHeight?: boolean
   className?: string
 }
 
@@ -23,6 +24,7 @@ export function PanelContainer({
   minHeight = 100,
   maxHeight = 800,
   resizable = false,
+  autoHeight = true,
   className = ''
 }: PanelContainerProps) {
   const panelRef = useRef<HTMLDivElement>(null)
@@ -112,7 +114,8 @@ export function PanelContainer({
         left: position.x,
         top: position.y,
         width: size.width,
-        height: isCollapsed ? 'auto' : size.height,
+        height: isCollapsed ? 'auto' : (autoHeight ? 'auto' : size.height),
+        maxHeight: autoHeight && !isCollapsed ? maxHeight : undefined,
         zIndex: panel.order
       }}
       onClick={handlePanelClick}
@@ -131,9 +134,14 @@ export function PanelContainer({
             title="Drag to reorder"
             style={{ cursor: 'grab' }}
           >
-            ⋮⋮
+            ⋮
           </div>
 
+          {/* Title */}
+          <span className="panel-container__title">{title}</span>
+        </div>
+
+        <div className="panel-container__header-right">
           {/* Collapse/Expand button */}
           <TldrawUiButton
             type="icon"
@@ -145,11 +153,6 @@ export function PanelContainer({
             />
           </TldrawUiButton>
 
-          {/* Title */}
-          <span className="panel-container__title">{title}</span>
-        </div>
-
-        <div className="panel-container__header-right">
           {/* Close button (if enabled) */}
           {showClose && (
             <TldrawUiButton
@@ -171,7 +174,7 @@ export function PanelContainer({
       )}
 
       {/* Resize handle */}
-      {resizable && !isCollapsed && (
+      {resizable && !autoHeight && !isCollapsed && (
         <div
           className="panel-container__resize-handle"
           onMouseDown={handleResizeStart}

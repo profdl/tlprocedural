@@ -100,6 +100,8 @@ export function StylePanel() {
       id="style"
       title="Style"
       className="style-panel"
+      autoHeight={true}
+      resizable={false}
     >
       {selectedShapes.length === 0 ? (
         <div className="panel-empty-state">
@@ -127,7 +129,7 @@ export function StylePanel() {
           <div className="modifier-input-row">
             <label className="modifier-input-row__label">Stroke Color</label>
             <div className="modifier-input-row__control">
-              <div className="color-input-compact__container">
+              <div className="color-input-compact__container" style={{ width: '100%' }}>
                 <div
                   className="color-input-compact__preview"
                   style={{
@@ -166,7 +168,7 @@ export function StylePanel() {
           <div className="modifier-input-row">
             <label className="modifier-input-row__label">Fill Color</label>
             <div className="modifier-input-row__control">
-              <div className="color-input-compact__container">
+              <div className="color-input-compact__container" style={{ width: '100%' }}>
                 <div
                   className="color-input-compact__preview"
                   style={{
