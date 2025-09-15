@@ -21,6 +21,7 @@ export function FloatingPanel({
   onToggleCollapse,
   className = ''
 }: FloatingPanelProps) {
+
   const {
     panel,
     isDragging,
@@ -38,15 +39,23 @@ export function FloatingPanel({
     panelId: id
   })
 
+  // Height calculation is now handled by the panel store defaults
+  // This component simply uses whatever height is stored in the panel state
+
   if (!panel) return null
 
   const zIndex = 1000 + panel.order
+
+  // Always use panel store height (respects user resizing and initial calculations)
+  const effectiveHeight = isCollapsed
+    ? 32
+    : panel.size.height
 
   return (
     <Rnd
       size={{
         width: panel.size.width,
-        height: isCollapsed ? 32 : panel.size.height
+        height: effectiveHeight
       }}
       position={{
         x: panel.position.x,
