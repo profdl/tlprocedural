@@ -1,5 +1,5 @@
-import type { TLShape, Editor, VecLike } from 'tldraw'
-import type { PathData, PointsPathData } from '../types/pathTypes'
+import type { TLShape, VecLike } from 'tldraw'
+import type { PathData } from '../types/pathTypes'
 import type { BezierShape, BezierPoint } from '../components/shapes/BezierShape'
 import { calculatePathBounds } from './pathExtractors'
 
@@ -71,9 +71,9 @@ function shouldConvertToBezier(pathData: PathData): boolean {
  * Convert a shape to a Bezier shape that can handle complex path data
  */
 function convertToBezierShape(
-  originalShape: TLShape, 
-  pathData: PathData, 
-  editor?: Editor
+  originalShape: TLShape,
+  pathData: PathData,
+  _editor?: Editor
 ): BezierShape | null {
   
   if (pathData.type !== 'points') {

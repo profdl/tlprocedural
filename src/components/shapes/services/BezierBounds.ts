@@ -139,7 +139,7 @@ export class BezierBounds {
     normalizedPoints: BezierPoint[]
   } {
     // Calculate bounds including any control points from the point
-    let allPoints = [{ x: point.x, y: point.y }]
+    const allPoints = [{ x: point.x, y: point.y }]
     if (point.cp1) allPoints.push(point.cp1)
     if (point.cp2) allPoints.push(point.cp2)
     

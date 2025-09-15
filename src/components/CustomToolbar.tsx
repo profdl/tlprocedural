@@ -1,115 +1,104 @@
-import { 
+import {
   DefaultToolbar,
   TldrawUiMenuItem,
   useEditor,
   useValue,
   useTools,
-  useIsToolSelected,
-  TldrawUiButton
+  useIsToolSelected
 } from 'tldraw'
+
+// Helper component to properly use hooks
+function ToolMenuItem({ toolId, tools }: { toolId: string, tools: Record<string, unknown> }) {
+  const item = tools[toolId]
+  const selected = useIsToolSelected(item)
+
+  if (!item) return null
+  return <TldrawUiMenuItem key={toolId} {...item} isSelected={selected} />
+}
 
 export function CustomToolbar() {
   const editor = useEditor()
   const tools = useTools()
-  
+
   // Track selection (kept if needed for future dynamic UI changes)
   useValue('is-sine-selected', () => {
     const selected = editor.getSelectedShapes()
     return selected.some((s) => s.type === 'sine-wave')
   }, [editor])
 
-  // Helper function to flip shapes horizontally
-  const flipShapesHorizontally = () => {
-    const selectedShapeIds = editor.getSelectedShapeIds()
-    if (selectedShapeIds.length > 0) {
-      // Try both possible API signatures for flipShapes
-      try {
-        ;(editor as any).flipShapes(selectedShapeIds, 'horizontal')
-      } catch {
-        // Fallback to our custom flip implementation
-        const shapes = selectedShapeIds.map(id => editor.getShape(id)).filter(Boolean)
-        shapes.forEach(shape => {
-          if (shape) {
-            const util = editor.getShapeUtil(shape)
-            if ('flipShape' in util) {
-              const flipped = (util as any).flipShape(shape, 'horizontal')
-              editor.updateShape(flipped)
-            }
-          }
-        })
-      }
-    }
-  }
+  // These functions are kept for potential future use but currently unused
+  // const flipShapesHorizontally = () => {
+  //   const selectedShapeIds = editor.getSelectedShapeIds()
+  //   if (selectedShapeIds.length > 0) {
+  //     // Try both possible API signatures for flipShapes
+  //     try {
+  //       ;(editor as Editor & { flipShapes?: (ids: string[], direction: string) => void }).flipShapes?.(selectedShapeIds, 'horizontal')
+  //     } catch {
+  //       // Fallback to our custom flip implementation
+  //       const shapes = selectedShapeIds.map(id => editor.getShape(id)).filter(Boolean)
+  //       shapes.forEach(shape => {
+  //         if (shape) {
+  //           const util = editor.getShapeUtil(shape)
+  //           if ('flipShape' in util) {
+  //             const flipped = (util as { flipShape: (shape: TLShape, direction: string) => TLShape }).flipShape(shape, 'horizontal')
+  //             editor.updateShape(flipped)
+  //           }
+  //         }
+  //       })
+  //     }
+  //   }
+  // }
 
-  // Helper function to flip shapes vertically  
-  const flipShapesVertically = () => {
-    const selectedShapeIds = editor.getSelectedShapeIds()
-    if (selectedShapeIds.length > 0) {
-      // Try both possible API signatures for flipShapes
-      try {
-        ;(editor as any).flipShapes(selectedShapeIds, 'vertical')
-      } catch {
-        // Fallback to our custom flip implementation
-        const shapes = selectedShapeIds.map(id => editor.getShape(id)).filter(Boolean)
-        shapes.forEach(shape => {
-          if (shape) {
-            const util = editor.getShapeUtil(shape)
-            if ('flipShape' in util) {
-              const flipped = (util as any).flipShape(shape, 'vertical')
-              editor.updateShape(flipped)
-            }
-          }
-        })
-      }
-    }
-  }
+  // const flipShapesVertically = () => {
+  //   const selectedShapeIds = editor.getSelectedShapeIds()
+  //   if (selectedShapeIds.length > 0) {
+  //     // Try both possible API signatures for flipShapes
+  //     try {
+  //       ;(editor as Editor & { flipShapes?: (ids: string[], direction: string) => void }).flipShapes?.(selectedShapeIds, 'vertical')
+  //     } catch {
+  //       // Fallback to our custom flip implementation
+  //       const shapes = selectedShapeIds.map(id => editor.getShape(id)).filter(Boolean)
+  //       shapes.forEach(shape => {
+  //         if (shape) {
+  //           const util = editor.getShapeUtil(shape)
+  //           if ('flipShape' in util) {
+  //             const flipped = (util as { flipShape: (shape: TLShape, direction: string) => TLShape }).flipShape(shape, 'vertical')
+  //             editor.updateShape(flipped)
+  //           }
+  //         }
+  //       })
+  //     }
+  //   }
+  // }
 
-  // Check if any shapes are selected
-  const hasSelection = useValue('has-selection', () => {
-    return editor.getSelectedShapeIds().length > 0
-  }, [editor])
+  // const hasSelection = useValue('has-selection', () => {
+  //   return editor.getSelectedShapeIds().length > 0
+  // }, [editor])
 
   return (
     <DefaultToolbar>
       {/* Essential navigation tools */}
-      {['select', 'hand', 'zoom'].map((id) => {
-        const item = tools[id]
-        if (!item) return null
-        const selected = useIsToolSelected(item)
-        return <TldrawUiMenuItem key={id} {...item} isSelected={selected} />
-      })}
+      {['select', 'hand', 'zoom'].map((id) => (
+        <ToolMenuItem key={id} toolId={id} tools={tools} />
+      ))}
 
       {/* Basic custom shapes */}
-      {['circle', 'polygon', 'triangle'].map((id) => {
-        const item = tools[id]
-        if (!item) return null
-        const selected = useIsToolSelected(item)
-        return <TldrawUiMenuItem key={id} {...item} isSelected={selected} />
-      })}
+      {['circle', 'polygon', 'triangle'].map((id) => (
+        <ToolMenuItem key={id} toolId={id} tools={tools} />
+      ))}
 
       {/* Drawing and path tools */}
-      {['custom-draw', 'bezier'].map((id) => {
-        const item = tools[id]
-        if (!item) return null
-        const selected = useIsToolSelected(item)
-        return <TldrawUiMenuItem key={id} {...item} isSelected={selected} />
-      })}
+      {['custom-draw', 'bezier'].map((id) => (
+        <ToolMenuItem key={id} toolId={id} tools={tools} />
+      ))}
 
       {/* Path editing tools */}
-      {['add-point'].map((id) => {
-        const item = tools[id]
-        if (!item) return null
-        const selected = useIsToolSelected(item)
-        return <TldrawUiMenuItem key={id} {...item} isSelected={selected} />
-      })}
+      {['add-point'].map((id) => (
+        <ToolMenuItem key={id} toolId={id} tools={tools} />
+      ))}
 
       {/* Procedural shapes */}
-      {(() => {
-        const item = tools['sine-wave']
-        if (!item) return null
-        const selected = useIsToolSelected(item)
-        return <TldrawUiMenuItem key="sine-wave" {...item} isSelected={selected} />
-      })()}
+      <ToolMenuItem toolId="sine-wave" tools={tools} />
 
     </DefaultToolbar>
   )

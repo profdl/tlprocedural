@@ -333,7 +333,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     const { w, h } = shape.props
     
     const flippedPoints = shape.props.points.map(point => {
-      let newPoint = { ...point }
+      const newPoint = { ...point }
       
       if (direction === 'horizontal' || isFlippedX) {
         newPoint.x = w - point.x

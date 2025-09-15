@@ -410,8 +410,8 @@ export function TldrawCanvas() {
           }
           
           const threshold = 8 / editor.getZoomLevel() // 8 pixels at current zoom
-          const points = (editingBezierShape as any).props.points || []
-          
+          const points = (editingBezierShape as import('./shapes/BezierShape').BezierShape).props.points || []
+
           // Check anchor points and control points
           for (const point of points) {
             // Check anchor point
@@ -464,7 +464,7 @@ export function TldrawCanvas() {
           }
           
           const threshold = 8 / editor.getZoomLevel()
-          const points = (editingBezierShape as any).props.points || []
+          const points = (editingBezierShape as import('./shapes/BezierShape').BezierShape).props.points || []
           
           // Find which anchor point was clicked
           for (let i = 0; i < points.length; i++) {
@@ -560,7 +560,7 @@ export function TldrawCanvas() {
           }
           
           const threshold = 8 / editor.getZoomLevel()
-          const points = (editingBezierShape as any).props.points || []
+          const points = (editingBezierShape as import('./shapes/BezierShape').BezierShape).props.points || []
           
           // Find which anchor point was clicked
           for (let i = 0; i < points.length; i++) {

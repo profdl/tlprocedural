@@ -170,7 +170,7 @@ export const useModifierStore = create<ModifierStoreState>()(
             scalePerIteration: 1.0,
             ...settings
           }
-        } as any
+        } as import('../types/modifiers').TLLSystemModifier
       } else if (type === 'subdivide') {
         modifier = {
           id,
@@ -185,7 +185,7 @@ export const useModifierStore = create<ModifierStoreState>()(
             smooth: false,
             ...settings
           }
-        } as any
+        } as import('../types/modifiers').TLSubdivideModifier
       } else if (type === 'noise-offset') {
         modifier = {
           id,
@@ -202,7 +202,7 @@ export const useModifierStore = create<ModifierStoreState>()(
             direction: 'both',
             ...settings
           }
-        } as any
+        } as import('../types/modifiers').TLNoiseOffsetModifier
       } else if (type === 'smooth') {
         modifier = {
           id,
@@ -218,7 +218,7 @@ export const useModifierStore = create<ModifierStoreState>()(
             cornerThreshold: 90,
             ...settings
           }
-        } as any
+        } as import('../types/modifiers').TLSmoothModifier
       } else if (type === 'simplify') {
         modifier = {
           id,
@@ -233,7 +233,7 @@ export const useModifierStore = create<ModifierStoreState>()(
             minPoints: 3,
             ...settings
           }
-        } as any
+        } as import('../types/modifiers').TLSimplifyModifier
       } else {
         throw new Error(`Unknown modifier type: ${type}`)
       }

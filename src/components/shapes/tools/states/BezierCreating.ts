@@ -360,7 +360,7 @@ export class BezierCreating extends StateNode {
       const padding = 50
       
       // Calculate bounds including any control points from the first point
-      let allPoints = [{ x: firstPoint.x, y: firstPoint.y }]
+      const allPoints = [{ x: firstPoint.x, y: firstPoint.y }]
       if (firstPoint.cp1) allPoints.push(firstPoint.cp1)
       if (firstPoint.cp2) allPoints.push(firstPoint.cp2)
       

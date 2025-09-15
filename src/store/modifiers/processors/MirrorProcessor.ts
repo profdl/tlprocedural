@@ -1,10 +1,9 @@
-import type { 
-  ShapeState, 
-  ShapeInstance, 
+import type {
+  ShapeState,
+  ShapeInstance,
   Transform,
   ModifierProcessor,
-  MirrorSettings,
-  GroupContext
+  MirrorSettings
 } from '../../../types/modifiers'
 
 // Mirror Processor implementation - Clean slate

@@ -241,7 +241,7 @@ export class SineWaveShapeUtil extends BaseBoxShapeUtil<SineWaveShape> {
     
     // Apply flipping to phase (horizontal flip) and/or amplitude sign (vertical flip)
     let newPhase = shape.props.phase
-    let newAmplitudeValue = newAmplitude
+    const newAmplitudeValue = newAmplitude
     
     if (isFlippedX) {
       // Horizontal flip: invert the phase to flip the wave horizontally

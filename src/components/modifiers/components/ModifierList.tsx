@@ -80,7 +80,7 @@ export function ModifierList({ modifiers, onToggleModifier, onRemoveModifier, sh
         
         // Update the order in the store
         const newOrderIds = newOrder.map(m => m.id as TLModifierId)
-        store.reorderModifiers(shapeId as any, newOrderIds)
+        store.reorderModifiers(shapeId as import('tldraw').TLShapeId, newOrderIds)
       }
     }
     
@@ -121,7 +121,7 @@ export function ModifierList({ modifiers, onToggleModifier, onRemoveModifier, sh
                 onToggleModifier={onToggleModifier}
                 onRemoveModifier={onRemoveModifier}
                 onUpdateSettings={(newSettings) => {
-                  store.updateModifier(modifier.id as TLModifierId, { props: newSettings as any })
+                  store.updateModifier(modifier.id as TLModifierId, { props: newSettings })
                 }}
               />
             )
@@ -196,8 +196,8 @@ interface ModifierItemProps {
   onToggleModifier: (modifierId: string) => void
   onRemoveModifier: (modifierId: string) => void
   onUpdateSettings: (newSettings: LinearArraySettings | CircularArraySettings | GridArraySettings | MirrorSettings | LSystemSettings) => void
-  dragAttributes?: any
-  dragListeners?: any
+  dragAttributes?: Record<string, unknown>
+  dragListeners?: Record<string, unknown>
   isDragging?: boolean
 }
 
@@ -271,9 +271,9 @@ function ModifierItem({
       {!isCollapsed && (
         <div className="modifier-controls__item-details">
           <ModifierControlPanel
-            modifierType={modifier.type as any}
+            modifierType={modifier.type}
             settings={modifier.props}
-            onChange={onUpdateSettings as any}
+            onChange={onUpdateSettings}
           />
         </div>
       )}

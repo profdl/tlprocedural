@@ -1,12 +1,6 @@
 import React, { useCallback } from 'react'
-import { TldrawUiButton } from 'tldraw'
 import { AddButton, type AddButtonOption } from './AddButton'
 import { ModifierButton } from './ModifierButton'
-
-// Local stopEventPropagation implementation
-function stopEventPropagation(e: React.SyntheticEvent | Event) {
-  e.stopPropagation()
-}
 
 type ModifierType = 'linear' | 'circular' | 'grid' | 'mirror' | 'lsystem' | 'subdivide' | 'noise-offset' | 'smooth' | 'simplify'
 
