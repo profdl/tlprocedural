@@ -124,10 +124,11 @@ export function PanelContainer({
       onPointerUp={stopPropagation}
       onWheel={stopPropagation}
     >
-      <div className="panel-container__header" ref={setDragRef}>
+      <div className="panel-container__header">
         <div className="panel-container__header-left">
           {/* Drag handle */}
           <div
+            ref={setDragRef}
             className="tlui-button tlui-button__panel panel-container__drag-handle"
             {...attributes}
             {...listeners}

@@ -157,7 +157,6 @@
 /* Drag Overlay */
 .panel-container--drag-overlay {
   opacity: 0.8;
-  transform: rotate(2deg);
 }
 
 /* Empty State */
@@ -375,7 +374,6 @@
 
 .modifier-sub-panel--dragging {
   opacity: 0.5;
-  transform: rotate(1deg);
   box-shadow: 0 var(--space-2) var(--space-4) rgba(0, 0, 0, 0.15);
 }
 
