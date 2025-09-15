@@ -105,17 +105,6 @@ export function ModifierActionButtons({
         disabled={!selectedShape}
         className="modifier-controls__add-button"
       />
-      <TldrawUiButton
-        type="normal"
-        onPointerDown={(e) => {
-          stopEventPropagation(e)
-          onApplyModifiers()
-        }}
-        disabled={!hasEnabledModifiers}
-        className="modifier-controls__apply-button"
-      >
-        APPLY
-      </TldrawUiButton>
     </div>
   )
 } 

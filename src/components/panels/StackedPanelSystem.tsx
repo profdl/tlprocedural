@@ -8,6 +8,7 @@ import {
   TouchSensor,
   type DragEndEvent,
   type DragStartEvent,
+  type DragOverEvent,
   closestCenter,
 } from '@dnd-kit/core'
 import {
@@ -54,7 +55,7 @@ export function StackedPanelSystem() {
   const sensors = useSensors(
     useSensor(MouseSensor, {
       activationConstraint: {
-        distance: 10, // Minimum drag distance to activate
+        distance: 5, // Minimum drag distance to activate
       },
     })
   )
@@ -63,6 +64,11 @@ export function StackedPanelSystem() {
   const handleDragStart = (event: DragStartEvent) => {
     const panelId = event.active.id as PanelId
     setActiveDragId(panelId)
+  }
+
+  // Handle drag over for smoother feedback
+  const handleDragOver = (event: DragOverEvent) => {
+    // This provides smoother feedback during drag operations
   }
 
   // Handle drag end
@@ -91,6 +97,7 @@ export function StackedPanelSystem() {
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
         <div className="stacked-panel-system__container">

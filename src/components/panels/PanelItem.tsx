@@ -30,7 +30,7 @@ export function PanelItem({
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: isDragging ? 'none' : transition,
   }
 
   // Stop event propagation to prevent canvas interactions
