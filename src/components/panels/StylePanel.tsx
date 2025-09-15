@@ -23,8 +23,7 @@ export function StylePanel() {
       const firstProps = firstShape.props as any
 
       const styles = {
-        strokeWidth: firstProps.size === 's' ? 2 : firstProps.size === 'm' ? 3.5 : firstProps.size === 'l' ? 5 :
-                     firstProps.size === 'xl' ? 10 : (firstProps.strokeWidth ?? 2),
+        strokeWidth: firstProps.strokeWidth ?? 2,
         strokeColor: firstProps.color ?? 'black',
         fillColor: firstProps.fill ?? 'none',
         opacity: (firstShape.opacity ?? 1) * 100
@@ -33,10 +32,8 @@ export function StylePanel() {
       // Check if all shapes have the same values
       const allSame = selectedShapes.every(shape => {
         const props = shape.props as any
-        const shapeStrokeWidth = props.size === 's' ? 2 : props.size === 'm' ? 3.5 : props.size === 'l' ? 5 :
-                                 props.size === 'xl' ? 10 : (props.strokeWidth ?? 2)
         return (
-          shapeStrokeWidth === styles.strokeWidth &&
+          (props.strokeWidth ?? 2) === styles.strokeWidth &&
           (props.color ?? 'black') === styles.strokeColor &&
           (props.fill ?? 'none') === styles.fillColor &&
           ((shape.opacity ?? 1) * 100) === styles.opacity
@@ -52,33 +49,19 @@ export function StylePanel() {
   const updateShapeStyles = useCallback((updates: Record<string, any>) => {
     if (selectedShapes.length === 0) return
 
-    const shapesToUpdate = selectedShapes.map(shape => {
+    selectedShapes.forEach(shape => {
       const newProps = { ...shape.props } as any
-      const newShape = { ...shape }
+      const updateData: any = { ...shape }
 
       // Handle opacity separately as it's a shape property, not a prop
       if ('opacity' in updates) {
-        newShape.opacity = updates.opacity / 100
+        updateData.opacity = updates.opacity / 100
       }
 
-      // Handle stroke width - convert to size enum for tldraw shapes
+      // Handle stroke width
       if ('strokeWidth' in updates) {
-        const width = updates.strokeWidth
-        if (width <= 2.5) newProps.size = 's'
-        else if (width <= 4) newProps.size = 'm'
-        else if (width <= 7) newProps.size = 'l'
-        else newProps.size = 'xl'
-
-        // Also set strokeWidth for custom shapes
-        newProps.strokeWidth = width
+        newProps.strokeWidth = updates.strokeWidth
       }
-
-      // Handle other style properties
-      Object.keys(updates).forEach(key => {
-        if (key !== 'opacity' && key !== 'strokeWidth') {
-          newProps[key] = updates[key]
-        }
-      })
 
       // Handle color property
       if ('strokeColor' in updates) {
@@ -89,10 +72,9 @@ export function StylePanel() {
         newProps.fill = updates.fillColor
       }
 
-      return { ...newShape, props: newProps }
+      updateData.props = newProps
+      editor.updateShape(updateData)
     })
-
-    editor.updateShapes(shapesToUpdate)
   }, [editor, selectedShapes])
 
   return (

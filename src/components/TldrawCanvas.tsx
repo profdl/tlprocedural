@@ -18,6 +18,7 @@ import { CustomStylePanel } from './CustomStylePanel'
 import { CustomToolbar } from './CustomToolbar'
 import { ModifierOverlay } from './ModifierRenderer'
 import { isArrayClone } from './modifiers/utils'
+import { useModifierStore } from '../store/modifierStore'
 
 import { SineWaveShapeUtil } from './shapes/SineWaveShape'
 import { SineWaveShapeTool } from './shapes/SineWaveTool'
@@ -286,6 +287,8 @@ const editorOptions: Partial<TldrawOptions> = {
 }
 
 export function TldrawCanvas() {
+  const modifierStore = useModifierStore()
+
   // Create custom asset URLs using memoization to prevent recreation on every render
   const customAssetUrls = useMemo(() => ({
     icons: {
@@ -304,10 +307,13 @@ export function TldrawCanvas() {
     }
   }), [])
   const handleMount = (editor: Editor) => {
+    // Connect the editor to the modifier store
+    modifierStore.setEditor(editor)
+
     // Disable built-in grid mode to prevent automatic grid snapping
     // The visual grid is handled by our custom CuttleGrid component
     // This allows users to control snapping via the snap mode toggle
-    editor.updateInstanceState({ 
+    editor.updateInstanceState({
       isGridMode: false
     })
     

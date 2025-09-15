@@ -77,11 +77,10 @@ export function ModifierSubPanel({
         <div className="modifier-sub-panel__header-left">
           {/* Drag handle */}
           <div
-            className="tlui-button tlui-button__panel modifier-sub-panel__drag-handle"
+            className="modifier-sub-panel__drag-handle"
             {...attributes}
             {...listeners}
             title="Drag to reorder"
-            style={{ cursor: 'grab' }}
           >
             ⋮
           </div>

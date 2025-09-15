@@ -361,11 +361,12 @@
 /* Modifier Sub-Panel Styles */
 .modifier-sub-panel {
   background: var(--color-panel);
-  border: 1px solid var(--color-panel-contrast);
-  border-radius: var(--radius-2);
+  border: 1px solid var(--color-muted-1);
+  border-radius: var(--radius-3);
   overflow: hidden;
   transition: all 0.2s ease, transform 0.15s ease;
   transform: translateY(0);
+  box-shadow: 0 var(--space-1) var(--space-3) rgba(0, 0, 0, 0.1);
 }
 
 .modifier-sub-panel:hover {
@@ -385,38 +386,52 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0;
-  background: var(--color-muted-0);
+  padding: 0 4px 0 0;
+  background: var(--color-panel);
   border-bottom: 1px solid var(--color-panel-contrast);
-  min-height: 24px;
+  min-height: 28px;
+  width: 100%;
+  box-sizing: border-box;
+  flex-wrap: nowrap;
 }
 
 .modifier-sub-panel__header-left {
   display: flex;
   align-items: center;
-  gap: 2px;
-  flex: 1;
+  gap: 4px;
+  flex: 1 1 0;
   padding-left: 2px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .modifier-sub-panel__header-right {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: 1px;
+  flex: 0 0 auto;
 }
 
 .modifier-sub-panel__drag-handle {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 14px !important;
-  min-width: 14px !important;
-  max-width: 14px !important;
-  height: 8px;
+  width: 20px !important;
+  min-width: 20px !important;
+  max-width: 20px !important;
+  height: 28px;
   color: var(--color-text-1);
-  font-size: 12px;
+  font-size: 16px;
   line-height: 1;
   padding: 0;
+  margin: 0;
+  cursor: grab;
+  transition: all 0.1s ease;
+  flex-shrink: 0;
+}
+
+.modifier-sub-panel__drag-handle:hover {
+  color: var(--color-blue);
 }
 
 .modifier-sub-panel__drag-handle:active {
@@ -426,16 +441,28 @@
 /* Remove custom collapse button sizing - let tlui-button handle it */
 
 .modifier-sub-panel__title {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--color-text-1);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   line-height: 1.2;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .modifier-sub-panel__apply-button {
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  padding: 2px 4px;
+  height: 20px;
+  min-width: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .modifier-sub-panel__apply-button--enabled {
@@ -443,9 +470,15 @@
   color: var(--color-selected-contrast) !important;
 }
 
-/* Remove custom remove button styling - using TldrawUiButton now */
-
-/* Remove custom remove button hover styling - using TldrawUiButton now */
+/* Icon buttons in modifier sub-panel header */
+.modifier-sub-panel__collapse-button,
+.modifier-sub-panel__header-right .tlui-button[type="icon"] {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  padding: 0;
+  flex-shrink: 0;
+}
 
 .modifier-sub-panel__content {
   padding: 4px;
