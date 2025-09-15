@@ -24,30 +24,22 @@ export interface PanelSnapState {
 export interface PanelState {
   id: PanelId
   isCollapsed: boolean
-  isVisible: boolean // Control panel visibility
+  isVisible: boolean
   position: PanelPosition
   size: PanelSize
-  originalSize: PanelSize // Store original size for when expanding from collapsed
-  contentHeight?: number // Measured content height for auto-sizing
-  order: number // For stacking order (z-index)
+  originalSize: PanelSize
+  contentHeight?: number
+  order: number
   isDragging?: boolean
   isResizing?: boolean
-
-  // Legacy docking (for compatibility)
-  isDocked: boolean
-  dockedTo?: PanelId // Which panel this is docked to
-  dockPosition?: 'above' | 'below' | 'left' | 'right'
-
-  // New snap state
   snapState?: PanelSnapState
 }
 
 interface PanelStoreState {
   // State
   panels: Record<PanelId, PanelState>
-  panelOrder: PanelId[] // Order for stacked panels
+  panelOrder: PanelId[]
   activePanelId: PanelId | null
-  draggedPanelId: PanelId | null
 
   // Panel management
   initializePanels: () => void
@@ -67,25 +59,10 @@ interface PanelStoreState {
   // Layout management
   resetPanelLayout: () => void
   initializeRightAlignedLayout: () => void
-  recalculatePanelPositions: () => void
   bringPanelToFront: (id: PanelId) => void
 
   // Stacked panel ordering
   setPanelOrder: (order: PanelId[]) => void
-
-  // Drag and drop (legacy - for compatibility)
-  startDragging: (id: PanelId) => void
-  stopDragging: () => void
-  reorderPanels: (fromId: PanelId, toId: PanelId, position: 'above' | 'below') => void
-
-  // Docking (legacy - for compatibility)
-  dockPanel: (panelId: PanelId, targetId: PanelId, position: 'above' | 'below' | 'left' | 'right') => void
-  undockPanel: (panelId: PanelId) => void
-
-  // Utilities
-  getPanelById: (id: PanelId) => PanelState | undefined
-  getPanelsByOrder: () => PanelState[]
-  getDockedPanels: (id: PanelId) => PanelState[]
 }
 
 // Panel layout constants
@@ -99,9 +76,10 @@ const calculateRightAlignedPositions = (panels?: Record<PanelId, PanelState>) =>
   const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
   const rightX = viewportWidth - PANEL_WIDTH - RIGHT_MARGIN
 
-  // Use calculated heights based on content structure
-  const propertiesHeight = panels?.properties?.contentHeight || (32 + (5 * 40) + 16) // header + 5 rows + padding = 248
-  const styleHeight = panels?.style?.contentHeight || (32 + (40 + 50 + 50 + 40) + 16) // header + mixed rows + padding = 228
+  // Use more accurate heights based on actual CSS measurements
+  // Each input row is ~32px, content padding is 16px total (8px floating + 8px inner)
+  const propertiesHeight = panels?.properties?.contentHeight || 208 // header + 5 rows + gaps + padding
+  const styleHeight = panels?.style?.contentHeight || 188 // header + 4 rows + gaps + padding
 
   return {
     properties: {
@@ -127,14 +105,13 @@ const createDefaultPanels = (): Record<PanelId, PanelState> => {
     properties: {
       id: 'properties',
       isCollapsed: false,
-      isVisible: true, // Always visible
+      isVisible: true,
       position: positions.properties,
-      size: { width: PANEL_WIDTH, height: 248 },
-      originalSize: { width: PANEL_WIDTH, height: 248 },
+      size: { width: PANEL_WIDTH, height: 208 },
+      originalSize: { width: PANEL_WIDTH, height: 208 },
       order: 0,
       isDragging: false,
       isResizing: false,
-      isDocked: false,
       snapState: {
         snappedToBrowser: ['right', 'top'],
         snappedToPanels: []
@@ -143,14 +120,13 @@ const createDefaultPanels = (): Record<PanelId, PanelState> => {
     style: {
       id: 'style',
       isCollapsed: false,
-      isVisible: false, // Hidden until shape selected
+      isVisible: false,
       position: positions.style,
-      size: { width: PANEL_WIDTH, height: 228 },
-      originalSize: { width: PANEL_WIDTH, height: 228 },
+      size: { width: PANEL_WIDTH, height: 188 },
+      originalSize: { width: PANEL_WIDTH, height: 188 },
       order: 1,
       isDragging: false,
       isResizing: false,
-      isDocked: false,
       snapState: {
         snappedToBrowser: ['right'],
         snappedToPanels: [{
@@ -162,14 +138,13 @@ const createDefaultPanels = (): Record<PanelId, PanelState> => {
     modifiers: {
       id: 'modifiers',
       isCollapsed: false,
-      isVisible: false, // Hidden until shape selected
+      isVisible: false,
       position: positions.modifiers,
       size: { width: PANEL_WIDTH, height: 400 },
       originalSize: { width: PANEL_WIDTH, height: 400 },
       order: 2,
       isDragging: false,
       isResizing: false,
-      isDocked: false,
       snapState: {
         snappedToBrowser: ['right'],
         snappedToPanels: [{
@@ -187,9 +162,8 @@ export const usePanelStore = create<PanelStoreState>()(
   subscribeWithSelector((set, get) => ({
     // Initial state
     panels: defaultPanels,
-    panelOrder: ['properties', 'style', 'modifiers'], // Default stacked order
+    panelOrder: ['properties', 'style', 'modifiers'],
     activePanelId: null,
-    draggedPanelId: null,
 
     // Initialize panels with default configuration
     initializePanels: () => {
@@ -516,30 +490,6 @@ export const usePanelStore = create<PanelStoreState>()(
       set({ panels: createDefaultPanels() })
     },
 
-    // Recalculate panel positions based on current content heights
-    recalculatePanelPositions: () => {
-      set(state => {
-        const newPositions = calculateRightAlignedPositions(state.panels)
-        const updatedPanels = { ...state.panels }
-
-        // Update positions for panels that are still snapped to the right and following the stack order
-        Object.keys(newPositions).forEach(panelId => {
-          const panel = updatedPanels[panelId as PanelId]
-          if (panel && panel.snapState?.snappedToBrowser.includes('right')) {
-            updatedPanels[panelId as PanelId] = {
-              ...panel,
-              position: newPositions[panelId as PanelId]
-            }
-          }
-        })
-
-        return {
-          ...state,
-          panels: updatedPanels
-        }
-      })
-    },
-
     // Bring panel to front (highest z-index)
     bringPanelToFront: (id: PanelId) => {
       const panels = get().panels
@@ -554,128 +504,6 @@ export const usePanelStore = create<PanelStoreState>()(
           }
         }
       }))
-    },
-
-    // Start dragging a panel
-    startDragging: (id: PanelId) => {
-      set({ draggedPanelId: id })
-      get().setActivePanel(id)
-    },
-
-    // Stop dragging
-    stopDragging: () => {
-      set({ draggedPanelId: null })
-    },
-
-    // Reorder panels (for drag and drop)
-    reorderPanels: (fromId: PanelId, toId: PanelId, position: 'above' | 'below') => {
-      const panels = get().panels
-      const fromPanel = panels[fromId]
-      const toPanel = panels[toId]
-
-      if (!fromPanel || !toPanel) return
-
-      // Calculate new position based on drop position
-      const newY = position === 'above'
-        ? toPanel.position.y - 10
-        : toPanel.position.y + toPanel.size.height + 10
-
-      set(state => ({
-        panels: {
-          ...state.panels,
-          [fromId]: {
-            ...fromPanel,
-            position: {
-              ...fromPanel.position,
-              y: newY
-            }
-          }
-        }
-      }))
-    },
-
-    // Dock a panel to another panel
-    dockPanel: (panelId: PanelId, targetId: PanelId, position: 'above' | 'below' | 'left' | 'right') => {
-      const panels = get().panels
-      const panel = panels[panelId]
-      const targetPanel = panels[targetId]
-
-      if (!panel || !targetPanel) return
-
-      // Calculate docked position
-      let newPosition = { ...panel.position }
-
-      switch (position) {
-        case 'above':
-          newPosition = {
-            x: targetPanel.position.x,
-            y: targetPanel.position.y - panel.size.height
-          }
-          break
-        case 'below':
-          newPosition = {
-            x: targetPanel.position.x,
-            y: targetPanel.position.y + targetPanel.size.height
-          }
-          break
-        case 'left':
-          newPosition = {
-            x: targetPanel.position.x - panel.size.width,
-            y: targetPanel.position.y
-          }
-          break
-        case 'right':
-          newPosition = {
-            x: targetPanel.position.x + targetPanel.size.width,
-            y: targetPanel.position.y
-          }
-          break
-      }
-
-      set(state => ({
-        panels: {
-          ...state.panels,
-          [panelId]: {
-            ...panel,
-            position: newPosition,
-            isDocked: true,
-            dockedTo: targetId,
-            dockPosition: position
-          }
-        }
-      }))
-    },
-
-    // Undock a panel
-    undockPanel: (panelId: PanelId) => {
-      set(state => ({
-        panels: {
-          ...state.panels,
-          [panelId]: {
-            ...state.panels[panelId],
-            isDocked: false,
-            dockedTo: undefined,
-            dockPosition: undefined
-          }
-        }
-      }))
-    },
-
-    // Get panel by ID
-    getPanelById: (id: PanelId) => {
-      return get().panels[id]
-    },
-
-    // Get panels sorted by order
-    getPanelsByOrder: () => {
-      const panels = get().panels
-      return Object.values(panels).sort((a, b) => a.order - b.order)
-    },
-
-    // Get panels docked to a specific panel
-    getDockedPanels: (id: PanelId) => {
-      const panels = get().panels
-      return Object.values(panels).filter(p => p.dockedTo === id)
     }
   }))
 )

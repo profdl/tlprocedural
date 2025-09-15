@@ -25,33 +25,38 @@ export function useFloatingPanel({
     setPanelSize,
     setPanelDragging,
     setPanelResizing,
+    setPanelSnapState,
+    clearPanelSnapState,
     bringPanelToFront
   } = usePanelStore()
 
   const panel = panels[panelId]
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
-  const [showSnapGuides, setShowSnapGuides] = useState(false)
   const [activeSnapGuides, setActiveSnapGuides] = useState<SnapGuide[]>([])
+  const [mousePosition, setMousePosition] = useState<{ x: number, y: number } | undefined>()
 
-  const { detectSnapping, generateSnapGuides } = useSnapDetection({ panelId })
+  const { detectSnapping, generateSnapGuides } = useSnapDetection({ panelId, mousePosition })
   const { constrainPosition, constrainSize, getDefaultConstraints } = usePanelConstraints()
 
   // Store original position for snap breaking
-  const originalPositionRef = useRef<PanelPosition>()
-  // const snapBreakThreshold = 30 // pixels to drag before breaking snap
+  const originalPositionRef = useRef<PanelPosition | undefined>(undefined)
 
   // Handle drag events
   const handleDragStart = useCallback(() => {
     setIsDragging(true)
-    setShowSnapGuides(true)
     setPanelDragging(panelId, true)
     bringPanelToFront(panelId)
     originalPositionRef.current = panel.position
     onDragStart?.()
   }, [panelId, panel.position, setPanelDragging, bringPanelToFront, onDragStart])
 
-  const handleDrag = useCallback((_e: any, data: DraggableData) => {
+  const handleDrag = useCallback((e: any, data: DraggableData) => {
+    // Update mouse position for snap intent detection
+    if (e.clientX && e.clientY) {
+      setMousePosition({ x: e.clientX, y: e.clientY })
+    }
+
     // Real-time position update during drag
     const newPosition: PanelPosition = { x: data.x, y: data.y }
 
@@ -71,7 +76,6 @@ export function useFloatingPanel({
 
   const handleDragStop = useCallback((_e: any, data: DraggableData) => {
     setIsDragging(false)
-    setShowSnapGuides(false)
     setActiveSnapGuides([])
     setPanelDragging(panelId, false)
 
@@ -84,11 +88,31 @@ export function useFloatingPanel({
     const finalPosition = constrainPosition(snapResult.position, panel.size, 10)
     setPanelPosition(panelId, finalPosition)
 
-    // TODO: Update snap state in store if needed
-    // This could be used for grouped panel movement
+    // Check if we snapped to the top of another panel - bring to front
+    const topSnap = snapResult.snappedToPanels.find(snap => snap.edge === 'top')
+    if (topSnap) {
+      // Bring the dragged panel to front
+      bringPanelToFront(panelId)
+    }
+
+    // Update snap state in store based on final position
+    // This will determine if the panel is snapped to others for height change repositioning
+    // Check if the panel snapped to another panel or browser edge
+    if (snapResult.snappedToPanels.length > 0 || snapResult.snappedToBrowser.length > 0) {
+      setPanelSnapState(panelId, {
+        snappedToBrowser: snapResult.snappedToBrowser,
+        snappedToPanels: snapResult.snappedToPanels
+      })
+    } else {
+      // Panel was moved away from snap positions - clear snap state
+      clearPanelSnapState(panelId)
+    }
+
+    // Clear mouse position
+    setMousePosition(undefined)
 
     onDragStop?.()
-  }, [panelId, panel.size, detectSnapping, constrainPosition, setPanelPosition, setPanelDragging, onDragStop])
+  }, [panelId, panel.size, detectSnapping, constrainPosition, setPanelPosition, setPanelDragging, setPanelSnapState, clearPanelSnapState, bringPanelToFront, onDragStop])
 
   // Handle resize events
   const handleResizeStart = useCallback(() => {

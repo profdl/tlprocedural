@@ -14,6 +14,8 @@ interface SnapGuide {
   start: number
   end: number
   isActive: boolean
+  snapType?: 'top' | 'bottom' | 'left' | 'right' | 'browser'
+  targetPanelId?: PanelId
 }
 
 interface SnapResult {
@@ -32,6 +34,7 @@ interface SnapDetectionProps {
   browserSnapThreshold?: number
   panelSnapThreshold?: number
   snapGap?: number
+  mousePosition?: { x: number, y: number }
 }
 
 // Constants for collapsed panel dimensions
@@ -41,7 +44,8 @@ export function useSnapDetection({
   panelId,
   browserSnapThreshold = 20,
   panelSnapThreshold = 15,
-  snapGap = 8
+  snapGap = 8,
+  mousePosition
 }: SnapDetectionProps) {
   const { panels } = usePanelStore()
 
@@ -66,6 +70,19 @@ export function useSnapDetection({
     }
     return panel.size
   }, [])
+
+  // Determine if dragging towards top or bottom of target panel
+  const getSnapIntent = useCallback((
+    targetPanel: typeof panels[PanelId],
+    mousePos?: { x: number, y: number }
+  ): 'top' | 'bottom' => {
+    if (!mousePos) return 'bottom' // Default to bottom if no mouse position
+
+    const effectiveSize = getEffectivePanelSize(targetPanel)
+    const panelCenterY = targetPanel.position.y + effectiveSize.height / 2
+
+    return mousePos.y < panelCenterY ? 'top' : 'bottom'
+  }, [getEffectivePanelSize])
 
   // Collision detection helper
   const detectCollision = useCallback((rect1: Rectangle, rect2: Rectangle): boolean => {
@@ -137,18 +154,20 @@ export function useSnapDetection({
     // Calculate potential positions around the closest panel (using effective size)
     const target = closestPanel
     const targetEffectiveSize = getEffectivePanelSize(target)
+    const snapIntent = getSnapIntent(target, mousePosition)
+
     const candidatePositions = [
-      // Above
+      // Above (higher priority if intent is 'top')
       {
         x: target.position.x,
         y: target.position.y - size.height - snapGap,
-        priority: 1 // Prefer vertical stacking
+        priority: snapIntent === 'top' ? 0 : 1
       },
-      // Below
+      // Below (higher priority if intent is 'bottom')
       {
         x: target.position.x,
         y: target.position.y + targetEffectiveSize.height + snapGap,
-        priority: 1
+        priority: snapIntent === 'bottom' ? 0 : 1
       },
       // Left
       {
@@ -194,7 +213,7 @@ export function useSnapDetection({
       x: Math.max(0, Math.min(position.x, viewport.width - size.width)),
       y: Math.max(0, Math.min(position.y, viewport.height - size.height))
     }
-  }, [hasCollisions, otherPanels, detectCollision, snapGap, viewport])
+  }, [hasCollisions, otherPanels, detectCollision, snapGap, viewport, getSnapIntent, mousePosition, getEffectivePanelSize])
 
   // Generate snap guides for visual feedback
   const generateSnapGuides = useCallback((
@@ -211,7 +230,8 @@ export function useSnapDetection({
         position: 0,
         start: 0,
         end: viewport.height,
-        isActive: true
+        isActive: true,
+        snapType: 'browser'
       })
     }
 
@@ -221,7 +241,8 @@ export function useSnapDetection({
         position: viewport.width,
         start: 0,
         end: viewport.height,
-        isActive: true
+        isActive: true,
+        snapType: 'browser'
       })
     }
 
@@ -231,7 +252,8 @@ export function useSnapDetection({
         position: 0,
         start: 0,
         end: viewport.width,
-        isActive: true
+        isActive: true,
+        snapType: 'browser'
       })
     }
 
@@ -241,7 +263,8 @@ export function useSnapDetection({
         position: viewport.height,
         start: 0,
         end: viewport.width,
-        isActive: true
+        isActive: true,
+        snapType: 'browser'
       })
     }
 
@@ -260,25 +283,31 @@ export function useSnapDetection({
       const verticalOverlap = !(rect.y + rect.height < panelRect.y || rect.y > panelRect.y + panelRect.height)
 
       if (horizontalOverlap) {
-        // Snap to top edge
+        const snapIntent = getSnapIntent(panel, mousePosition)
+
+        // Snap to top edge (dragging panel will be above target)
         if (Math.abs((rect.y + rect.height) - panelRect.y) <= panelSnapThreshold) {
           guides.push({
             type: 'horizontal',
             position: panelRect.y,
             start: Math.min(rect.x, panelRect.x),
             end: Math.max(rect.x + rect.width, panelRect.x + panelRect.width),
-            isActive: true
+            isActive: true,
+            snapType: 'top',
+            targetPanelId: panel.id
           })
         }
 
-        // Snap to bottom edge
+        // Snap to bottom edge (dragging panel will be below target)
         if (Math.abs(rect.y - (panelRect.y + panelRect.height)) <= panelSnapThreshold) {
           guides.push({
             type: 'horizontal',
             position: panelRect.y + panelRect.height,
             start: Math.min(rect.x, panelRect.x),
             end: Math.max(rect.x + rect.width, panelRect.x + panelRect.width),
-            isActive: true
+            isActive: true,
+            snapType: 'bottom',
+            targetPanelId: panel.id
           })
         }
       }
@@ -291,7 +320,9 @@ export function useSnapDetection({
             position: panelRect.x,
             start: Math.min(rect.y, panelRect.y),
             end: Math.max(rect.y + rect.height, panelRect.y + panelRect.height),
-            isActive: true
+            isActive: true,
+            snapType: 'left',
+            targetPanelId: panel.id
           })
         }
 
@@ -302,14 +333,16 @@ export function useSnapDetection({
             position: panelRect.x + panelRect.width,
             start: Math.min(rect.y, panelRect.y),
             end: Math.max(rect.y + rect.height, panelRect.y + panelRect.height),
-            isActive: true
+            isActive: true,
+            snapType: 'right',
+            targetPanelId: panel.id
           })
         }
       }
     }
 
     return guides
-  }, [otherPanels, browserSnapThreshold, panelSnapThreshold, viewport])
+  }, [otherPanels, browserSnapThreshold, panelSnapThreshold, viewport, getEffectivePanelSize, getSnapIntent, mousePosition])
 
   const detectSnapping = useCallback((
     position: PanelPosition,
@@ -383,8 +416,35 @@ export function useSnapDetection({
         const horizontalOverlap = !(panelRight < otherLeft || panelLeft > otherRight)
 
         if (horizontalOverlap) {
-          // Snap to top of other panel (with gap)
+          const snapIntent = getSnapIntent(otherPanel, mousePosition)
+
+          // Snap to top of other panel (above it)
           if (Math.abs(panelBottom - otherTop) <= panelSnapThreshold) {
+            if (snapIntent === 'top') {
+              // Snap above the target panel
+              snappedPosition.y = otherTop - size.height - snapGap
+              snappedToPanels.push({
+                panelId: otherPanel.id,
+                edge: 'top'
+              })
+              break
+            }
+          }
+          // Snap to bottom of other panel (below it)
+          else if (Math.abs(panelTop - otherBottom) <= panelSnapThreshold) {
+            if (snapIntent === 'bottom') {
+              // Snap below the target panel
+              snappedPosition.y = otherBottom + snapGap
+              snappedToPanels.push({
+                panelId: otherPanel.id,
+                edge: 'bottom'
+              })
+              break
+            }
+          }
+          // Also check if we're close to the panel center and want to snap above
+          else if (Math.abs(panelTop - otherTop) <= panelSnapThreshold && snapIntent === 'top') {
+            // Snap above the target panel
             snappedPosition.y = otherTop - size.height - snapGap
             snappedToPanels.push({
               panelId: otherPanel.id,
@@ -392,8 +452,9 @@ export function useSnapDetection({
             })
             break
           }
-          // Snap to bottom of other panel (with gap)
-          else if (Math.abs(panelTop - otherBottom) <= panelSnapThreshold) {
+          // Check if we're close to the panel center and want to snap below
+          else if (Math.abs(panelBottom - otherBottom) <= panelSnapThreshold && snapIntent === 'bottom') {
+            // Snap below the target panel
             snappedPosition.y = otherBottom + snapGap
             snappedToPanels.push({
               panelId: otherPanel.id,
@@ -436,7 +497,7 @@ export function useSnapDetection({
       hasCollision,
       snapGuides
     }
-  }, [otherPanels, viewport, browserSnapThreshold, panelSnapThreshold, snapGap, generateSnapGuides, hasCollisions, findNearestValidPosition, getEffectivePanelSize])
+  }, [otherPanels, viewport, browserSnapThreshold, panelSnapThreshold, snapGap, generateSnapGuides, hasCollisions, findNearestValidPosition, getEffectivePanelSize, getSnapIntent, mousePosition])
 
   // Get panels that are snapped to a specific panel
   const getPanelsSnappedTo = useCallback((targetPanelId: PanelId): Array<{

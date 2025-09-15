@@ -35,7 +35,8 @@ export function FloatingPanelSystem() {
     initializeRightAlignedLayout,
   } = usePanelStore();
 
-  const { repositionOnResize } = usePanelConstraints();
+  // Panel constraints hook for future use
+  usePanelConstraints();
 
   // Monitor shape selection to control panel visibility
   useSelectionMonitor();

@@ -171,6 +171,8 @@ export function FloatingPanel({
                 key={index}
                 className={`snap-guide snap-guide--${guide.type} ${
                   guide.isActive ? 'snap-guide--active' : ''
+                } ${
+                  guide.snapType ? `snap-guide--${guide.snapType}` : ''
                 }`}
                 style={{
                   position: 'fixed',

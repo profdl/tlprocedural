@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import { useCallback } from 'react'
 import { useEditor, useValue } from 'tldraw'
 import { EnhancedNumberInput } from '../modifiers/ui/EnhancedNumberInput'
 

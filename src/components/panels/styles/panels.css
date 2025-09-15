@@ -1,168 +1,86 @@
-/* Panel System Styles */
-
-.panel-system {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 300px;
-  pointer-events: none;
-  z-index: 1000;
-}
-
-/* Panel Container Base Styles */
-.panel-container {
-  position: absolute;
+/* Panel Item Styles - Used by PanelItem.tsx */
+.panel-item {
   background: var(--color-panel);
   border: 1px solid var(--color-panel-contrast);
   border-radius: var(--radius-3);
-  box-shadow: 0 var(--space-1) var(--space-3) rgba(0, 0, 0, 0.1);
-  display: flex;
-  flex-direction: column;
-  pointer-events: all;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-  min-width: 280px;
-  max-width: 400px;
-  outline: none;
+  overflow: hidden;
+  transition: all 0.2s ease;
 }
 
-.panel-container:focus {
-  outline: none;
+.panel-item:hover {
+  box-shadow: 0 var(--space-1) var(--space-2) rgba(0, 0, 0, 0.1);
 }
 
-.panel-container:hover {
+.panel-item--dragging {
+  opacity: 0.5;
   box-shadow: 0 var(--space-2) var(--space-4) rgba(0, 0, 0, 0.15);
 }
 
-.panel-container--dragging {
-  opacity: 0.9;
-  box-shadow: 0 var(--space-3) var(--space-7) rgba(0, 0, 0, 0.2);
-  cursor: grabbing;
-}
-
-.panel-container--collapsed {
-  height: auto !important;
-}
-
-.panel-container--collapsed .panel-container__content {
+.panel-item--collapsed .panel-item__content {
   display: none;
 }
 
-/* Panel Header */
-.panel-container__header {
+.panel-item--drop-target {
+  border-color: var(--color-selected);
+  background: var(--color-muted);
+}
+
+.panel-item__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0;
-  border-bottom: 1px solid var(--color-panel-contrast);
+  padding: 0 2px 0 0;
   background: var(--color-panel);
-  border-radius: var(--radius-3) var(--radius-3) 0 0;
-  cursor: move;
-  user-select: none;
+  border-bottom: 1px solid var(--color-panel-contrast);
   min-height: 28px;
 }
 
-.panel-container__header-left {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex: 0;
-  margin-right: auto;
-  padding-left: 2px;
-}
-
-.panel-container__header-right {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.panel-container__drag-handle {
+.panel-item__drag-handle {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 20px;
+  height: 28px;
   color: var(--color-text-1);
-  font-size: 18px;
-  border-radius: var(--radius-0);
+  font-size: 16px;
+  cursor: grab;
   transition: all 0.1s ease;
-  padding: 10;
-  width: 16px !important;
-  min-width: 16px !important;
-  max-width: 16px !important;
+  flex-shrink: 0;
+  padding-left: 2px;
 }
 
-.panel-container__drag-handle:hover {
+.panel-item__drag-handle:hover {
   color: var(--color-blue);
 }
 
-.panel-container__drag-handle:active {
+.panel-item__drag-handle:active {
   cursor: grabbing;
 }
 
-/* Remove custom button sizing - let tlui-button handle it */
-
-.panel-container__title {
+.panel-item__title {
   font-size: 11px;
   font-weight: 600;
   color: var(--color-text-1);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   line-height: 1.2;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Remove custom close button styling - using TldrawUiButton now */
+.panel-item__toggle {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  padding: 0;
+  flex-shrink: 0;
+}
 
-/* Remove custom close button hover styling - using TldrawUiButton now */
-
-/* Panel Content */
-.panel-container__content {
-  flex: 1 1 auto;
-  overflow: visible;
-  display: flex;
-  flex-direction: column;
+.panel-item__content {
   padding: 4px;
-  transition: padding 0.2s ease;
-  min-height: 0;
-}
-
-/* Panel Resize Handle */
-.panel-container__resize-handle {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: var(--space-2);
-  cursor: ns-resize;
-  background: transparent;
-}
-
-.panel-container__resize-handle:hover {
-  background: var(--color-selected);
-  opacity: 0.3;
-}
-
-/* Snap Indicator */
-.panel-system__snap-indicator {
-  background: var(--color-selected);
-  opacity: 0.2;
-  pointer-events: none;
-  border-radius: var(--radius-1);
-  animation: pulse 0.5s ease infinite;
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 0.2;
-  }
-  50% {
-    opacity: 0.4;
-  }
-}
-
-/* Drag Overlay */
-.panel-container--drag-overlay {
-  opacity: 0.8;
 }
 
 /* Empty State */
@@ -187,134 +105,6 @@
 
 .panel-empty-state p:last-child {
   margin-bottom: 0;
-}
-
-/* Properties Panel Specific Styles */
-.properties-panel__content {
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-height: fit-content;
-}
-
-.properties-panel__section {
-  margin-bottom: 16px;
-}
-
-.properties-panel__section:last-child {
-  margin-bottom: 0;
-}
-
-.properties-panel__row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.properties-panel__field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.properties-panel__field--full {
-  grid-column: 1 / -1;
-}
-
-.properties-panel__label {
-  font-size: 10px;
-  font-weight: 500;
-  color: var(--color-text-2, #666);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-/* Style Panel Specific Styles */
-.style-panel__content {
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-height: fit-content;
-}
-
-.style-panel__section {
-  margin-bottom: 16px;
-}
-
-.style-panel__section:last-child {
-  margin-bottom: 0;
-}
-
-.style-panel__row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.style-panel__field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.style-panel__field--full {
-  grid-column: 1 / -1;
-}
-
-.style-panel__label {
-  font-size: 10px;
-  font-weight: 500;
-  color: var(--color-text-2, #666);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.style-panel__color-input-container {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.style-panel__color-input {
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--color-panel-contrast, #e0e0e0);
-  border-radius: 4px;
-  cursor: pointer;
-  padding: 0;
-  flex-shrink: 0;
-}
-
-.style-panel__color-text {
-  flex: 1;
-  height: 28px;
-  padding: 4px 6px;
-  border: 1px solid var(--color-panel-contrast, #e0e0e0);
-  border-radius: 4px;
-  background: var(--color-panel, #ffffff);
-  color: var(--color-text-1, #333);
-  font-size: 10px;
-  font-family: monospace;
-}
-
-.style-panel__none-button {
-  padding: 4px 8px;
-  height: 28px;
-  border: 1px solid var(--color-panel-contrast, #e0e0e0);
-  border-radius: 4px;
-  background: var(--color-panel, #ffffff);
-  color: var(--color-text-2, #666);
-  font-size: 10px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.1s ease;
-}
-
-.style-panel__none-button:hover {
-  background: var(--color-muted-1, #f0f0f0);
-  color: var(--color-text-1, #333);
 }
 
 /* Modifiers Panel Specific Styles */
@@ -369,7 +159,7 @@
 /* Modifier Sub-Panel Styles */
 .modifier-sub-panel {
   background: var(--color-panel);
-  border: 1px solid var(--color-muted-1);
+  border: 1px solid var(--color-panel-contrast);
   border-radius: var(--radius-3);
   overflow: hidden;
   transition: all 0.2s ease, transform 0.15s ease;
@@ -394,13 +184,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 4px 0 0;
+  padding: 0 2px 0 0;
   background: var(--color-panel);
   border-bottom: 1px solid var(--color-panel-contrast);
   min-height: 28px;
   width: 100%;
   box-sizing: border-box;
   flex-wrap: nowrap;
+  overflow: hidden;
 }
 
 .modifier-sub-panel__header-left {
@@ -418,6 +209,7 @@
   align-items: center;
   gap: 1px;
   flex: 0 0 auto;
+  flex-shrink: 0;
 }
 
 .modifier-sub-panel__drag-handle {
@@ -471,7 +263,9 @@ button.modifier-sub-panel__apply-button,
   letter-spacing: 0.3px !important;
   padding: 2px 4px !important;
   height: 20px !important;
-  min-width: auto !important;
+  min-width: 35px !important;
+  max-width: 40px !important;
+  width: 40px !important;
   flex-shrink: 0 !important;
   white-space: nowrap !important;
   background: white !important;
@@ -525,6 +319,10 @@ button.modifier-sub-panel__apply-button,
   color: #374151 !important;
   box-shadow: none !important;
   text-shadow: none !important;
+  min-width: 35px !important;
+  max-width: 40px !important;
+  width: 40px !important;
+  flex-shrink: 0 !important;
 }
 
 .modifier-sub-panel__apply-button:hover,
