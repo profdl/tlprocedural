@@ -222,6 +222,12 @@
   justify-content: flex-start;
 }
 
+/* Align the add button to the left */
+.modifiers-panel__actions .add-button {
+  width: auto;
+  margin-right: auto;
+}
+
 /* Make the Add Modifier button smaller in the panel context */
 .modifiers-panel__actions .modifier-controls__add-button {
   padding: 4px 8px;

@@ -9,7 +9,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
+  padding: 0px 6px;
   border-radius: 4px;
   background: white;
   border: 1px solid #2f80ed;
@@ -18,7 +18,8 @@
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
-  min-height: 28px;
+  min-height: 28px !important;
+  height: 28px !important;
   width: auto;
 }
 
@@ -108,4 +109,4 @@
   background: #f5f9ff !important;
   border-color: #1a6fd8 !important;
   color: #1a6fd8 !important;
-} 
+}
