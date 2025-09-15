@@ -87,7 +87,7 @@ interface PanelStoreState {
 
 // Panel layout constants
 const PANEL_WIDTH = 280
-const RIGHT_MARGIN = 20
+const RIGHT_MARGIN = 8  // Reduced margin for closer edge snapping
 const TOP_MARGIN = 8  // Changed from 60 to snap to top
 const PANEL_GAP = 8
 
