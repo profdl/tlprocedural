@@ -528,8 +528,8 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
 }
 
 // Helper function to get schema for a modifier type
-export function getModifierSchema(type: keyof ModifierSchemas): ModifierSchema {
-  return MODIFIER_SCHEMAS[type]
+export function getModifierSchema(type: keyof ModifierSchemas): ModifierSchema<Record<string, unknown>> {
+  return MODIFIER_SCHEMAS[type] as unknown as ModifierSchema<Record<string, unknown>>
 }
 
 // Type guard functions

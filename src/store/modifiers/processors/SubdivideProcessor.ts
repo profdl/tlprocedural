@@ -1,4 +1,4 @@
-import type { Editor, VecLike } from 'tldraw'
+import type { VecLike } from 'tldraw'
 import type { SubdivideSettings } from '../../../types/pathTypes'
 import type { 
   PathData, 
@@ -17,9 +17,7 @@ export const SubdivideProcessor = new class extends PathModifier<SubdivideSettin
   
   protected modifyPath(
     pathData: PathData,
-    settings: SubdivideSettings,
-    _shapeIndex: number,
-    _editor?: Editor
+    settings: SubdivideSettings
   ): PathModificationResult {
     
     if (!this.validatePathData(pathData) || !this.validateSettings(settings)) {

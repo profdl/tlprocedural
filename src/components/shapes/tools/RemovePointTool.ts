@@ -1,10 +1,10 @@
-import { StateNode, type TLPointerEventInfo, type TLStateNodeConstructor } from '@tldraw/editor'
+import { StateNode, type TLStateNodeConstructor } from '@tldraw/editor'
 import { type BezierShape, type BezierPoint } from '../BezierShape'
 
 export class RemovePointIdle extends StateNode {
   static override id = 'idle'
 
-  override onPointerDown(_info: TLPointerEventInfo) {
+  override onPointerDown() {
     
     // Try different ways to get the page point
     let pagePoint = this.editor.inputs.currentPagePoint

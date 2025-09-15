@@ -70,7 +70,7 @@ export class PolygonShapeUtil extends FlippableShapeUtil<PolygonShape> {
     )
   }
 
-  override indicator(_shape: PolygonShape) {
+  override indicator() {
     return null
   }
 

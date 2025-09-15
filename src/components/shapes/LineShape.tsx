@@ -129,7 +129,7 @@ export class LineShapeUtil extends FlippableShapeUtil<LineShape> {
       {
         id: 'start',
         type: 'vertex',
-        index: 'a1' as const,
+        index: 'a1' as any,
         x: startX,
         y: startY,
         canSnap: true,
@@ -137,7 +137,7 @@ export class LineShapeUtil extends FlippableShapeUtil<LineShape> {
       {
         id: 'end',
         type: 'vertex',
-        index: 'a2' as const,
+        index: 'a2' as any,
         x: endX,
         y: endY,
         canSnap: true,

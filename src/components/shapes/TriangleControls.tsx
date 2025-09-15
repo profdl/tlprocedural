@@ -81,10 +81,10 @@ export const TriangleControls = track(({ shapes }: TriangleControlsProps) => {
             w: w,
             h: h,
             geo: 'triangle',
-            color: tldrawColor as const,
+            color: tldrawColor as any,
             fill: fill ? 'solid' : 'none',
             dash: 'solid',
-            size: size as const,
+            size: size as any,
           }
         })
         

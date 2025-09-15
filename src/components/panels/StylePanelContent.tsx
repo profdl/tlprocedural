@@ -22,9 +22,9 @@ export function StylePanelContent() {
       const firstProps = firstShape.props as Record<string, unknown>
 
       const styles = {
-        strokeWidth: firstProps.strokeWidth ?? 2,
-        strokeColor: firstProps.color ?? 'black',
-        fillColor: firstProps.fill ?? 'none',
+        strokeWidth: (firstProps.strokeWidth as number) ?? 2,
+        strokeColor: (firstProps.color as string) ?? 'black',
+        fillColor: (firstProps.fill as string) ?? 'none',
         opacity: (firstShape.opacity ?? 1) * 100
       }
 
@@ -32,9 +32,9 @@ export function StylePanelContent() {
       const allSame = selectedShapes.every(shape => {
         const props = shape.props as Record<string, unknown>
         return (
-          (props.strokeWidth ?? 2) === styles.strokeWidth &&
-          (props.color ?? 'black') === styles.strokeColor &&
-          (props.fill ?? 'none') === styles.fillColor &&
+          ((props.strokeWidth as number) ?? 2) === styles.strokeWidth &&
+          ((props.color as string) ?? 'black') === styles.strokeColor &&
+          ((props.fill as string) ?? 'none') === styles.fillColor &&
           ((shape.opacity ?? 1) * 100) === styles.opacity
         )
       })
@@ -54,7 +54,7 @@ export function StylePanelContent() {
 
       // Handle opacity separately as it's a shape property, not a prop
       if ('opacity' in updates) {
-        newShape.opacity = updates.opacity / 100
+        newShape.opacity = (updates.opacity as number) / 100
       }
 
       // Handle stroke width

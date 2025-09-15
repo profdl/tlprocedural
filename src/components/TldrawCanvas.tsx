@@ -643,14 +643,14 @@ export function TldrawCanvas() {
               }
               
               // Simple bounds calculation for the new points
-              const allPoints = newPoints.flatMap(p => [
+              const allPoints = newPoints.flatMap((p: any) => [
                 { x: p.x, y: p.y },
                 ...(p.cp1 ? [p.cp1] : []),
                 ...(p.cp2 ? [p.cp2] : [])
               ])
               
-              const xs = allPoints.map(p => p.x)
-              const ys = allPoints.map(p => p.y)
+              const xs = allPoints.map((p: any) => p.x)
+              const ys = allPoints.map((p: any) => p.y)
               const minX = Math.min(...xs)
               const minY = Math.min(...ys)
               const maxX = Math.max(...xs)
@@ -660,7 +660,7 @@ export function TldrawCanvas() {
               const newH = Math.max(1, maxY - minY)
               
               // Normalize points to new bounds
-              const normalizedPoints = newPoints.map(p => ({
+              const normalizedPoints = newPoints.map((p: any) => ({
                 x: p.x - minX,
                 y: p.y - minY,
                 cp1: p.cp1 ? { x: p.cp1.x - minX, y: p.cp1.y - minY } : undefined,
@@ -722,17 +722,17 @@ export function TldrawCanvas() {
     // Handle keyboard events for bezier edit mode
     const handleKeyDown = (e: KeyboardEvent) => {
       const editingBezierShape = editor.getOnlySelectedShape() as TLShape | null
-      if (!editingBezierShape || editingBezierShape.type !== 'bezier' || !editingBezierShape.props.editMode) {
+      if (!editingBezierShape || editingBezierShape.type !== 'bezier' || !(editingBezierShape.props as any).editMode) {
         return
       }
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        const selectedIndices = editingBezierShape.props.selectedPointIndices || []
+        const selectedIndices = (editingBezierShape.props as any).selectedPointIndices || []
         
         if (selectedIndices.length > 0) {
           
           // Don't allow deletion if it would leave less than 2 points
-          const currentPoints = editingBezierShape.props.points || []
+          const currentPoints = (editingBezierShape.props as any).points || []
           if (currentPoints.length - selectedIndices.length < 2) {
             return
           }

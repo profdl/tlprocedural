@@ -18,8 +18,7 @@ export interface ConvertToPathResult {
  */
 export function convertShapeForPathModification(
   shape: TLShape,
-  pathData: PathData,
-  editor?: Editor
+  pathData: PathData
 ): ConvertToPathResult {
   
   // For shapes that can already store path data, no conversion needed
@@ -30,7 +29,7 @@ export function convertShapeForPathModification(
   
   // For complex path modifications, convert simple shapes to Bezier
   if (shouldConvertToBezier(pathData)) {
-    const convertedShape = convertToBezierShape(shape, pathData, editor)
+    const convertedShape = convertToBezierShape(shape, pathData)
     if (convertedShape) {
       return { shouldConvert: true, convertedShape }
     }
@@ -72,8 +71,7 @@ function shouldConvertToBezier(pathData: PathData): boolean {
  */
 function convertToBezierShape(
   originalShape: TLShape,
-  pathData: PathData,
-  _editor?: Editor
+  pathData: PathData
 ): BezierShape | null {
   
   if (pathData.type !== 'points') {
@@ -159,11 +157,10 @@ export function createShapeConversionOperation(
  */
 export function enhancedPathToShape(
   pathData: PathData,
-  originalShape: TLShape,
-  editor?: Editor
+  originalShape: TLShape
 ): Partial<TLShape> | TLShape | null {
   
-  const conversionResult = convertShapeForPathModification(originalShape, pathData, editor)
+  const conversionResult = convertShapeForPathModification(originalShape, pathData)
   
   if (conversionResult.shouldConvert && conversionResult.convertedShape) {
     // Return the fully converted shape

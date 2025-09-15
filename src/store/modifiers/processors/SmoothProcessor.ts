@@ -1,4 +1,4 @@
-import type { Editor, VecLike } from 'tldraw'
+import type { VecLike } from 'tldraw'
 import type { SmoothSettings } from '../../../types/pathTypes'
 import type { 
   PathData, 
@@ -17,9 +17,7 @@ export const SmoothProcessor = new class extends PathModifier<SmoothSettings> {
   
   protected modifyPath(
     pathData: PathData,
-    settings: SmoothSettings,
-    _shapeIndex: number,
-    _editor?: Editor
+    settings: SmoothSettings
   ): PathModificationResult {
     
     if (!this.validatePathData(pathData) || !this.validateSettings(settings)) {

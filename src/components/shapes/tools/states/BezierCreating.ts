@@ -1,10 +1,10 @@
-import { 
-  StateNode, 
-  type TLPointerEventInfo, 
+import {
+  StateNode,
+  type TLPointerEventInfo,
   type TLKeyboardEventInfo,
   createShapeId,
   Vec,
-  type TLShapePartial
+  type TLShapePartial,
 } from '@tldraw/editor'
 import { type BezierShape, type BezierPoint } from '../../BezierShape'
 import { BEZIER_THRESHOLDS, BEZIER_HANDLES } from '../../utils/bezierConstants'
@@ -394,7 +394,7 @@ export class BezierCreating extends StateNode {
           w,
           h,
           points: normalizedPoints,
-          color: (this.editor.getStyleForNextShape('color' as const) as string) || '#000000',
+          color: '#000000', // Default color
           strokeWidth: 2,
           fill: false,
           isClosed: isClosed,
@@ -456,7 +456,7 @@ export class BezierCreating extends StateNode {
         w,
         h,
         points: normalizedPoints,
-        color: (this.editor.getStyleForNextShape('color' as const) as string) || '#000000',
+        color: '#000000', // Default color
         strokeWidth: 2,
         fill: false,
         isClosed: isClosed,

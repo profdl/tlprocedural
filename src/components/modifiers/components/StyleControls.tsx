@@ -25,9 +25,9 @@ export function StyleControls({ selectedShapes }: StyleControlsProps) {
     const firstProps = firstShape.props as Record<string, unknown>
 
     const styles = {
-      strokeWidth: firstProps.strokeWidth ?? 2,
-      color: firstProps.color ?? '#000000',
-      fill: firstProps.fill ?? false,
+      strokeWidth: (firstProps.strokeWidth as number) ?? 2,
+      color: (firstProps.color as string) ?? '#000000',
+      fill: (firstProps.fill as boolean) ?? false,
       opacity: (firstShape.opacity ?? 1) * 100 // Convert to percentage
     }
 
@@ -35,9 +35,9 @@ export function StyleControls({ selectedShapes }: StyleControlsProps) {
     const allSame = selectedShapes.every(shape => {
       const props = shape.props as Record<string, unknown>
       return (
-        (props.strokeWidth ?? 2) === styles.strokeWidth &&
-        (props.color ?? '#000000') === styles.color &&
-        (props.fill ?? false) === styles.fill &&
+        ((props.strokeWidth as number) ?? 2) === styles.strokeWidth &&
+        ((props.color as string) ?? '#000000') === styles.color &&
+        ((props.fill as boolean) ?? false) === styles.fill &&
         ((shape.opacity ?? 1) * 100) === styles.opacity
       )
     })
@@ -56,7 +56,7 @@ export function StyleControls({ selectedShapes }: StyleControlsProps) {
 
       // Handle opacity separately as it's a shape property, not a prop
       if ('opacity' in updates) {
-        newShape.opacity = updates.opacity / 100 // Convert from percentage
+        newShape.opacity = (updates.opacity as number) / 100 // Convert from percentage
       }
 
       // Handle other style properties

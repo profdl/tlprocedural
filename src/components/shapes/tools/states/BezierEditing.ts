@@ -1,7 +1,6 @@
 import {
   StateNode,
   type TLPointerEventInfo,
-  type TLClickEventInfo,
   type TLKeyboardEventInfo,
   type TLShapeId,
 } from 'tldraw'
@@ -97,7 +96,7 @@ export class BezierEditing extends StateNode {
     }
   }
 
-  override onDoubleClick(_info: TLClickEventInfo) {
+  override onDoubleClick() {
     if (!this.targetShape || !this.targetShapeId) return
 
     const shape = this.editor.getShape(this.targetShapeId!) as BezierShape
@@ -138,7 +137,7 @@ export class BezierEditing extends StateNode {
   private addPointToSegment(shape: BezierShape, segmentInfo: { segmentIndex: number; t: number }) {
     const { segmentIndex, t } = segmentInfo
     // Use BezierState service for point addition
-    const updatedShape = BezierState.addPointToSegment(shape, segmentIndex, t, this.editor)
+    const updatedShape = BezierState.addPointToSegment(shape, segmentIndex, t)
     // Recalculate bounds after addition
     const finalShape = BezierBounds.recalculateShapeBounds(updatedShape, updatedShape.props.points)
     

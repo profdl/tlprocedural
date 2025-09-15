@@ -102,7 +102,7 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
           // Update the original shape with the modified data
           editor.run(() => {
             // Create update object preserving all properties
-            const updateData: Partial<TLShape> = {
+            const updateData = {
               id: actualOriginalShape.id,
               type: actualOriginalShape.type,
               props: {
@@ -113,7 +113,7 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
             
             // Include metadata if the shape was path-modified
             if (modifiedShape.meta?.pathModified) {
-              updateData.meta = {
+              (updateData as any).meta = {
                 ...actualOriginalShape.meta,
                 ...modifiedShape.meta
               }
@@ -252,7 +252,7 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
 
           // Update the original shape with the modified data
           editor.run(() => {
-            const updateData: Partial<TLShape> = {
+            const updateData = {
               id: actualOriginalShape.id,
               type: actualOriginalShape.type,
               props: {
@@ -262,7 +262,7 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
             }
 
             if (modifiedShape.meta?.pathModified) {
-              updateData.meta = {
+              (updateData as any).meta = {
                 ...actualOriginalShape.meta,
                 ...modifiedShape.meta
               }

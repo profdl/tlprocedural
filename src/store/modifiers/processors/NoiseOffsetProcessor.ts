@@ -1,4 +1,4 @@
-import type { Editor, VecLike } from 'tldraw'
+import type { VecLike } from 'tldraw'
 import type { NoiseOffsetSettings } from '../../../types/pathTypes'
 import type { 
   PathData, 
@@ -17,9 +17,7 @@ export const NoiseOffsetProcessor = new class extends PathModifier<NoiseOffsetSe
   
   protected modifyPath(
     pathData: PathData,
-    settings: NoiseOffsetSettings,
-    _shapeIndex: number,
-    _editor?: Editor
+    settings: NoiseOffsetSettings
   ): PathModificationResult {
     
     if (!this.validatePathData(pathData) || !this.validateSettings(settings)) {

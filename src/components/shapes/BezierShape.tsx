@@ -298,7 +298,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
 
   // Delete selected points - now delegated to BezierState service
   private deleteSelectedPoints(shape: BezierShape): BezierShape {
-    const updatedShape = BezierState.deleteSelectedPoints(shape, this.editor)
+    const updatedShape = BezierState.deleteSelectedPoints(shape)
     // Recalculate bounds after deletion
     return BezierBounds.recalculateShapeBounds(updatedShape, updatedShape.props.points)
   }
@@ -374,7 +374,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
           const selectedIndices = shape.props.selectedPointIndices || []
           if (selectedIndices.length > 0) {
             bezierLog('Delete', 'Deleting selected points:', selectedIndices)
-            return this.deleteSelectedPoints(shape, selectedIndices)
+            return this.deleteSelectedPoints(shape)
           }
           // If no points selected, don't delete the shape - let TldrawCanvas handle this
           bezierLog('Delete', 'No points selected, not deleting anything')

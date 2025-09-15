@@ -5,7 +5,6 @@ import {
   useValue,
   useTools,
   useIsToolSelected,
-  useAssetUrls,
   type TLUiToolItem
 } from 'tldraw'
 
@@ -13,12 +12,10 @@ import {
 function ToolMenuItem({ toolId, tools }: { toolId: string, tools: Record<string, TLUiToolItem> }) {
   const item = tools[toolId] as TLUiToolItem | undefined
   const selected = useIsToolSelected(item)
-  const assetUrls = useAssetUrls()
-
   if (!item) return null
 
-  // Get the icon URL from asset URLs
-  const iconUrl = assetUrls.icons[item.icon] || item.icon
+  // Get the icon URL from asset system
+  const iconUrl = item.icon
 
   return (
     <TldrawUiButton

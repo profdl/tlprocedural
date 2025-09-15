@@ -157,8 +157,7 @@ export class BezierState {
    * Delete selected points from shape
    */
   static deleteSelectedPoints(
-    shape: BezierShape,
-    _editor: Editor
+    shape: BezierShape
   ): BezierShape {
     const selectedIndices = shape.props.selectedPointIndices || []
     if (selectedIndices.length === 0) return shape
@@ -258,8 +257,7 @@ export class BezierState {
   static addPointToSegment(
     shape: BezierShape,
     segmentIndex: number,
-    t: number,
-    _editor: Editor
+    t: number
   ): BezierShape {
     const newPoints = [...shape.props.points]
     const p1 = newPoints[segmentIndex]

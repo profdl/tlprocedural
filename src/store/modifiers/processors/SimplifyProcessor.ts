@@ -1,4 +1,4 @@
-import type { Editor, VecLike } from 'tldraw'
+import type { VecLike } from 'tldraw'
 import type { SimplifySettings } from '../../../types/pathTypes'
 import type { 
   PathData, 
@@ -17,9 +17,7 @@ export const SimplifyProcessor = new class extends PathModifier<SimplifySettings
   
   protected modifyPath(
     pathData: PathData,
-    settings: SimplifySettings,
-    _shapeIndex: number,
-    _editor?: Editor
+    settings: SimplifySettings
   ): PathModificationResult {
     
     if (!this.validatePathData(pathData) || !this.validateSettings(settings)) {

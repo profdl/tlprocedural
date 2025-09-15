@@ -91,8 +91,8 @@ export function PropertiesPanelContent() {
           ...shape,
           props: {
             ...props,
-            w: dimension === 'width' ? props.w * scale : props.w,
-            h: dimension === 'height' ? props.h * scale : props.h
+            w: dimension === 'width' ? (props.w as number) * scale : props.w,
+            h: dimension === 'height' ? (props.h as number) * scale : props.h
           }
         })
       }

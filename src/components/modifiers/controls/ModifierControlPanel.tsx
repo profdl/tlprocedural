@@ -41,7 +41,7 @@ export function ModifierControlPanel<T extends keyof ModifierSchemas>({
                 </label>
                 <div className="modifier-input-row__control">
                   <EnhancedNumberInput
-                    value={settings[inputConfig.field] ?? 0}
+                    value={(settings[inputConfig.field] as number) ?? 0}
                     min={inputConfig.min}
                     max={inputConfig.max}
                     step={inputConfig.step}
@@ -62,7 +62,7 @@ export function ModifierControlPanel<T extends keyof ModifierSchemas>({
                 </label>
                 <div className="modifier-input-row__control">
                   <ModifierCheckboxInput
-                    checked={settings[inputConfig.field] ?? false}
+                    checked={(settings[inputConfig.field] as boolean) ?? false}
                     onChange={(checked) => updateSetting(inputConfig.field, checked)}
                   />
                 </div>
@@ -78,8 +78,8 @@ export function ModifierControlPanel<T extends keyof ModifierSchemas>({
                 </label>
                 <div className="modifier-input-row__control">
                   <ModifierSelectInput
-                    value={settings[inputConfig.field] ?? inputConfig.options[0]?.value}
-                    options={inputConfig.options}
+                    value={(settings[inputConfig.field] as string | number) ?? inputConfig.options[0]?.value}
+                    options={inputConfig.options.map(opt => ({ ...opt, value: opt.value as string | number }))}
                     onChange={(value) => updateSetting(inputConfig.field, value)}
                   />
                 </div>

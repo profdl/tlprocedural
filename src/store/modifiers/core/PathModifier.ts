@@ -93,7 +93,7 @@ export abstract class PathModifier<TSettings extends PathModifierSettings = Path
       )
 
       // Try enhanced path-to-shape conversion first
-      const enhancedResult = enhancedPathToShape(result.pathData, instance.shape, editor)
+      const enhancedResult = enhancedPathToShape(result.pathData, instance.shape)
       
       let updatedShape: TLShape
       
@@ -165,8 +165,8 @@ export abstract class PathModifier<TSettings extends PathModifierSettings = Path
   protected clonePathData(pathData: PathData): PathData {
     return {
       ...pathData,
-      data: Array.isArray(pathData.data) 
-        ? [...pathData.data as unknown[]] 
+      data: Array.isArray(pathData.data)
+        ? [...pathData.data as any[]]
         : pathData.data,
       bounds: pathData.bounds ? { ...pathData.bounds } : undefined
     }

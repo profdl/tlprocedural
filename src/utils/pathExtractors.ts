@@ -197,7 +197,7 @@ function extractDrawPath(shape: TLShape, editor?: Editor): PointsPathData | null
   if (!segments) return null
   
   const points: VecLike[] = []
-  segments.forEach((segment: Record<string, unknown>) => {
+  segments.forEach((segment: any) => {
     if (segment.points && Array.isArray(segment.points)) {
       segment.points.forEach((point: Record<string, unknown>) => {
         points.push({ x: point.x as number, y: point.y as number })
@@ -341,7 +341,7 @@ function pathToTriangle(pathData: PathData, shape: TLShape): Partial<TLShape> | 
       meta: {
         ...shape.meta,
         pathModified: true,
-        originalBounds: { w: (shape.props as Record<string, unknown>).w, h: (shape.props as Record<string, unknown>).h }
+        originalBounds: { w: (shape.props as any).w, h: (shape.props as any).h }
       }
     }
   } else if (pathData.bounds) {
@@ -377,7 +377,7 @@ function pathToCircle(pathData: PathData, shape: TLShape): Partial<TLShape> | nu
       meta: {
         ...shape.meta,
         pathModified: true,
-        originalBounds: { w: (shape.props as Record<string, unknown>).w, h: (shape.props as Record<string, unknown>).h }
+        originalBounds: { w: (shape.props as any).w, h: (shape.props as any).h }
       }
     }
   } else if (pathData.bounds) {
