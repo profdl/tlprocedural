@@ -97,10 +97,10 @@ export function ModifierSubPanel({
             type="normal"
             onClick={onToggle}
             onPointerDown={stopPropagation}
-            title={modifier.enabled ? "Applied" : "Apply"}
-            className={`modifier-sub-panel__apply-button ${modifier.enabled ? 'modifier-sub-panel__apply-button--enabled' : ''}`}
+            title="Apply modifier (creates permanent clones and removes modifier)"
+            className="modifier-sub-panel__apply-button"
           >
-            {modifier.enabled ? "APPLIED" : "APPLY"}
+            APPLY
           </TldrawUiButton>
 
           {/* Collapse/Expand button */}

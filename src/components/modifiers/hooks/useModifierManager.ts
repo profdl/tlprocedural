@@ -21,6 +21,7 @@ interface UseModifierManagerReturn {
   addModifier: (type: ModifierType) => void
   removeModifier: (modifierId: string) => void
   toggleModifier: (modifierId: string) => void
+  applyModifier: (modifierId: string) => void
   applyModifiers: () => void
 }
 
@@ -188,6 +189,109 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
     }
   }, [shapeModifiers, store])
 
+  const applyModifier = useCallback((modifierId: string) => {
+    if (!selectedShape || !editor) return
+
+    const modifier = shapeModifiers.find(m => m.id === modifierId)
+    if (!modifier) return
+
+    // Use original shape ID for clones/processed shapes
+    const originalShapeId = getOriginalShapeId(selectedShape) || selectedShape.id
+
+    try {
+      // Get the actual original shape for processing
+      const actualOriginalShape = originalShapeId !== selectedShape.id
+        ? editor.getShape(originalShapeId as any) || selectedShape
+        : selectedShape
+
+      // Process only this specific modifier
+      const modifiersToProcess = [modifier]
+
+      // Categorize the modifier
+      const isPathModifier = isPathModifierType(modifier.type)
+
+      if (isPathModifier) {
+        // Handle path modifiers: update the original shape with modified path data
+        const result = ModifierStack.processModifiers(actualOriginalShape, modifiersToProcess, editor)
+        const transformedShapes = extractShapesFromState(result)
+
+        if (transformedShapes.length > 0) {
+          const modifiedShape = transformedShapes[0]
+
+          // Update the original shape with the modified data
+          editor.run(() => {
+            const updateData: any = {
+              id: actualOriginalShape.id,
+              type: actualOriginalShape.type,
+              props: {
+                ...actualOriginalShape.props,
+                ...modifiedShape.props
+              }
+            }
+
+            if (modifiedShape.meta?.pathModified) {
+              updateData.meta = {
+                ...actualOriginalShape.meta,
+                ...modifiedShape.meta
+              }
+            }
+
+            editor.updateShape(updateData)
+
+            // Clean up any existing clones from the modifier system
+            const existingClones = editor.getCurrentPageShapes().filter((s: TLShape) => {
+              const originalId = getOriginalShapeId(s)
+              return originalId === actualOriginalShape.id && s.meta?.stackProcessed
+            })
+
+            if (existingClones.length > 0) {
+              editor.deleteShapes(existingClones.map((s: TLShape) => s.id))
+            }
+
+            // Restore original shape visibility
+            editor.updateShape({
+              id: actualOriginalShape.id,
+              type: actualOriginalShape.type,
+              opacity: 1
+            })
+          }, { history: 'record' })
+
+          // Remove the applied modifier
+          store.deleteModifier(modifier.id)
+        }
+      } else {
+        // Handle array modifiers: create new shapes
+        const result = ModifierStack.processModifiers(actualOriginalShape, modifiersToProcess, editor)
+        const transformedShapes = extractShapesFromState(result)
+
+        // Create actual shapes from the transformed results (skip the first one as it's the original)
+        const shapesToCreate = transformedShapes.slice(1).map(transformedShape => {
+          return {
+            type: transformedShape.type,
+            x: transformedShape.x,
+            y: transformedShape.y,
+            rotation: transformedShape.rotation,
+            props: transformedShape.props,
+            parentId: actualOriginalShape.parentId,
+            meta: {
+              ...transformedShape.meta,
+              appliedFromModifier: true,
+              originalShapeId: actualOriginalShape.id
+            }
+          }
+        })
+
+        if (shapesToCreate.length > 0) {
+          editor.createShapes(shapesToCreate)
+          // Remove the applied modifier
+          store.deleteModifier(modifier.id)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to apply modifier:', error)
+    }
+  }, [selectedShape, editor, shapeModifiers, store])
+
   return {
     selectedShape,
     shapeModifiers,
@@ -195,6 +299,7 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
     addModifier,
     removeModifier,
     toggleModifier,
+    applyModifier,
     applyModifiers
   }
 } 

@@ -59,6 +59,7 @@ export function ModifiersPanelContent() {
     addModifier,
     removeModifier,
     toggleModifier,
+    applyModifier,
     applyModifiers
   } = useModifierManager({ selectedShapes })
 
@@ -132,7 +133,7 @@ export function ModifiersPanelContent() {
                   <ModifierSubPanel
                     key={modifier.id}
                     modifier={modifier}
-                    onToggle={() => toggleModifier(modifier.id)}
+                    onToggle={() => applyModifier(modifier.id)}
                     onRemove={() => removeModifier(modifier.id)}
                     shapeId={selectedShape.id}
                   />
