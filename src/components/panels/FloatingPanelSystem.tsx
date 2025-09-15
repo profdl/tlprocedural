@@ -5,6 +5,7 @@ import { PropertiesPanelContent } from './PropertiesPanelContent'
 import { StylePanelContent } from './StylePanelContent'
 import { ModifiersPanelContent } from './ModifiersPanelContent'
 import { usePanelConstraints } from './hooks/usePanelConstraints'
+import { useSelectionMonitor } from './hooks/useSelectionMonitor'
 import './styles/floating-panels.css'
 
 const PANEL_CONFIGS = {
@@ -35,6 +36,9 @@ export function FloatingPanelSystem() {
   } = usePanelStore()
 
   const { repositionOnResize } = usePanelConstraints()
+
+  // Monitor shape selection to control panel visibility
+  useSelectionMonitor()
 
   // Initialize panels on mount with right-aligned layout
   useEffect(() => {
@@ -75,7 +79,7 @@ export function FloatingPanelSystem() {
         const config = PANEL_CONFIGS[panelId]
         const panel = panels[panelId]
 
-        if (!config || !panel) return null
+        if (!config || !panel || !panel.isVisible) return null
 
         const PanelComponent = config.component
 

@@ -18,6 +18,11 @@
   cursor: default;
   user-select: none;
   transition: box-shadow 0.2s ease, transform 0.1s ease;
+  outline: none;
+}
+
+.floating-panel:focus {
+  outline: none;
 }
 
 .floating-panel__container {
@@ -30,6 +35,11 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  outline: none;
+}
+
+.floating-panel__container:focus {
+  outline: none;
 }
 
 /* Panel States */
@@ -382,8 +392,7 @@
 
 /* Accessibility */
 .floating-panel:focus-within {
-  outline: 2px solid var(--color-focus);
-  outline-offset: 2px;
+  outline: none;
 }
 
 .floating-panel__drag-handle:focus {

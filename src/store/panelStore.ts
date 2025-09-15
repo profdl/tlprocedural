@@ -24,6 +24,7 @@ export interface PanelSnapState {
 export interface PanelState {
   id: PanelId
   isCollapsed: boolean
+  isVisible: boolean // Control panel visibility
   position: PanelPosition
   size: PanelSize
   originalSize: PanelSize // Store original size for when expanding from collapsed
@@ -50,6 +51,7 @@ interface PanelStoreState {
   // Panel management
   initializePanels: () => void
   setPanelCollapsed: (id: PanelId, collapsed: boolean) => void
+  setPanelVisible: (id: PanelId, visible: boolean) => void
   setPanelPosition: (id: PanelId, position: PanelPosition) => void
   setPanelSize: (id: PanelId, size: Partial<PanelSize>) => void
   setActivePanel: (id: PanelId | null) => void
@@ -86,7 +88,7 @@ interface PanelStoreState {
 // Panel layout constants
 const PANEL_WIDTH = 280
 const RIGHT_MARGIN = 20
-const TOP_MARGIN = 60
+const TOP_MARGIN = 8  // Changed from 60 to snap to top
 const PANEL_GAP = 8
 
 // Function to calculate right-aligned positions
@@ -118,6 +120,7 @@ const createDefaultPanels = (): Record<PanelId, PanelState> => {
     properties: {
       id: 'properties',
       isCollapsed: false,
+      isVisible: true, // Always visible
       position: positions.properties,
       size: { width: PANEL_WIDTH, height: 200 },
       originalSize: { width: PANEL_WIDTH, height: 200 },
@@ -126,13 +129,14 @@ const createDefaultPanels = (): Record<PanelId, PanelState> => {
       isResizing: false,
       isDocked: false,
       snapState: {
-        snappedToBrowser: ['right'],
+        snappedToBrowser: ['right', 'top'],
         snappedToPanels: []
       }
     },
     style: {
       id: 'style',
       isCollapsed: false,
+      isVisible: false, // Hidden until shape selected
       position: positions.style,
       size: { width: PANEL_WIDTH, height: 250 },
       originalSize: { width: PANEL_WIDTH, height: 250 },
@@ -151,6 +155,7 @@ const createDefaultPanels = (): Record<PanelId, PanelState> => {
     modifiers: {
       id: 'modifiers',
       isCollapsed: false,
+      isVisible: false, // Hidden until shape selected
       position: positions.modifiers,
       size: { width: PANEL_WIDTH, height: 400 },
       originalSize: { width: PANEL_WIDTH, height: 400 },
@@ -255,6 +260,19 @@ export const usePanelStore = create<PanelStoreState>()(
           panels: updatedPanels
         }
       })
+    },
+
+    // Set panel visibility state
+    setPanelVisible: (id: PanelId, visible: boolean) => {
+      set(state => ({
+        panels: {
+          ...state.panels,
+          [id]: {
+            ...state.panels[id],
+            isVisible: visible
+          }
+        }
+      }))
     },
 
     // Set panel position

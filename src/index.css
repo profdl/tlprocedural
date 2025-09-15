@@ -60,6 +60,54 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
+/* Prevent unwanted focus outlines on panels while preserving accessibility */
+.panel-container,
+.panel-container *,
+.floating-panel,
+.floating-panel *,
+.floating-panel__container,
+.floating-panel__content,
+.panel-container__content,
+.modifier-input-row,
+.style-panel__content,
+[class*="panel"],
+.enhanced-number-input__input,
+.color-input-compact__text,
+.modifier-select-input__select,
+.modifier-number-input__input,
+.modifier-property-input__number {
+  outline: none !important;
+}
+
+/* Remove focus outline from all inputs in panels */
+.panel-container input,
+.panel-container input:focus,
+.panel-container input:focus-visible,
+.floating-panel input,
+.floating-panel input:focus,
+.floating-panel input:focus-visible,
+.style-panel__content input,
+.style-panel__content input:focus,
+.style-panel__content input:focus-visible,
+.properties-panel__content input,
+.properties-panel__content input:focus,
+.properties-panel__content input:focus-visible,
+.modifiers-panel__content input,
+.modifiers-panel__content input:focus,
+.modifiers-panel__content input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Only show focus outlines on buttons when using keyboard navigation */
+button:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #646cff !important;
+  outline-offset: 2px !important;
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;

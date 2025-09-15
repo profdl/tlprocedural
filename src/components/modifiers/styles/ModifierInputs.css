@@ -300,6 +300,8 @@
 
 .enhanced-number-input__input:focus {
   cursor: text;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .enhanced-number-input__unit {
@@ -468,7 +470,12 @@
   font-size: 11px;
   font-weight: 500;
   font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
-  outline: none;
+  outline: none !important;
+}
+
+.color-input-compact__text:focus {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .color-input-compact__picker {
