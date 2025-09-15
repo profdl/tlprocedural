@@ -46,7 +46,7 @@ export function FloatingPanel({
     <Rnd
       size={{
         width: panel.size.width,
-        height: isCollapsed ? 'auto' : panel.size.height
+        height: isCollapsed ? 32 : panel.size.height
       }}
       position={{
         x: panel.position.x,

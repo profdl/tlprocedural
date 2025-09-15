@@ -26,6 +26,7 @@ export interface PanelState {
   isCollapsed: boolean
   position: PanelPosition
   size: PanelSize
+  originalSize: PanelSize // Store original size for when expanding from collapsed
   order: number // For stacking order (z-index)
   isDragging?: boolean
   isResizing?: boolean
@@ -61,6 +62,7 @@ interface PanelStoreState {
 
   // Layout management
   resetPanelLayout: () => void
+  initializeRightAlignedLayout: () => void
   bringPanelToFront: (id: PanelId) => void
 
   // Stacked panel ordering
@@ -81,51 +83,93 @@ interface PanelStoreState {
   getDockedPanels: (id: PanelId) => PanelState[]
 }
 
-// Default panel configurations
-const defaultPanels: Record<PanelId, PanelState> = {
-  properties: {
-    id: 'properties',
-    isCollapsed: false,
-    position: { x: 20, y: 60 },
-    size: { width: 280, height: 200 },
-    order: 0,
-    isDragging: false,
-    isResizing: false,
-    isDocked: false,
-    snapState: {
-      snappedToBrowser: [],
-      snappedToPanels: []
-    }
-  },
-  style: {
-    id: 'style',
-    isCollapsed: false,
-    position: { x: 20, y: 280 },
-    size: { width: 280, height: 250 },
-    order: 1,
-    isDragging: false,
-    isResizing: false,
-    isDocked: false,
-    snapState: {
-      snappedToBrowser: [],
-      snappedToPanels: []
-    }
-  },
-  modifiers: {
-    id: 'modifiers',
-    isCollapsed: false,
-    position: { x: 20, y: 550 },
-    size: { width: 280, height: 400 },
-    order: 2,
-    isDragging: false,
-    isResizing: false,
-    isDocked: false,
-    snapState: {
-      snappedToBrowser: [],
-      snappedToPanels: []
+// Panel layout constants
+const PANEL_WIDTH = 280
+const RIGHT_MARGIN = 20
+const TOP_MARGIN = 60
+const PANEL_GAP = 8
+
+// Function to calculate right-aligned positions
+const calculateRightAlignedPositions = () => {
+  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
+  const rightX = viewportWidth - PANEL_WIDTH - RIGHT_MARGIN
+
+  return {
+    properties: {
+      x: rightX,
+      y: TOP_MARGIN
+    },
+    style: {
+      x: rightX,
+      y: TOP_MARGIN + 200 + PANEL_GAP // Properties height + gap
+    },
+    modifiers: {
+      x: rightX,
+      y: TOP_MARGIN + 200 + PANEL_GAP + 250 + PANEL_GAP // Properties + Style heights + gaps
     }
   }
 }
+
+// Default panel configurations with right-aligned positions
+const createDefaultPanels = (): Record<PanelId, PanelState> => {
+  const positions = calculateRightAlignedPositions()
+
+  return {
+    properties: {
+      id: 'properties',
+      isCollapsed: false,
+      position: positions.properties,
+      size: { width: PANEL_WIDTH, height: 200 },
+      originalSize: { width: PANEL_WIDTH, height: 200 },
+      order: 0,
+      isDragging: false,
+      isResizing: false,
+      isDocked: false,
+      snapState: {
+        snappedToBrowser: ['right'],
+        snappedToPanels: []
+      }
+    },
+    style: {
+      id: 'style',
+      isCollapsed: false,
+      position: positions.style,
+      size: { width: PANEL_WIDTH, height: 250 },
+      originalSize: { width: PANEL_WIDTH, height: 250 },
+      order: 1,
+      isDragging: false,
+      isResizing: false,
+      isDocked: false,
+      snapState: {
+        snappedToBrowser: ['right'],
+        snappedToPanels: [{
+          panelId: 'properties',
+          edge: 'bottom'
+        }]
+      }
+    },
+    modifiers: {
+      id: 'modifiers',
+      isCollapsed: false,
+      position: positions.modifiers,
+      size: { width: PANEL_WIDTH, height: 400 },
+      originalSize: { width: PANEL_WIDTH, height: 400 },
+      order: 2,
+      isDragging: false,
+      isResizing: false,
+      isDocked: false,
+      snapState: {
+        snappedToBrowser: ['right'],
+        snappedToPanels: [{
+          panelId: 'style',
+          edge: 'bottom'
+        }]
+      }
+    }
+  }
+}
+
+const defaultPanels = createDefaultPanels()
 
 export const usePanelStore = create<PanelStoreState>()(
   subscribeWithSelector((set, get) => ({
@@ -137,20 +181,80 @@ export const usePanelStore = create<PanelStoreState>()(
 
     // Initialize panels with default configuration
     initializePanels: () => {
-      set({ panels: defaultPanels })
+      set({ panels: createDefaultPanels() })
+    },
+
+    // Initialize panels with right-aligned layout
+    initializeRightAlignedLayout: () => {
+      const rightAlignedPanels = createDefaultPanels()
+      set({ panels: rightAlignedPanels })
     },
 
     // Set panel collapsed state
     setPanelCollapsed: (id: PanelId, collapsed: boolean) => {
-      set(state => ({
-        panels: {
+      set(state => {
+        const targetPanel = state.panels[id]
+        if (!targetPanel) return state
+
+        // Calculate the height difference
+        const COLLAPSED_HEIGHT = 32
+        const currentHeight = targetPanel.isCollapsed ? COLLAPSED_HEIGHT : targetPanel.size.height
+        const newHeight = collapsed ? COLLAPSED_HEIGHT : targetPanel.originalSize.height
+        const heightDifference = newHeight - currentHeight
+
+        // Update the target panel
+        const updatedPanels = {
           ...state.panels,
           [id]: {
-            ...state.panels[id],
-            isCollapsed: collapsed
+            ...targetPanel,
+            isCollapsed: collapsed,
+            size: {
+              ...targetPanel.size,
+              height: newHeight
+            }
           }
         }
-      }))
+
+        // Find panels that are snapped below this one and adjust their positions
+        Object.values(state.panels).forEach(panel => {
+          if (panel.id !== id && panel.snapState?.snappedToPanels?.some(snap =>
+            snap.panelId === id && snap.edge === 'bottom'
+          )) {
+            // This panel is snapped below the collapsing/expanding panel
+            updatedPanels[panel.id] = {
+              ...updatedPanels[panel.id],
+              position: {
+                ...panel.position,
+                y: panel.position.y + heightDifference
+              }
+            }
+
+            // Recursively update panels snapped below this one
+            const updatePanelsBelowRecursive = (panelId: PanelId, yDelta: number) => {
+              Object.values(state.panels).forEach(p => {
+                if (p.id !== panelId && p.snapState?.snappedToPanels?.some(s =>
+                  s.panelId === panelId && s.edge === 'bottom'
+                )) {
+                  updatedPanels[p.id] = {
+                    ...updatedPanels[p.id],
+                    position: {
+                      ...p.position,
+                      y: p.position.y + yDelta
+                    }
+                  }
+                  updatePanelsBelowRecursive(p.id, yDelta)
+                }
+              })
+            }
+            updatePanelsBelowRecursive(panel.id, heightDifference)
+          }
+        })
+
+        return {
+          ...state,
+          panels: updatedPanels
+        }
+      })
     },
 
     // Set panel position
@@ -168,18 +272,74 @@ export const usePanelStore = create<PanelStoreState>()(
 
     // Set panel size
     setPanelSize: (id: PanelId, size: Partial<PanelSize>) => {
-      set(state => ({
-        panels: {
+      set(state => {
+        const targetPanel = state.panels[id]
+        if (!targetPanel) return state
+
+        // Calculate height difference if height is being changed
+        const oldHeight = targetPanel.size.height
+        const newHeight = size.height ?? oldHeight
+        const heightDifference = newHeight - oldHeight
+
+        // Update the target panel
+        const updatedPanels = {
           ...state.panels,
           [id]: {
-            ...state.panels[id],
+            ...targetPanel,
             size: {
-              ...state.panels[id].size,
+              ...targetPanel.size,
+              ...size
+            },
+            // Update originalSize if panel is not collapsed
+            originalSize: targetPanel.isCollapsed ? targetPanel.originalSize : {
+              ...targetPanel.originalSize,
               ...size
             }
           }
         }
-      }))
+
+        // If height changed, update panels snapped below
+        if (heightDifference !== 0) {
+          Object.values(state.panels).forEach(panel => {
+            if (panel.id !== id && panel.snapState?.snappedToPanels?.some(snap =>
+              snap.panelId === id && snap.edge === 'bottom'
+            )) {
+              // This panel is snapped below the resizing panel
+              updatedPanels[panel.id] = {
+                ...updatedPanels[panel.id],
+                position: {
+                  ...panel.position,
+                  y: panel.position.y + heightDifference
+                }
+              }
+
+              // Recursively update panels snapped below this one
+              const updatePanelsBelowRecursive = (panelId: PanelId, yDelta: number) => {
+                Object.values(state.panels).forEach(p => {
+                  if (p.id !== panelId && p.snapState?.snappedToPanels?.some(s =>
+                    s.panelId === panelId && s.edge === 'bottom'
+                  )) {
+                    updatedPanels[p.id] = {
+                      ...updatedPanels[p.id],
+                      position: {
+                        ...p.position,
+                        y: p.position.y + yDelta
+                      }
+                    }
+                    updatePanelsBelowRecursive(p.id, yDelta)
+                  }
+                })
+              }
+              updatePanelsBelowRecursive(panel.id, heightDifference)
+            }
+          })
+        }
+
+        return {
+          ...state,
+          panels: updatedPanels
+        }
+      })
     },
 
     // Set active panel (for focus/z-index management)
@@ -265,7 +425,7 @@ export const usePanelStore = create<PanelStoreState>()(
 
     // Reset panel layout to defaults
     resetPanelLayout: () => {
-      set({ panels: defaultPanels })
+      set({ panels: createDefaultPanels() })
     },
 
     // Bring panel to front (highest z-index)

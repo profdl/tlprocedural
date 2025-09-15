@@ -34,6 +34,9 @@ interface SnapDetectionProps {
   snapGap?: number
 }
 
+// Constants for collapsed panel dimensions
+const COLLAPSED_PANEL_HEIGHT = 32 // Header height when collapsed
+
 export function useSnapDetection({
   panelId,
   browserSnapThreshold = 20,
@@ -53,6 +56,17 @@ export function useSnapDetection({
     height: window.innerHeight
   }), [])
 
+  // Get effective panel size (accounting for collapsed state)
+  const getEffectivePanelSize = useCallback((panel: typeof panels[PanelId]): PanelSize => {
+    if (panel.isCollapsed) {
+      return {
+        width: panel.size.width,
+        height: COLLAPSED_PANEL_HEIGHT
+      }
+    }
+    return panel.size
+  }, [])
+
   // Collision detection helper
   const detectCollision = useCallback((rect1: Rectangle, rect2: Rectangle): boolean => {
     return !(
@@ -63,21 +77,22 @@ export function useSnapDetection({
     )
   }, [])
 
-  // Check if position would cause collisions
+  // Check if position would cause collisions (accounting for collapsed states)
   const hasCollisions = useCallback((
     position: PanelPosition,
     size: PanelSize
   ): boolean => {
     const rect = { ...position, ...size }
-    return otherPanels.some(panel =>
-      detectCollision(rect, {
+    return otherPanels.some(panel => {
+      const effectiveSize = getEffectivePanelSize(panel)
+      return detectCollision(rect, {
         x: panel.position.x,
         y: panel.position.y,
-        width: panel.size.width,
-        height: panel.size.height
+        width: effectiveSize.width,
+        height: effectiveSize.height
       })
-    )
-  }, [otherPanels, detectCollision])
+    })
+  }, [otherPanels, detectCollision, getEffectivePanelSize])
 
   // Find the nearest valid (non-colliding) position
   const findNearestValidPosition = useCallback((
@@ -95,11 +110,12 @@ export function useSnapDetection({
     let minDistance = Infinity
 
     for (const panel of otherPanels) {
+      const effectiveSize = getEffectivePanelSize(panel)
       const panelRect = {
         x: panel.position.x,
         y: panel.position.y,
-        width: panel.size.width,
-        height: panel.size.height
+        width: effectiveSize.width,
+        height: effectiveSize.height
       }
 
       if (detectCollision(rect, panelRect)) {
@@ -118,8 +134,9 @@ export function useSnapDetection({
 
     if (!closestPanel) return position
 
-    // Calculate potential positions around the closest panel
+    // Calculate potential positions around the closest panel (using effective size)
     const target = closestPanel
+    const targetEffectiveSize = getEffectivePanelSize(target)
     const candidatePositions = [
       // Above
       {
@@ -130,7 +147,7 @@ export function useSnapDetection({
       // Below
       {
         x: target.position.x,
-        y: target.position.y + target.size.height + snapGap,
+        y: target.position.y + targetEffectiveSize.height + snapGap,
         priority: 1
       },
       // Left
@@ -141,7 +158,7 @@ export function useSnapDetection({
       },
       // Right
       {
-        x: target.position.x + target.size.width + snapGap,
+        x: target.position.x + targetEffectiveSize.width + snapGap,
         y: target.position.y,
         priority: 2
       }
@@ -228,13 +245,14 @@ export function useSnapDetection({
       })
     }
 
-    // Panel edge guides
+    // Panel edge guides (using effective sizes for collapsed panels)
     for (const panel of otherPanels) {
+      const effectiveSize = getEffectivePanelSize(panel)
       const panelRect = {
         x: panel.position.x,
         y: panel.position.y,
-        width: panel.size.width,
-        height: panel.size.height
+        width: effectiveSize.width,
+        height: effectiveSize.height
       }
 
       // Check for potential snap to panel edges
@@ -355,10 +373,11 @@ export function useSnapDetection({
     // Panel-to-panel snapping (if not snapped to browser edges)
     if (snappedToBrowser.length === 0) {
       for (const otherPanel of otherPanels) {
+        const effectiveSize = getEffectivePanelSize(otherPanel)
         const otherLeft = otherPanel.position.x
-        const otherRight = otherPanel.position.x + otherPanel.size.width
+        const otherRight = otherPanel.position.x + effectiveSize.width
         const otherTop = otherPanel.position.y
-        const otherBottom = otherPanel.position.y + otherPanel.size.height
+        const otherBottom = otherPanel.position.y + effectiveSize.height
 
         // Check horizontal alignment for vertical snapping
         const horizontalOverlap = !(panelRight < otherLeft || panelLeft > otherRight)
@@ -417,13 +436,51 @@ export function useSnapDetection({
       hasCollision,
       snapGuides
     }
-  }, [otherPanels, viewport, browserSnapThreshold, panelSnapThreshold, snapGap, generateSnapGuides, hasCollisions, findNearestValidPosition])
+  }, [otherPanels, viewport, browserSnapThreshold, panelSnapThreshold, snapGap, generateSnapGuides, hasCollisions, findNearestValidPosition, getEffectivePanelSize])
+
+  // Get panels that are snapped to a specific panel
+  const getPanelsSnappedTo = useCallback((targetPanelId: PanelId): Array<{
+    panel: typeof panels[PanelId]
+    edge: 'top' | 'bottom' | 'left' | 'right'
+  }> => {
+    return Object.values(panels)
+      .filter(panel => panel.id !== targetPanelId && panel.snapState?.snappedToPanels?.some(snap => snap.panelId === targetPanelId))
+      .map(panel => ({
+        panel,
+        edge: panel.snapState?.snappedToPanels?.find(snap => snap.panelId === targetPanelId)?.edge || 'bottom'
+      }))
+  }, [panels])
+
+  // Get all panels snapped below a specific panel (recursively)
+  const getPanelsBelowRecursive = useCallback((panelId: PanelId): PanelId[] => {
+    const result: PanelId[] = []
+    const visited = new Set<PanelId>()
+
+    const findBelow = (id: PanelId) => {
+      if (visited.has(id)) return
+      visited.add(id)
+
+      Object.values(panels).forEach(panel => {
+        if (panel.id !== id && panel.snapState?.snappedToPanels?.some(snap =>
+          snap.panelId === id && snap.edge === 'bottom'
+        )) {
+          result.push(panel.id)
+          findBelow(panel.id)
+        }
+      })
+    }
+
+    findBelow(panelId)
+    return result
+  }, [panels])
 
   return {
     detectSnapping,
     generateSnapGuides,
     hasCollisions,
     findNearestValidPosition,
+    getPanelsSnappedTo,
+    getPanelsBelowRecursive,
     viewport
   }
 }

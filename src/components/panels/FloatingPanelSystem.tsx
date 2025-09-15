@@ -30,37 +30,26 @@ export function FloatingPanelSystem() {
     panels,
     panelOrder,
     setPanelCollapsed,
-    initializePanels
+    setPanelPosition,
+    initializeRightAlignedLayout
   } = usePanelStore()
 
   const { repositionOnResize } = usePanelConstraints()
 
-  // Initialize panels on mount
+  // Initialize panels on mount with right-aligned layout
   useEffect(() => {
-    initializePanels()
-  }, [initializePanels])
+    initializeRightAlignedLayout()
+  }, [initializeRightAlignedLayout])
 
-  // Handle window resize
+  // Handle window resize - maintain right-aligned panels
   useEffect(() => {
     const handleResize = () => {
-      const newViewport = {
-        width: window.innerWidth,
-        height: window.innerHeight
-      }
-
-      // Reposition panels to stay within viewport
-      const repositioned = repositionOnResize(panels, newViewport)
-
-      // Update panel positions in store
-      Object.entries(repositioned).forEach(([id, { position, size }]) => {
-        const panelId = id as PanelId
-        if (panels[panelId]) {
-          // Update position and size if they changed
-          if (position.x !== panels[panelId].position.x || position.y !== panels[panelId].position.y) {
-            // setPanelPosition(panelId, position) - would need to add this method to store
-          }
-          if (size.width !== panels[panelId].size.width || size.height !== panels[panelId].size.height) {
-            // setPanelSize(panelId, size) - already exists
+      // Check if panels are snapped to browser right edge and maintain alignment
+      Object.values(panels).forEach(panel => {
+        if (panel.snapState?.snappedToBrowser.includes('right')) {
+          const newX = window.innerWidth - panel.size.width - 20 // RIGHT_MARGIN
+          if (newX !== panel.position.x) {
+            setPanelPosition(panel.id, { ...panel.position, x: newX })
           }
         }
       })
@@ -68,7 +57,7 @@ export function FloatingPanelSystem() {
 
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-  }, [panels, repositionOnResize])
+  }, [panels, setPanelPosition])
 
   // Stop event propagation to prevent canvas interactions
   const stopPropagation = (e: React.SyntheticEvent) => {
