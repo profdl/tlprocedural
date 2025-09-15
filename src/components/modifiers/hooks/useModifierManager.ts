@@ -151,11 +151,13 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
         
         // Create actual shapes from the transformed results (skip the first one as it's the original)
         const shapesToCreate = transformedShapes.slice(1).map(transformedShape => {
+          const newId = createShapeId()
           return {
+            id: newId,
             type: transformedShape.type,
             x: transformedShape.x,
             y: transformedShape.y,
-            rotation: transformedShape.rotation,
+            rotation: 0, // Always create with 0 rotation, then apply rotation separately
             props: transformedShape.props,
             parentId: actualOriginalShape.parentId,
             meta: {
@@ -167,7 +169,37 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
         })
 
         if (shapesToCreate.length > 0) {
-          editor.createShapes(shapesToCreate)
+          editor.run(() => {
+            // Clean up existing preview clones before creating permanent shapes
+            const existingClones = editor.getCurrentPageShapes().filter((s: TLShape) => {
+              const originalId = getOriginalShapeId(s)
+              return originalId === actualOriginalShape.id && s.meta?.stackProcessed
+            })
+
+            if (existingClones.length > 0) {
+              editor.deleteShapes(existingClones.map((s: TLShape) => s.id))
+            }
+
+            // Restore original shape visibility
+            editor.updateShape({
+              id: actualOriginalShape.id,
+              type: actualOriginalShape.type,
+              opacity: 1
+            })
+
+            // Create the permanent shapes
+            editor.createShapes(shapesToCreate)
+
+            // Apply rotation using rotateShapesBy for center-based rotation (same as preview)
+            transformedShapes.slice(1).forEach((transformedShape, index) => {
+              if (transformedShape.rotation && transformedShape.rotation !== 0) {
+                const shapeId = shapesToCreate[index].id
+                editor.rotateShapesBy([shapeId], transformedShape.rotation)
+              }
+            })
+          }, { history: 'record' })
+
+          // Remove the applied modifiers
           arrayModifiers.forEach(modifier => {
             store.deleteModifier(modifier.id)
           })

@@ -105,6 +105,17 @@ export function ModifierActionButtons({
         disabled={!selectedShape}
         className="modifier-controls__add-button"
       />
+
+      <TldrawUiButton
+        type="normal"
+        onClick={onApplyModifiers}
+        onPointerDown={stopEventPropagation}
+        disabled={!hasEnabledModifiers}
+        title="Apply all modifiers (creates permanent clones and removes all modifiers)"
+        className="modifier-controls__apply-all-button"
+      >
+        APPLY ALL
+      </TldrawUiButton>
     </div>
   )
 } 
