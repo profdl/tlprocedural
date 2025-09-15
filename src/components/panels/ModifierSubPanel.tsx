@@ -4,6 +4,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { TldrawUiButton, TldrawUiButtonIcon } from 'tldraw'
 import { useModifierStore } from '../../store/modifierStore'
 import { ModifierControlPanel } from '../modifiers/controls/ModifierControlPanel'
+import { ModifierButton } from '../modifiers/components/ModifierButton'
 import { MODIFIER_DISPLAY_NAMES } from '../modifiers/constants'
 import type {
   TLModifier,
@@ -93,15 +94,14 @@ export function ModifierSubPanel({
 
         <div className="modifier-sub-panel__header-right">
           {/* Apply button */}
-          <TldrawUiButton
-            type="normal"
+          <ModifierButton
             onClick={onToggle}
-            onPointerDown={stopPropagation}
             title="Apply modifier (creates permanent clones and removes modifier)"
-            className="modifier-sub-panel__apply-button"
+            variant="apply"
+            className="modifier-sub-panel-apply"
           >
             APPLY
-          </TldrawUiButton>
+          </ModifierButton>
 
           {/* Collapse/Expand button */}
           <TldrawUiButton

@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react'
 import { TldrawUiButton } from 'tldraw'
 import { AddButton, type AddButtonOption } from './AddButton'
+import { ModifierButton } from './ModifierButton'
 
 // Local stopEventPropagation implementation
 function stopEventPropagation(e: React.SyntheticEvent | Event) {
@@ -106,16 +107,15 @@ export function ModifierActionButtons({
         className="modifier-controls__add-button"
       />
 
-      <TldrawUiButton
-        type="normal"
+      <ModifierButton
         onClick={onApplyModifiers}
-        onPointerDown={stopEventPropagation}
         disabled={!hasEnabledModifiers}
         title="Apply all modifiers (creates permanent clones and removes all modifiers)"
-        className="modifier-controls__apply-all-button"
+        variant="apply"
+        className="modifier-action-apply-all"
       >
         APPLY ALL
-      </TldrawUiButton>
+      </ModifierButton>
     </div>
   )
 } 

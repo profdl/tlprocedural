@@ -454,20 +454,103 @@
   white-space: nowrap;
 }
 
-.modifier-sub-panel__apply-button {
-  font-size: 8px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  padding: 2px 4px;
-  height: 20px;
-  min-width: auto;
-  flex-shrink: 0;
-  white-space: nowrap;
+.modifier-sub-panel__apply-button,
+.tlui-button.modifier-sub-panel__apply-button,
+button.modifier-sub-panel__apply-button,
+.tlui-button[type="normal"].modifier-sub-panel__apply-button {
+  font-size: 8px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.3px !important;
+  padding: 2px 4px !important;
+  height: 20px !important;
+  min-width: auto !important;
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+  background: white !important;
+  background-color: white !important;
+  border: 1px solid #d1d5db !important;
+  border-color: #d1d5db !important;
+  color: #374151 !important;
+}
+
+.modifier-sub-panel__apply-button:hover,
+.tlui-button.modifier-sub-panel__apply-button:hover,
+button.modifier-sub-panel__apply-button:hover,
+.tlui-button[type="normal"].modifier-sub-panel__apply-button:hover {
+  background: #f3f4f6 !important;
+  background-color: #f3f4f6 !important;
+  border-color: #9ca3af !important;
+  color: #374151 !important;
+}
+
+.modifier-sub-panel__apply-button:disabled,
+.tlui-button.modifier-sub-panel__apply-button:disabled,
+button.modifier-sub-panel__apply-button:disabled,
+.tlui-button[type="normal"].modifier-sub-panel__apply-button:disabled {
+  background: #f9fafb !important;
+  background-color: #f9fafb !important;
+  border-color: #e5e7eb !important;
+  color: #9ca3af !important;
+  cursor: not-allowed !important;
+  opacity: 0.6 !important;
 }
 
 .modifier-sub-panel__apply-button--enabled {
   background: var(--color-selected) !important;
   color: var(--color-selected-contrast) !important;
+}
+
+/* Nuclear option: Override all possible TLDraw button classes for Apply buttons */
+/* Target every possible combination of TLDraw classes */
+.modifier-sub-panel__apply-button,
+button.modifier-sub-panel__apply-button,
+.tlui-button.modifier-sub-panel__apply-button,
+.tlui-button[type="normal"].modifier-sub-panel__apply-button,
+.tlui-button--normal.modifier-sub-panel__apply-button,
+.modifier-controls__buttons .modifier-sub-panel__apply-button,
+.modifiers-panel__actions .modifier-sub-panel__apply-button,
+.modifier-sub-panel__header-right .modifier-sub-panel__apply-button {
+  background: white !important;
+  background-color: white !important;
+  border: 1px solid #d1d5db !important;
+  border-color: #d1d5db !important;
+  color: #374151 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+.modifier-sub-panel__apply-button:hover,
+button.modifier-sub-panel__apply-button:hover,
+.tlui-button.modifier-sub-panel__apply-button:hover,
+.tlui-button[type="normal"].modifier-sub-panel__apply-button:hover,
+.tlui-button--normal.modifier-sub-panel__apply-button:hover,
+.modifier-controls__buttons .modifier-sub-panel__apply-button:hover,
+.modifiers-panel__actions .modifier-sub-panel__apply-button:hover,
+.modifier-sub-panel__header-right .modifier-sub-panel__apply-button:hover {
+  background: #f3f4f6 !important;
+  background-color: #f3f4f6 !important;
+  border-color: #9ca3af !important;
+  color: #374151 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+.modifier-sub-panel__apply-button:disabled,
+button.modifier-sub-panel__apply-button:disabled,
+.tlui-button.modifier-sub-panel__apply-button:disabled,
+.tlui-button[type="normal"].modifier-sub-panel__apply-button:disabled,
+.tlui-button--normal.modifier-sub-panel__apply-button:disabled,
+.modifier-controls__buttons .modifier-sub-panel__apply-button:disabled,
+.modifiers-panel__actions .modifier-sub-panel__apply-button:disabled,
+.modifier-sub-panel__header-right .modifier-sub-panel__apply-button:disabled {
+  background: #f9fafb !important;
+  background-color: #f9fafb !important;
+  border-color: #e5e7eb !important;
+  color: #9ca3af !important;
+  cursor: not-allowed !important;
+  opacity: 0.6 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
 }
 
 /* Icon buttons in modifier sub-panel header */

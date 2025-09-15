@@ -1,0 +1,108 @@
+/* ModifierButton Component Styles */
+
+.modifier-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--tl-font-ui);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  border: none;
+  outline: none;
+  text-decoration: none;
+  user-select: none;
+  position: relative;
+  box-sizing: border-box;
+}
+
+/* Primary variant (for Add Modifier button) */
+.modifier-button--primary {
+  padding: 6px 12px;
+  height: 28px;
+  min-height: 28px;
+  background: white;
+  border: 1px solid #2f80ed;
+  color: #2f80ed;
+  font-size: 12px;
+}
+
+.modifier-button--primary:hover:not(.modifier-button--disabled) {
+  background: #f5f9ff;
+  border-color: #1a6fd8;
+  color: #1a6fd8;
+}
+
+/* Secondary variant (for general buttons) */
+.modifier-button--secondary {
+  padding: 4px 8px;
+  height: 24px;
+  min-height: 24px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  font-size: 11px;
+}
+
+.modifier-button--secondary:hover:not(.modifier-button--disabled) {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+  color: #111827;
+}
+
+/* Apply variant (for Apply and Apply All buttons) */
+.modifier-button--apply {
+  padding: 2px 4px;
+  height: 20px;
+  min-height: 20px;
+  background: white;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  font-size: 8px;
+}
+
+.modifier-button--apply:hover:not(.modifier-button--disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  color: #374151;
+}
+
+/* Disabled state for all variants */
+.modifier-button--disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+}
+
+.modifier-button--disabled:hover {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+}
+
+/* Focus states */
+.modifier-button:focus-visible {
+  outline: 2px solid #2f80ed;
+  outline-offset: 2px;
+}
+
+/* Active states */
+.modifier-button:active:not(.modifier-button--disabled) {
+  transform: translateY(1px);
+}
+
+/* Specific sizing for different contexts */
+.modifier-controls__buttons .modifier-button--primary {
+  min-width: 120px;
+}
+
+.modifier-sub-panel__header-right .modifier-button--apply {
+  flex-shrink: 0;
+  margin-left: 1px;
+}
