@@ -7,10 +7,7 @@
       "Bash(npm run dev:*)",
       "Bash(npm run build:*)",
       "Read(//Users/daniellefcourt/Desktop/**)",
-      "Bash(npm install:*)",
-      "Bash(npm run lint:*)",
-      "WebSearch",
-      "Bash(git pull:*)",
+      "Bash(git checkout:*)",
       "Bash(git stash:*)"
     ],
     "deny": [],
