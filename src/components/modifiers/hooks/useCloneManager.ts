@@ -34,7 +34,7 @@ export function useCloneManager({
   // Memoize modifier state for stable dependencies
   const hasPathModifiers = useMemo(() => {
     return modifiers.some(m => m.enabled && isPathModifierType(m.type))
-  }, [modifiers.map(m => `${m.type}-${m.enabled}`).join(',')])
+  }, [modifiers])
 
   // Create stable cleanup function
   const cleanupFunction = useCallback(() => {
@@ -67,7 +67,7 @@ export function useCloneManager({
     if (currentShape.type === 'group') {
       cleanupGroupClones(editor, currentShape)
     }
-  }, [editor, hasPathModifiers, shapeKey])
+  }, [editor, hasPathModifiers])
 
   // Use refs to store current values without triggering re-renders
   const modifiersRef = useRef(modifiers)
