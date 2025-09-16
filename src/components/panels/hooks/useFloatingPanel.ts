@@ -37,13 +37,25 @@ export function useFloatingPanel({
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const [activeSnapGuides, setActiveSnapGuides] = useState<SnapGuide[]>([])
-  const [mousePosition, setMousePosition] = useState<{ x: number, y: number } | undefined>()
+  const [, setMousePosition] = useState<{ x: number, y: number } | undefined>()
+  const [isSnapping, setIsSnapping] = useState(false)
+  const [magneticStrength, setMagneticStrength] = useState(0)
+  const [ghostPosition, setGhostPosition] = useState<PanelPosition | null>(null)
+  const [showGhost, setShowGhost] = useState(false)
+  const [magneticOffset, setMagneticOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
 
-  const { detectSnapping, generateSnapGuides } = useSnapDetection({ panelId, mousePosition })
+  const { detectSnapping, generateSnapGuides, calculateMagneticAttraction } = useSnapDetection({
+    panelId,
+    enableMagneticSnap: true,
+    magneticThreshold: 40
+  })
   const { constrainPosition, constrainSize, getDefaultConstraints } = usePanelConstraints()
 
   // Store original position for snap breaking
   const originalPositionRef = useRef<PanelPosition | undefined>(undefined)
+  // Throttle magnetic calculations to prevent jitter
+  const lastMagneticUpdateRef = useRef<number>(0)
+  const magneticThrottleMs = 16 // ~60fps
 
   // Handle drag events
   const handleDragStart = useCallback(() => {
@@ -51,6 +63,9 @@ export function useFloatingPanel({
     setPanelDragging(panelId, true)
     bringPanelToFront(panelId)
     originalPositionRef.current = panel.position
+    setGhostPosition(null)
+    setShowGhost(false)
+    setMagneticOffset({ x: 0, y: 0 })
     onDragStart?.()
   }, [panelId, panel.position, setPanelDragging, bringPanelToFront, onDragStart])
 
@@ -60,35 +75,84 @@ export function useFloatingPanel({
       setMousePosition({ x: e.clientX, y: e.clientY })
     }
 
-    // Real-time position update during drag
-    const newPosition: PanelPosition = { x: data.x, y: data.y }
+    // Get current drag position (don't apply to store yet)
+    const currentDragPosition: PanelPosition = { x: data.x, y: data.y }
 
-    // Constrain to viewport
-    const constrainedPosition = constrainPosition(newPosition, panel.size, 10)
+    // Constrain to viewport for calculations only
+    const constrainedPosition = constrainPosition(currentDragPosition, panel.size, 10)
+
+    // Throttle magnetic calculations to prevent jitter and improve performance
+    const now = Date.now()
+    const shouldUpdateMagnetic = now - lastMagneticUpdateRef.current > magneticThrottleMs
+
+    if (shouldUpdateMagnetic) {
+      lastMagneticUpdateRef.current = now
+
+      // Calculate magnetic attraction based on constrained position
+      const magneticAttraction = calculateMagneticAttraction(constrainedPosition, panel.size)
+
+      // Apply visual magnetic feedback only (no position changes during drag)
+      if (magneticAttraction && magneticAttraction.strength > 0.3) {
+        const strength = Math.pow(magneticAttraction.strength, 0.5)
+        setMagneticStrength(strength)
+
+        // Calculate visual offset for magnetic pull effect (subtle)
+        const maxOffset = 2 // Maximum 2px visual offset (reduced from 3px)
+        const offsetStrength = strength * 0.4 // Slightly stronger visual feedback
+        const offsetX = (magneticAttraction.targetPosition.x - constrainedPosition.x) * offsetStrength * maxOffset / 100
+        const offsetY = (magneticAttraction.targetPosition.y - constrainedPosition.y) * offsetStrength * maxOffset / 100
+
+        setMagneticOffset({ x: offsetX, y: offsetY })
+
+        // Show ghost preview at target position when attraction is strong
+        if (magneticAttraction.strength > 0.6) {
+          setGhostPosition(magneticAttraction.targetPosition)
+          setShowGhost(true)
+        } else {
+          setShowGhost(false)
+        }
+      } else {
+        setMagneticStrength(0)
+        setMagneticOffset({ x: 0, y: 0 })
+        setShowGhost(false)
+      }
+    }
 
     // Generate snap guides for real-time feedback
     const snapGuides = generateSnapGuides(constrainedPosition, panel.size)
     setActiveSnapGuides(snapGuides)
 
-    // Apply soft snapping during drag (visual feedback only)
-    // const snapResult = detectSnapping(constrainedPosition, panel.size, true)
-
-    // Update position in store for real-time snapping detection
-    setPanelPosition(panelId, constrainedPosition)
-  }, [panelId, panel.size, constrainPosition, setPanelPosition, generateSnapGuides])
+    // DON'T update position in store during drag - let react-rnd handle it
+    // This prevents the fighting between react-rnd and our magnetic positioning
+  }, [panelId, panel.size, constrainPosition, generateSnapGuides, calculateMagneticAttraction])
 
   const handleDragStop = useCallback((_e: DraggableEvent, data: DraggableData) => {
     setIsDragging(false)
     setActiveSnapGuides([])
     setPanelDragging(panelId, false)
+    setMagneticStrength(0)
+    setShowGhost(false)
+    setGhostPosition(null)
+    setMagneticOffset({ x: 0, y: 0 })
 
-    const newPosition: PanelPosition = { x: data.x, y: data.y }
+    // Use the final drag position from react-rnd
+    const finalDragPosition: PanelPosition = { x: data.x, y: data.y }
 
-    // Apply hard snapping on drop (with collision prevention)
-    const snapResult = detectSnapping(newPosition, panel.size, false)
+    // Apply snapping on drop - detectSnapping now handles magnetic attraction internally
+    const snapResult = detectSnapping(finalDragPosition, panel.size, false)
+    let finalPosition = constrainPosition(snapResult.position, panel.size, 10)
 
-    // Apply snapped position
-    const finalPosition = constrainPosition(snapResult.position, panel.size, 10)
+    // If we have magnetic attraction (which means we're snapping), show snap animation
+    if (snapResult.magneticAttraction && snapResult.magneticAttraction.strength > 0.5) {
+      setIsSnapping(true)
+
+      // Apply smooth snap animation by setting position and letting CSS handle transition
+      setTimeout(() => {
+        setIsSnapping(false)
+      }, 350) // Match transition duration from CSS
+    }
+
+    // Now update the position in store (only after drag is complete)
     setPanelPosition(panelId, finalPosition)
 
     // Check if we snapped to the top of another panel - bring to front
@@ -195,6 +259,11 @@ export function useFloatingPanel({
     isDragging,
     isResizing,
     activeSnapGuides,
+    isSnapping,
+    magneticStrength,
+    ghostPosition,
+    showGhost,
+    magneticOffset,
 
     // Event handlers
     handleDragStart,

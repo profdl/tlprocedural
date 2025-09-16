@@ -27,6 +27,11 @@ export function FloatingPanel({
     isDragging,
     isResizing,
     activeSnapGuides,
+    isSnapping,
+    magneticStrength,
+    ghostPosition,
+    showGhost,
+    magneticOffset,
     handleDragStart,
     handleDrag,
     handleDragStop,
@@ -114,7 +119,10 @@ export function FloatingPanel({
 
       // Z-index and styling
       style={{
-        zIndex: isDragging || isResizing ? zIndex + 1000 : zIndex
+        zIndex: isDragging || isResizing ? zIndex + 1000 : zIndex,
+        transform: isDragging && (magneticOffset.x !== 0 || magneticOffset.y !== 0)
+          ? `translate(${magneticOffset.x}px, ${magneticOffset.y}px)`
+          : undefined
       }}
 
       className={`floating-panel ${className} ${
@@ -123,6 +131,10 @@ export function FloatingPanel({
         isResizing ? 'floating-panel--resizing' : ''
       } ${
         isCollapsed ? 'floating-panel--collapsed' : ''
+      } ${
+        isSnapping ? 'floating-panel--snapping' : ''
+      } ${
+        magneticStrength > 0.3 ? 'floating-panel--magnetic' : ''
       }`}
     >
       <div
@@ -195,6 +207,32 @@ export function FloatingPanel({
                 }}
               />
             ))}
+          </div>
+        )}
+
+        {/* Ghost preview overlay */}
+        {showGhost && ghostPosition && (
+          <div
+            className="floating-panel__ghost"
+            style={{
+              position: 'fixed',
+              left: ghostPosition.x,
+              top: ghostPosition.y,
+              width: panel.size.width,
+              height: effectiveHeight,
+              pointerEvents: 'none',
+              zIndex: 9998
+            }}
+          >
+            <div className="floating-panel__ghost-container">
+              <div className="floating-panel__ghost-header">
+                <div className="floating-panel__ghost-header-left">
+                  <div className="floating-panel__ghost-drag-handle">⋮</div>
+                  <span className="floating-panel__ghost-title">{title}</span>
+                </div>
+              </div>
+              {!isCollapsed && <div className="floating-panel__ghost-content" />}
+            </div>
           </div>
         )}
       </div>

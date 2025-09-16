@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
+import { constraintSolver } from '../components/panels/utils/constraintSolver'
 
 export type PanelId = 'properties' | 'style' | 'modifiers'
 
@@ -158,6 +159,35 @@ const createDefaultPanels = (): Record<PanelId, PanelState> => {
 
 const defaultPanels = createDefaultPanels()
 
+// Helper function to apply constraint-based position updates
+const applyConstraintUpdates = (panels: Record<PanelId, PanelState>): Record<PanelId, PanelState> => {
+  // Create constraints from current snap states
+  constraintSolver.createConstraintsFromSnapState(panels)
+
+  // Solve constraints to get new positions
+  const newPositions = constraintSolver.solve({
+    panels,
+    viewport: {
+      width: typeof window !== 'undefined' ? window.innerWidth : 1920,
+      height: typeof window !== 'undefined' ? window.innerHeight : 1080
+    },
+    constraints: constraintSolver.getConstraints()
+  })
+
+  // Apply new positions to panels
+  const updatedPanels = { ...panels }
+  for (const [panelId, newPosition] of Object.entries(newPositions)) {
+    if (updatedPanels[panelId as PanelId]) {
+      updatedPanels[panelId as PanelId] = {
+        ...updatedPanels[panelId as PanelId],
+        position: newPosition
+      }
+    }
+  }
+
+  return updatedPanels
+}
+
 export const usePanelStore = create<PanelStoreState>()(
   subscribeWithSelector((set, get) => ({
     // Initial state
@@ -182,11 +212,9 @@ export const usePanelStore = create<PanelStoreState>()(
         const targetPanel = state.panels[id]
         if (!targetPanel) return state
 
-        // Calculate the height difference
+        // Calculate the new height
         const COLLAPSED_HEIGHT = 32
-        const currentHeight = targetPanel.isCollapsed ? COLLAPSED_HEIGHT : targetPanel.size.height
         const newHeight = collapsed ? COLLAPSED_HEIGHT : targetPanel.originalSize.height
-        const heightDifference = newHeight - currentHeight
 
         // Update the target panel
         const updatedPanels = {
@@ -201,44 +229,12 @@ export const usePanelStore = create<PanelStoreState>()(
           }
         }
 
-        // Find panels that are snapped below this one and adjust their positions
-        Object.values(state.panels).forEach(panel => {
-          if (panel.id !== id && panel.snapState?.snappedToPanels?.some(snap =>
-            snap.panelId === id && snap.edge === 'bottom'
-          )) {
-            // This panel is snapped below the collapsing/expanding panel
-            updatedPanels[panel.id] = {
-              ...updatedPanels[panel.id],
-              position: {
-                ...panel.position,
-                y: panel.position.y + heightDifference
-              }
-            }
-
-            // Recursively update panels snapped below this one
-            const updatePanelsBelowRecursive = (panelId: PanelId, yDelta: number) => {
-              Object.values(state.panels).forEach(p => {
-                if (p.id !== panelId && p.snapState?.snappedToPanels?.some(s =>
-                  s.panelId === panelId && s.edge === 'bottom'
-                )) {
-                  updatedPanels[p.id] = {
-                    ...updatedPanels[p.id],
-                    position: {
-                      ...p.position,
-                      y: p.position.y + yDelta
-                    }
-                  }
-                  updatePanelsBelowRecursive(p.id, yDelta)
-                }
-              })
-            }
-            updatePanelsBelowRecursive(panel.id, heightDifference)
-          }
-        })
+        // Use constraint solver to automatically update dependent panel positions
+        const finalPanels = applyConstraintUpdates(updatedPanels)
 
         return {
           ...state,
-          panels: updatedPanels
+          panels: finalPanels
         }
       })
     },
@@ -275,11 +271,6 @@ export const usePanelStore = create<PanelStoreState>()(
         const targetPanel = state.panels[id]
         if (!targetPanel) return state
 
-        // Calculate height difference if height is being changed
-        const oldHeight = targetPanel.size.height
-        const newHeight = size.height ?? oldHeight
-        const heightDifference = newHeight - oldHeight
-
         // Update the target panel
         const updatedPanels = {
           ...state.panels,
@@ -297,46 +288,12 @@ export const usePanelStore = create<PanelStoreState>()(
           }
         }
 
-        // If height changed, update panels snapped below
-        if (heightDifference !== 0) {
-          Object.values(state.panels).forEach(panel => {
-            if (panel.id !== id && panel.snapState?.snappedToPanels?.some(snap =>
-              snap.panelId === id && snap.edge === 'bottom'
-            )) {
-              // This panel is snapped below the resizing panel
-              updatedPanels[panel.id] = {
-                ...updatedPanels[panel.id],
-                position: {
-                  ...panel.position,
-                  y: panel.position.y + heightDifference
-                }
-              }
-
-              // Recursively update panels snapped below this one
-              const updatePanelsBelowRecursive = (panelId: PanelId, yDelta: number) => {
-                Object.values(state.panels).forEach(p => {
-                  if (p.id !== panelId && p.snapState?.snappedToPanels?.some(s =>
-                    s.panelId === panelId && s.edge === 'bottom'
-                  )) {
-                    updatedPanels[p.id] = {
-                      ...updatedPanels[p.id],
-                      position: {
-                        ...p.position,
-                        y: p.position.y + yDelta
-                      }
-                    }
-                    updatePanelsBelowRecursive(p.id, yDelta)
-                  }
-                })
-              }
-              updatePanelsBelowRecursive(panel.id, heightDifference)
-            }
-          })
-        }
+        // Use constraint solver to automatically update dependent panel positions
+        const finalPanels = applyConstraintUpdates(updatedPanels)
 
         return {
           ...state,
-          panels: updatedPanels
+          panels: finalPanels
         }
       })
     },
@@ -360,41 +317,13 @@ export const usePanelStore = create<PanelStoreState>()(
           }
         }
 
-        // If content height changed significantly, update panels snapped below
+        // If content height changed significantly, use constraint solver
         if (Math.abs(heightDifference) > 5) { // 5px threshold to avoid micro adjustments
-          Object.values(state.panels).forEach(panel => {
-            if (panel.id !== id && panel.snapState?.snappedToPanels?.some(snap =>
-              snap.panelId === id && snap.edge === 'bottom'
-            )) {
-              // This panel is snapped below the resizing panel
-              updatedPanels[panel.id] = {
-                ...updatedPanels[panel.id],
-                position: {
-                  ...panel.position,
-                  y: panel.position.y + heightDifference
-                }
-              }
-
-              // Recursively update panels snapped below this one
-              const updatePanelsBelowRecursive = (panelId: PanelId, yDelta: number) => {
-                Object.values(state.panels).forEach(p => {
-                  if (p.id !== panelId && p.snapState?.snappedToPanels?.some(s =>
-                    s.panelId === panelId && s.edge === 'bottom'
-                  )) {
-                    updatedPanels[p.id] = {
-                      ...updatedPanels[p.id],
-                      position: {
-                        ...p.position,
-                        y: p.position.y + yDelta
-                      }
-                    }
-                    updatePanelsBelowRecursive(p.id, yDelta)
-                  }
-                })
-              }
-              updatePanelsBelowRecursive(panel.id, heightDifference)
-            }
-          })
+          const finalPanels = applyConstraintUpdates(updatedPanels)
+          return {
+            ...state,
+            panels: finalPanels
+          }
         }
 
         return {
