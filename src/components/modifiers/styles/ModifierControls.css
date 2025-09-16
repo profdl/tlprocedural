@@ -22,8 +22,7 @@
   gap: 8px;
   align-items: center;
   justify-content: center;
-  padding: 8px 12px;
-  margin-bottom: 8px;
+  padding: 2px 24px;
 }
 
 .modifier-controls__add-button {
@@ -103,26 +102,29 @@
 }
 
 .modifier-controls__item {
-  border: 1px solid var(--color-panel-contrast);
+  border: 1px solid #d0d0d0;
   border-radius: 8px;
   background: var(--color-panel);
   margin-bottom: 8px;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 /* Ensure borders show in custom style panel context */
 .custom-style-panel__content .modifier-controls__item {
-  border: 1px solid var(--color-panel-contrast, #ddd) !important;
+  border: 1px solid #d0d0d0 !important;
   border-radius: 8px !important;
   background: var(--color-panel) !important;
   margin-bottom: 8px !important;
   overflow: hidden !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
 }
 
 /* Fallback for debugging - use fixed colors if CSS vars don't work */
 .custom-style-panel__content .modifier-controls__item {
-  border: 1px solid #e0e0e0 !important;
+  border: 1px solid #d0d0d0 !important;
   background: #f9f9f9 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
 }
 
 .modifier-controls__item-header {
@@ -466,4 +468,4 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-} 
+}
