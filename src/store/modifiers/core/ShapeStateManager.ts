@@ -41,7 +41,7 @@ export function extractShapesFromState(state: ShapeState): TLShape[] {
     
     // Use targetRotation from metadata if available (for special rotation handling like mirror)
     // Otherwise use the transform rotation
-    const finalRotation = (instance.metadata as any)?.targetRotation ?? instance.transform.rotation
+    const finalRotation = (instance.metadata as { targetRotation?: number })?.targetRotation ?? instance.transform.rotation
 
     const baseShape = {
       ...instance.shape,
@@ -71,12 +71,17 @@ export function extractShapesFromState(state: ShapeState): TLShape[] {
       baseShape.props = instance.shape.props
     }
 
-    // Transfer all instance metadata to shape meta
+    // Transfer instance metadata to shape meta, excluding internal processing metadata
+    const metadata = { ...(instance.metadata || {}) }
+    // Remove internal processing values that shouldn't be serialized to shape meta
+    delete metadata.targetRotation
+    delete metadata.positionCorrected
+
     const updatedBaseShape: TLShape = {
       ...baseShape,
       meta: {
         ...baseShape.meta,
-        ...(instance.metadata as Record<string, JsonValue> || {})
+        ...(metadata as Record<string, JsonValue>)
       }
     }
 

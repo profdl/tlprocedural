@@ -3,13 +3,15 @@ import type {
   ShapeInstance,
   Transform,
   ModifierProcessor,
-  MirrorSettings
+  MirrorSettings,
+  GroupContext
 } from '../../../types/modifiers'
-import { getShapeVisualCenter } from '../../../components/modifiers/utils/transformUtils'
+import type { Editor } from 'tldraw'
+import { getShapeDimensions } from '../../../components/modifiers/utils'
 
 // Mirror Processor implementation - Clean slate
 export const MirrorProcessor: ModifierProcessor = {
-  process(input: ShapeState, settings: MirrorSettings, groupContext?: any, editor?: any): ShapeState {
+  process(input: ShapeState, settings: MirrorSettings, _groupContext?: GroupContext, editor?: Editor): ShapeState {
     const { axis, offset } = settings
     
     
@@ -20,22 +22,59 @@ export const MirrorProcessor: ModifierProcessor = {
     
     const newInstances: ShapeInstance[] = []
 
-    // Create mirrored copies of ALL instances (don't keep originals)
+    // First, keep all original instances from the input (e.g., from linear array)
     input.instances.forEach(inputInstance => {
-      // Create a temporary shape with the transformed position and rotation for visual center calculation
-      const transformedShape = {
-        ...inputInstance.shape,
-        x: inputInstance.transform.x,
-        y: inputInstance.transform.y,
-        rotation: inputInstance.transform.rotation
+      newInstances.push({
+        ...inputInstance,
+        index: newInstances.length,
+        metadata: {
+          ...inputInstance.metadata,
+          arrayIndex: newInstances.length
+        }
+      })
+    })
+
+    // Then, create mirrored copies of ALL instances
+    input.instances.forEach(inputInstance => {
+      // Check if this instance is from a previous modifier
+      const isFromPreviousModifier = inputInstance.metadata?.linearArrayIndex !== undefined ||
+                                    inputInstance.metadata?.circularArrayIndex !== undefined ||
+                                    inputInstance.metadata?.gridArrayIndex !== undefined ||
+                                    inputInstance.metadata?.sourceInstance !== undefined
+
+      // Get the correct visual center accounting for rotation and modifier stacking
+      let worldCenterX: number, worldCenterY: number
+
+      // For original shapes from canvas, try to get actual visual bounds
+      if (!isFromPreviousModifier && editor) {
+        try {
+          const bounds = editor.getShapePageBounds(inputInstance.shape.id)
+          if (bounds) {
+            worldCenterX = bounds.x + bounds.width / 2
+            worldCenterY = bounds.y + bounds.height / 2
+          } else {
+            // Fallback to transform calculation
+            const { width, height } = getShapeDimensions(inputInstance.shape)
+            worldCenterX = inputInstance.transform.x + width / 2
+            worldCenterY = inputInstance.transform.y + height / 2
+          }
+        } catch {
+          // Fallback for any errors
+          const { width, height } = getShapeDimensions(inputInstance.shape)
+          worldCenterX = inputInstance.transform.x + width / 2
+          worldCenterY = inputInstance.transform.y + height / 2
+        }
+      } else {
+        // For instances from previous modifiers, use transform position directly
+        const { width, height } = getShapeDimensions(inputInstance.shape)
+        const scaledWidth = width * inputInstance.transform.scaleX
+        const scaledHeight = height * inputInstance.transform.scaleY
+        worldCenterX = inputInstance.transform.x + scaledWidth / 2
+        worldCenterY = inputInstance.transform.y + scaledHeight / 2
       }
 
-      // Get the correct visual center accounting for rotation
-      const { x: worldCenterX, y: worldCenterY } = getShapeVisualCenter(transformedShape, editor)
-
       // Get shape dimensions for later calculations
-      const originalWidth = 'w' in transformedShape.props ? transformedShape.props.w as number : 100
-      const originalHeight = 'h' in transformedShape.props ? transformedShape.props.h as number : 100
+      const { width: originalWidth, height: originalHeight } = getShapeDimensions(inputInstance.shape)
       const scaledWidth = originalWidth * inputInstance.transform.scaleX
       const scaledHeight = originalHeight * inputInstance.transform.scaleY
       
@@ -53,12 +92,13 @@ export const MirrorProcessor: ModifierProcessor = {
       }
       
       // Create mirrored shape with proper flip metadata for FlippableShapeUtil-based shapes
+      // Ensure only JSON-serializable values in meta
       const mirroredShape = {
         ...inputInstance.shape,
         meta: {
           ...inputInstance.shape.meta,
-          isFlippedX: axis === 'x' ? !(inputInstance.shape.meta?.isFlippedX === true) : (inputInstance.shape.meta?.isFlippedX === true),
-          isFlippedY: axis === 'y' ? !(inputInstance.shape.meta?.isFlippedY === true) : (inputInstance.shape.meta?.isFlippedY === true),
+          isFlippedX: axis === 'x' ? !(inputInstance.shape.meta?.isFlippedX === true) : !!(inputInstance.shape.meta?.isFlippedX),
+          isFlippedY: axis === 'y' ? !(inputInstance.shape.meta?.isFlippedY === true) : !!(inputInstance.shape.meta?.isFlippedY),
         }
       }
       
@@ -95,7 +135,8 @@ export const MirrorProcessor: ModifierProcessor = {
           mirrorAxis: axis,
           mirrorOffset: offset,
           sourceInstance: inputInstance.index,
-          targetRotation: mirroredRotation // Store rotation for extractShapesFromState
+          targetRotation: mirroredRotation, // Store rotation for extractShapesFromState
+          positionCorrected: inputInstance.metadata?.positionCorrected // Preserve position correction flag
         }
       }
       
