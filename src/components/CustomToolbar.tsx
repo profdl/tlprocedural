@@ -1,6 +1,6 @@
 import {
   DefaultToolbar,
-  TldrawUiButton,
+  TldrawUiMenuItem,
   useEditor,
   useValue,
   useTools,
@@ -14,28 +14,7 @@ function ToolMenuItem({ toolId, tools }: { toolId: string, tools: Record<string,
   const selected = useIsToolSelected(item)
   if (!item) return null
 
-  // Get the icon URL from asset system
-  const iconUrl = item.icon
-
-  return (
-    <TldrawUiButton
-      type="tool"
-      data-testid={`tools.${item.id}`}
-      aria-label={item.label}
-      data-state={selected ? 'selected' : 'not-selected'}
-      title={item.label}
-      onClick={() => item.onSelect('toolbar')}
-    >
-      <div className="tlui-button__icon" style={{
-        backgroundImage: `url(${iconUrl})`,
-        backgroundSize: '16px 16px',
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'center',
-        width: '16px',
-        height: '16px'
-      }} />
-    </TldrawUiButton>
-  )
+  return <TldrawUiMenuItem {...item} isSelected={selected} />
 }
 
 export function CustomToolbar() {
