@@ -75,12 +75,12 @@ export class LinearArrayModifierFactory extends BaseModifierFactory<TLLinearArra
       ...this.createBaseModifier(id, 'linear-array', targetShapeId, order),
       type: 'linear-array',
       props: {
-        count: 3,
-        offsetX: 50,
-        offsetY: 0,
-        rotationIncrement: 0,
+        count: 10,
+        offsetX: 48,
+        offsetY: 1,
+        rotationIncrement: 7,
         rotateAll: 0,
-        scaleStep: 1.0,
+        scaleStep: 45,
         ...settings
       }
     }
