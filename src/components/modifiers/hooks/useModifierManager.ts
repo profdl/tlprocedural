@@ -1,14 +1,27 @@
 import { useCallback, useMemo } from 'react'
 import { useModifierStore } from '../../../store/modifierStore'
 import { ModifierStack, extractShapesFromState } from '../../../store/modifiers'
-import { DEFAULT_SETTINGS } from '../constants'
 import { getOriginalShapeId } from '../utils'
 import { isPathModifierType } from '../../../store/modifiers/core/PathModifier'
+import { applyRotationToShapes } from '../utils/transformUtils'
 import { useEditor, createShapeId } from 'tldraw'
 import type { TLShape } from 'tldraw'
 import type { TLModifier, TLModifierId } from '../../../types/modifiers'
 
 type ModifierType = 'linear' | 'circular' | 'grid' | 'mirror' | 'lsystem' | 'subdivide' | 'noise-offset' | 'smooth' | 'simplify'
+
+// Optimized mapping from UI type names to internal store type names
+const UI_TO_STORE_TYPE_MAP: Record<ModifierType, 'linear-array' | 'circular-array' | 'grid-array' | 'mirror' | 'lsystem' | 'subdivide' | 'noise-offset' | 'smooth' | 'simplify'> = {
+  linear: 'linear-array',
+  circular: 'circular-array',
+  grid: 'grid-array',
+  mirror: 'mirror',
+  lsystem: 'lsystem',
+  subdivide: 'subdivide',
+  'noise-offset': 'noise-offset',
+  smooth: 'smooth',
+  simplify: 'simplify'
+} as const
 
 interface UseModifierManagerProps {
   selectedShapes: TLShape[]
@@ -51,24 +64,15 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
 
   const addModifier = useCallback((type: ModifierType) => {
     if (!selectedShape) return
-    // Map UI type to store type
-    const typeMap: Record<ModifierType, 'linear-array' | 'circular-array' | 'grid-array' | 'mirror' | 'lsystem' | 'subdivide' | 'noise-offset' | 'smooth' | 'simplify'> = {
-      linear: 'linear-array',
-      circular: 'circular-array',
-      grid: 'grid-array',
-      mirror: 'mirror',
-      lsystem: 'lsystem',
-      subdivide: 'subdivide',
-      'noise-offset': 'noise-offset',
-      smooth: 'smooth',
-      simplify: 'simplify'
-    }
-    const storeType = typeMap[type]
-    const settings = (DEFAULT_SETTINGS as Record<string, unknown>)[storeType] || {}
-    
+
     // Use original shape ID for clones/processed shapes
     const originalShapeId = getOriginalShapeId(selectedShape) || selectedShape.id
-    store.createModifier(originalShapeId as import('tldraw').TLShapeId, storeType, settings)
+
+    // Map UI type to internal type using the optimized constant
+    const storeType = UI_TO_STORE_TYPE_MAP[type]
+
+    // Create modifier using existing store method (simpler approach)
+    store.createModifier(originalShapeId as import('tldraw').TLShapeId, storeType, {})
   }, [selectedShape, store])
 
   const applyModifiers = useCallback(() => {
@@ -194,11 +198,11 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
             // Create the permanent shapes
             editor.createShapes(shapesToCreate)
 
-            // Apply rotation using rotateShapesBy for center-based rotation (same as preview)
+            // Apply rotation using shared utility for center-based rotation (same as preview)
             transformedShapes.slice(1).forEach((transformedShape, index) => {
               if (transformedShape.rotation && transformedShape.rotation !== 0) {
                 const shapeId = shapesToCreate[index].id
-                editor.rotateShapesBy([shapeId], transformedShape.rotation)
+                applyRotationToShapes(editor, [shapeId], transformedShape.rotation)
               }
             })
           }, { history: 'record' })
@@ -345,11 +349,11 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
             // Create the permanent shapes
             editor.createShapes(shapesToCreate)
 
-            // Apply rotation using rotateShapesBy for center-based rotation (same as preview)
+            // Apply rotation using shared utility for center-based rotation (same as preview)
             transformedShapes.slice(1).forEach((transformedShape, index) => {
               if (transformedShape.rotation && transformedShape.rotation !== 0) {
                 const shapeId = shapesToCreate[index].id
-                editor.rotateShapesBy([shapeId], transformedShape.rotation)
+                applyRotationToShapes(editor, [shapeId], transformedShape.rotation)
               }
             })
           }, { history: 'record' })

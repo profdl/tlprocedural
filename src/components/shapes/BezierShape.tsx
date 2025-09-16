@@ -92,8 +92,9 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   override component(shape: BezierShape) {
     const { points, color, strokeWidth, fill, isClosed, editMode, selectedPointIndices = [], hoverPoint } = shape.props
 
-    // Note: Removed useEditor and useBezierHover hooks as they cannot be called in class components
-    // TODO: Consider refactoring to functional component if hook usage is needed
+    // Note: This is a class component following TLDraw's ShapeUtil pattern
+    // FUTURE CONSIDERATION: Could potentially refactor to functional component if more hook usage is needed
+    // Current architecture follows TLDraw best practices for custom shape utilities
     
     // Debug logging for selection state
     if (editMode && selectedPointIndices.length > 0) {
@@ -303,12 +304,6 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   }
   
 
-  // LEGACY: This method is still used by some legacy code paths
-  // TODO: Remove once all code paths use BezierBounds service directly
-  // private recalculateBounds(shape: BezierShape, points: BezierPoint[]): BezierShape {
-  //   // Delegate to BezierBounds service for consistent bounds calculation
-  //   return BezierBounds.recalculateShapeBounds(shape, points)
-  // }
 
 
 

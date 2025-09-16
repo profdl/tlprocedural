@@ -7,6 +7,7 @@ import {
   getOriginalShapeId,
   logShapeOperation
 } from '../utils'
+import { applyRotationToShapes } from '../utils/transformUtils'
 
 interface UseCloneManagerProps {
   shape: TLShape
@@ -130,11 +131,11 @@ export function useCloneManager({
 
         editor.createShapes(shapesToCreate)
 
-        // Apply rotation using rotateShapesBy for center-based rotation
+        // Apply rotation using shared utility for center-based rotation
         currentProcessedShapes.forEach((processedShape, index) => {
           if (processedShape.rotation && processedShape.rotation !== 0) {
             const shapeId = shapesToCreate[index].id
-            editor.rotateShapesBy([shapeId], processedShape.rotation)
+            applyRotationToShapes(editor, [shapeId], processedShape.rotation)
           }
         })
       }
@@ -161,9 +162,9 @@ export function useCloneManager({
     }
   }, [editor, shapeKey, processedShapesCount])
 
-  // TODO: Implement transform synchronization from clone back to original
+  // FUTURE ENHANCEMENT: Transform synchronization from clone back to original
   // This would allow users to transform clones and have changes reflect in the original
-  // Commented out for now to avoid circular dependency issues
+  // Requires careful design to avoid circular dependencies and performance issues
 }
 
 
@@ -271,9 +272,9 @@ function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModif
         }
       })
 
-      // Batch apply all rotations
+      // Batch apply all rotations using shared utility
       rotationsToApply.forEach(({ id, delta }) => {
-        editor.rotateShapesBy([id as import('tldraw').TLShapeId], delta)
+        applyRotationToShapes(editor, [id], delta)
       })
     }, { ignoreShapeLock: true, history: 'ignore' })
 

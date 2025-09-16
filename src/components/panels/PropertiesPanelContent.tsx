@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { useEditor, useValue } from 'tldraw'
 import { EnhancedNumberInput } from '../modifiers/ui/EnhancedNumberInput'
+import { applyRotationToShapes } from '../modifiers/utils/transformUtils'
 
 export function PropertiesPanelContent() {
   const editor = useEditor()
@@ -109,8 +110,8 @@ export function PropertiesPanelContent() {
       const currentRotation = shape.rotation || 0
       const deltaRotation = rotationInRadians - currentRotation
 
-      // Use TLDraw's rotation API for proper center-based rotation
-      editor.rotateShapesBy([shape.id], deltaRotation)
+      // Use shared utility for proper center-based rotation
+      applyRotationToShapes(editor, [shape.id], deltaRotation)
     })
   }, [selectedShapes, editor])
 

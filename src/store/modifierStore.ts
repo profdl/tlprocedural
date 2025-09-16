@@ -35,7 +35,7 @@ interface ModifierStoreState {
     type: 'linear-array' | 'circular-array' | 'grid-array' | 'mirror' | 'lsystem' | 'subdivide' | 'noise-offset' | 'smooth' | 'simplify',
     settings?: object
   ) => TLModifier
-
+  addModifier: (modifier: TLModifier) => void
   updateModifier: (id: TLModifierId, changes: Partial<TLModifier>) => void
   deleteModifier: (id: TLModifierId) => void
   deleteModifiersForShape: (shapeId: TLShapeId) => void
@@ -75,7 +75,17 @@ export const useModifierStore = create<ModifierStoreState>()(
       const { modifiers } = get()
       return modifiers[id]
     },
-    
+
+    // Add a pre-created modifier to the store
+    addModifier: (modifier: TLModifier) => {
+      set(state => ({
+        modifiers: {
+          ...state.modifiers,
+          [modifier.id]: modifier
+        }
+      }))
+    },
+
     // Create a new generic modifier
     createModifier: (targetShapeId: TLShapeId, type: 'linear-array' | 'circular-array' | 'grid-array' | 'mirror' | 'lsystem' | 'subdivide' | 'noise-offset' | 'smooth' | 'simplify', settings: object = {}) => {
       const { getModifiersForShape } = get()
