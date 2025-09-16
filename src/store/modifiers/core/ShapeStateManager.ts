@@ -39,11 +39,15 @@ export function createInitialShapeState(shape: TLShape): ShapeState {
 export function extractShapesFromState(state: ShapeState): TLShape[] {
   return state.instances.map((instance: ShapeInstance, index: number) => {
     
+    // Use targetRotation from metadata if available (for special rotation handling like mirror)
+    // Otherwise use the transform rotation
+    const finalRotation = (instance.metadata as any)?.targetRotation ?? instance.transform.rotation
+
     const baseShape = {
       ...instance.shape,
       x: instance.transform.x,
       y: instance.transform.y,
-      rotation: instance.transform.rotation
+      rotation: finalRotation
     }
     
     

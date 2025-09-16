@@ -5,10 +5,11 @@ import type {
   ModifierProcessor,
   MirrorSettings
 } from '../../../types/modifiers'
+import { getShapeVisualCenter } from '../../../components/modifiers/utils/transformUtils'
 
 // Mirror Processor implementation - Clean slate
 export const MirrorProcessor: ModifierProcessor = {
-  process(input: ShapeState, settings: MirrorSettings): ShapeState {
+  process(input: ShapeState, settings: MirrorSettings, groupContext?: any, editor?: any): ShapeState {
     const { axis, offset } = settings
     
     
@@ -18,36 +19,25 @@ export const MirrorProcessor: ModifierProcessor = {
     }
     
     const newInstances: ShapeInstance[] = []
-    
-    // Keep all original instances (treat Linear Array output as a single entity)
+
+    // Create mirrored copies of ALL instances (don't keep originals)
     input.instances.forEach(inputInstance => {
-      // First, add the original instance unchanged
-      newInstances.push({
-        ...inputInstance,
-        index: newInstances.length,
-        metadata: {
-          ...inputInstance.metadata,
-          arrayIndex: newInstances.length
-        }
-      })
-    })
-    
-    // Now create mirrored copies of ALL instances as a single unit
-    input.instances.forEach(inputInstance => {
-      // Get shape bounds for mirroring calculations
-      const shape = inputInstance.shape
-      const originalWidth = 'w' in shape.props ? shape.props.w as number : 100
-      const originalHeight = 'h' in shape.props ? shape.props.h as number : 100
-      
-      // Apply scaling to get the actual dimensions of this instance
+      // Create a temporary shape with the transformed position and rotation for visual center calculation
+      const transformedShape = {
+        ...inputInstance.shape,
+        x: inputInstance.transform.x,
+        y: inputInstance.transform.y,
+        rotation: inputInstance.transform.rotation
+      }
+
+      // Get the correct visual center accounting for rotation
+      const { x: worldCenterX, y: worldCenterY } = getShapeVisualCenter(transformedShape, editor)
+
+      // Get shape dimensions for later calculations
+      const originalWidth = 'w' in transformedShape.props ? transformedShape.props.w as number : 100
+      const originalHeight = 'h' in transformedShape.props ? transformedShape.props.h as number : 100
       const scaledWidth = originalWidth * inputInstance.transform.scaleX
       const scaledHeight = originalHeight * inputInstance.transform.scaleY
-      
-      // Get the center position using the transform directly
-      // Since we're processing already-transformed instances from Linear Array,
-      // we use the transform position, not the original shape position
-      const worldCenterX = inputInstance.transform.x + scaledWidth / 2
-      const worldCenterY = inputInstance.transform.y + scaledHeight / 2
       
       let mirroredCenterX = worldCenterX
       let mirroredCenterY = worldCenterY
@@ -84,11 +74,11 @@ export const MirrorProcessor: ModifierProcessor = {
       const mirroredScaleX = inputInstance.transform.scaleX
       const mirroredScaleY = inputInstance.transform.scaleY
       
-      // Create mirrored transform
+      // Create mirrored transform (rotation will be applied via useCloneManager)
       const mirroredTransform: Transform = {
         x: mirroredTopLeftX,
         y: mirroredTopLeftY,
-        rotation: mirroredRotation,
+        rotation: 0, // Don't set rotation in transform - will be applied by useCloneManager
         scaleX: mirroredScaleX,
         scaleY: mirroredScaleY,
       }
@@ -104,7 +94,8 @@ export const MirrorProcessor: ModifierProcessor = {
           isMirrored: true,
           mirrorAxis: axis,
           mirrorOffset: offset,
-          sourceInstance: inputInstance.index
+          sourceInstance: inputInstance.index,
+          targetRotation: mirroredRotation // Store rotation for extractShapesFromState
         }
       }
       
