@@ -23,15 +23,15 @@ export const LinearArrayProcessor: ModifierProcessor = {
     
     // For each existing instance, create the array
     input.instances.forEach(inputInstance => {
-      // Create all array positions including the first one (i=0) which replaces the original
-      for (let i = 0; i < count; i++) {
+      // Create array positions starting from i=1, skip the original (i=0)
+      for (let i = 1; i < count; i++) {
         // Get shape dimensions for offset calculation
         const { width: shapeWidth, height: shapeHeight } = getShapeDimensions(inputInstance.shape)
         
         // Convert percentage offsets to pixel values
         const pixelOffsetX = (offsetX / 100) * shapeWidth * i
         const pixelOffsetY = (offsetY / 100) * shapeHeight * i
-        
+
         // Calculate incremental and uniform rotation for this index
         const incrementalRotationRadians = degreesToRadians(rotationIncrement * i)
         const uniformRotationRadians = degreesToRadians(rotateAll)

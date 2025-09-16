@@ -25,9 +25,11 @@ export const GridArrayProcessor: ModifierProcessor = {
       // Get shape dimensions for center calculation
       const { width: shapeWidth, height: shapeHeight } = getShapeDimensions(inputInstance.shape)
       
-      // Create grid positions including (0,0) which replaces the original
+      // Create grid positions starting from (0,1) or (1,0), skip the original (0,0)
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < columns; col++) {
+          // Skip the original position at (0,0)
+          if (row === 0 && col === 0) continue
           // Calculate grid position offset
           const gridOffsetX = (offsetX || 0) + (col * spacingX)
           const gridOffsetY = (offsetY || 0) + (row * spacingY)
@@ -111,9 +113,11 @@ function processGroupGridArray(
   // For each existing instance (which represents a shape in the group), create the array
   input.instances.forEach(inputInstance => {
     
-    // Create grid positions
+    // Create grid positions starting from (0,1) or (1,0), skip the original (0,0)
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < columns; col++) {
+        // Skip the original position at (0,0)
+        if (row === 0 && col === 0) continue
         
         // Calculate the offset from the group's top-left corner
         const offsetFromTopLeftX = (offsetX || 0) + (col * spacingX)
