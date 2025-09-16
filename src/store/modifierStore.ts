@@ -1,18 +1,15 @@
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
-import { 
+import {
   type Editor,
   type TLShapeId
 } from 'tldraw'
-import { 
-  type TLModifier, 
-  type TLModifierId, 
-  type TLLinearArrayModifier, 
-  type TLCircularArrayModifier,
-  type TLGridArrayModifier,
-  type TLMirrorModifier,
-  createModifierId
+import {
+  type TLModifier,
+  type TLModifierId,
+  type ModifierType
 } from '../types/modifiers'
+import { ModifierFactory } from '../factories/ModifierFactory'
 
 // Zustand store state interface
 interface ModifierStoreState {
@@ -28,11 +25,11 @@ interface ModifierStoreState {
   getModifier: (id: TLModifierId) => TLModifier | undefined
   /**
    * Generic modifier creation supporting all types
-   * settings type depends on modifier type
+   * Uses factory pattern for clean, maintainable modifier creation
    */
   createModifier: (
     targetShapeId: TLShapeId,
-    type: 'linear-array' | 'circular-array' | 'grid-array' | 'mirror' | 'lsystem' | 'subdivide' | 'noise-offset' | 'smooth' | 'simplify',
+    type: ModifierType,
     settings?: object
   ) => TLModifier
   addModifier: (modifier: TLModifier) => void
@@ -86,169 +83,16 @@ export const useModifierStore = create<ModifierStoreState>()(
       }))
     },
 
-    // Create a new generic modifier
-    createModifier: (targetShapeId: TLShapeId, type: 'linear-array' | 'circular-array' | 'grid-array' | 'mirror' | 'lsystem' | 'subdivide' | 'noise-offset' | 'smooth' | 'simplify', settings: object = {}) => {
+    // Create a new modifier using the factory pattern
+    createModifier: (targetShapeId: TLShapeId, type: ModifierType, settings: object = {}) => {
       const { getModifiersForShape } = get()
-      const id = createModifierId()
-      let modifier: TLModifier
-      if (type === 'linear-array') {
-        modifier = {
-          id,
-          typeName: 'modifier',
-          type: 'linear-array',
-          targetShapeId,
-          enabled: true,
-          order: getModifiersForShape(targetShapeId).length,
-          props: {
-            count: 3,
-            offsetX: 50,
-            offsetY: 0,
-            rotation: 0,
-            scaleStep: 1.0,
-            ...settings
-          }
-        } as TLLinearArrayModifier
-      } else if (type === 'circular-array') {
-        modifier = {
-          id,
-          typeName: 'modifier',
-          type: 'circular-array',
-          targetShapeId,
-          enabled: true,
-          order: getModifiersForShape(targetShapeId).length,
-          props: {
-            count: 6,
-            radius: 100,
-            startAngle: 0,
-            endAngle: 360,
-            centerX: 0,
-            centerY: 0,
-            rotateEach: 0,
-            rotateAll: 0,
-            pointToCenter: false,
-            ...settings
-          }
-        } as TLCircularArrayModifier
-      } else if (type === 'grid-array') {
-        modifier = {
-          id,
-          typeName: 'modifier',
-          type: 'grid-array',
-          targetShapeId,
-          enabled: true,
-          order: getModifiersForShape(targetShapeId).length,
-          props: {
-            rows: 2,
-            columns: 2,
-            spacingX: 50,
-            spacingY: 50,
-            offsetX: 0,
-            offsetY: 0,
-            ...settings
-          }
-        } as TLGridArrayModifier
-      } else if (type === 'mirror') {
-        modifier = {
-          id,
-          typeName: 'modifier',
-          type: 'mirror',
-          targetShapeId,
-          enabled: true,
-          order: getModifiersForShape(targetShapeId).length,
-          props: {
-            axis: 'x',
-            offset: 0,
-            mergeThreshold: 0,
-            ...settings
-          }
-        } as TLMirrorModifier
-      } else if (type === 'lsystem') {
-        modifier = {
-          id,
-          typeName: 'modifier',
-          type: 'lsystem',
-          targetShapeId,
-          enabled: true,
-          order: getModifiersForShape(targetShapeId).length,
-          props: {
-            axiom: 'F',
-            rules: { F: 'F+F−F−F+F' },
-            iterations: 6,
-            angle: 20,
-            stepPercent: 100,
-            lengthDecay: 1.0,
-            scalePerIteration: 1.0,
-            ...settings
-          }
-        } as import('../types/modifiers').TLLSystemModifier
-      } else if (type === 'subdivide') {
-        modifier = {
-          id,
-          typeName: 'modifier',
-          type: 'subdivide',
-          targetShapeId,
-          enabled: true,
-          order: getModifiersForShape(targetShapeId).length,
-          props: {
-            iterations: 1,
-            factor: 0.5,
-            smooth: false,
-            ...settings
-          }
-        } as import('../types/modifiers').TLSubdivideModifier
-      } else if (type === 'noise-offset') {
-        modifier = {
-          id,
-          typeName: 'modifier',
-          type: 'noise-offset',
-          targetShapeId,
-          enabled: true,
-          order: getModifiersForShape(targetShapeId).length,
-          props: {
-            amplitude: 10,
-            frequency: 0.1,
-            octaves: 3,
-            seed: 123,
-            direction: 'both',
-            ...settings
-          }
-        } as import('../types/modifiers').TLNoiseOffsetModifier
-      } else if (type === 'smooth') {
-        modifier = {
-          id,
-          typeName: 'modifier',
-          type: 'smooth',
-          targetShapeId,
-          enabled: true,
-          order: getModifiersForShape(targetShapeId).length,
-          props: {
-            iterations: 1,
-            factor: 0.5,
-            preserveCorners: true,
-            cornerThreshold: 90,
-            ...settings
-          }
-        } as import('../types/modifiers').TLSmoothModifier
-      } else if (type === 'simplify') {
-        modifier = {
-          id,
-          typeName: 'modifier',
-          type: 'simplify',
-          targetShapeId,
-          enabled: true,
-          order: getModifiersForShape(targetShapeId).length,
-          props: {
-            tolerance: 5,
-            preserveCorners: true,
-            minPoints: 3,
-            ...settings
-          }
-        } as import('../types/modifiers').TLSimplifyModifier
-      } else {
-        throw new Error(`Unknown modifier type: ${type}`)
-      }
+      const order = getModifiersForShape(targetShapeId).length
+
+      // Use the ModifierFactory to create the modifier - clean and maintainable
+      const modifier = ModifierFactory.createModifier(type, targetShapeId, order, settings)
+
       set(state => ({
-        modifiers: { ...state.modifiers, [id]: modifier }
+        modifiers: { ...state.modifiers, [modifier.id]: modifier }
       }))
       get().notifyChange()
       return modifier
