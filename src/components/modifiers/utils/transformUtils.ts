@@ -88,12 +88,39 @@ export interface Position {
   scaleY: number
 }
 
+/**
+ * Calculate orbital rotation around a center point
+ * Used when source shape rotation should cause clones to orbit around the source center
+ */
+export function calculateOrbitalPosition(
+  originalPosition: { x: number; y: number },
+  centerPoint: { x: number; y: number },
+  sourceRotation: number
+): { x: number; y: number } {
+  // Calculate offset from center
+  const offsetX = originalPosition.x - centerPoint.x
+  const offsetY = originalPosition.y - centerPoint.y
+
+  // Apply rotation transform around center
+  const cos = Math.cos(sourceRotation)
+  const sin = Math.sin(sourceRotation)
+
+  const rotatedOffsetX = offsetX * cos - offsetY * sin
+  const rotatedOffsetY = offsetX * sin + offsetY * cos
+
+  return {
+    x: centerPoint.x + rotatedOffsetX,
+    y: centerPoint.y + rotatedOffsetY
+  }
+}
+
 export function calculateLinearPosition(
   originalShape: TLShape,
   index: number,
   offsetX: number,
   offsetY: number,
-  rotation: number,
+  rotationIncrement: number,
+  rotateAll: number,
   scaleStep: number,
   count: number,
   editor?: Editor
@@ -108,15 +135,30 @@ export function calculateLinearPosition(
   // Use shared utility to get visual center
   const { x: centerX, y: centerY } = getShapeVisualCenter(originalShape, editor)
 
-  // Apply offset from center, then convert back to top-left for the clone
-  const cloneCenterX = centerX + (pixelOffsetX * index)
-  const cloneCenterY = centerY + (pixelOffsetY * index)
+  // Calculate base position with linear offset
+  let cloneCenterX = centerX + (pixelOffsetX * index)
+  let cloneCenterY = centerY + (pixelOffsetY * index)
+
+  // If source shape is rotated, apply orbital rotation around source center
+  const sourceRotation = originalShape.rotation || 0
+  if (sourceRotation !== 0) {
+    const basePosition = { x: cloneCenterX, y: cloneCenterY }
+    const orbitalPosition = calculateOrbitalPosition(basePosition, { x: centerX, y: centerY }, sourceRotation)
+    cloneCenterX = orbitalPosition.x
+    cloneCenterY = orbitalPosition.y
+  }
 
   // Convert back to top-left position for the clone
   const { x: finalX, y: finalY } = getTopLeftFromCenter(originalShape, cloneCenterX, cloneCenterY)
 
-  // Calculate rotation for this index
-  const rotationRadians = degreesToRadians(rotation * index)
+  // Calculate incremental rotation for this index
+  const incrementalRotation = degreesToRadians(rotationIncrement * index)
+
+  // Calculate uniform rotation applied to all clones
+  const uniformRotation = degreesToRadians(rotateAll)
+
+  // Total rotation is incremental + uniform
+  const totalRotation = incrementalRotation + uniformRotation
 
   // Calculate scale using linear interpolation
   const progress = count > 1 ? index / (count - 1) : 0
@@ -127,7 +169,7 @@ export function calculateLinearPosition(
   return {
     x: finalX,
     y: finalY,
-    rotation: rotationRadians,
+    rotation: totalRotation,
     scaleX: interpolatedScale,
     scaleY: interpolatedScale
   }

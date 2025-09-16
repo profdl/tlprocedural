@@ -66,7 +66,8 @@ export interface LinearArraySettings {
   count: number
   offsetX: number
   offsetY: number
-  rotation: number // in degrees
+  rotationIncrement: number // progressive rotation per clone in degrees
+  rotateAll: number // uniform rotation applied to all clones in degrees
   scaleStep: number // scale change per copy
 }
 

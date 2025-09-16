@@ -98,8 +98,18 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
       },
       {
         type: 'number',
-        label: 'Rotation',
-        field: 'rotation',
+        label: 'Rotate Increment',
+        field: 'rotationIncrement',
+        min: INPUT_CONSTRAINTS.rotation.min,
+        max: INPUT_CONSTRAINTS.rotation.max,
+        step: INPUT_CONSTRAINTS.rotation.step,
+        precision: 0,
+        unit: '°'
+      },
+      {
+        type: 'number',
+        label: 'Rotate All',
+        field: 'rotateAll',
         min: INPUT_CONSTRAINTS.rotation.min,
         max: INPUT_CONSTRAINTS.rotation.max,
         step: INPUT_CONSTRAINTS.rotation.step,

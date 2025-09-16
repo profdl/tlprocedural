@@ -11,7 +11,7 @@ import { calculateLinearPosition, getShapeDimensions, degreesToRadians } from '.
 // Linear Array Processor implementation  
 export const LinearArrayProcessor: ModifierProcessor = {
   process(input: ShapeState, settings: LinearArraySettings, groupContext?: GroupContext, editor?: import('tldraw').Editor): ShapeState {
-    const { count, offsetX, offsetY, rotation, scaleStep } = settings
+    const { count, offsetX, offsetY, rotationIncrement, rotateAll, scaleStep } = settings
     
     // If processing in group context, use group dimensions
     if (groupContext) {
@@ -32,46 +32,58 @@ export const LinearArrayProcessor: ModifierProcessor = {
         const pixelOffsetX = (offsetX / 100) * shapeWidth * i
         const pixelOffsetY = (offsetY / 100) * shapeHeight * i
         
-        // Calculate rotation and scale for this index
-        const rotationRadians = degreesToRadians(rotation * i)
+        // Calculate incremental and uniform rotation for this index
+        const incrementalRotationRadians = degreesToRadians(rotationIncrement * i)
+        const uniformRotationRadians = degreesToRadians(rotateAll)
+        const totalRotationRadians = incrementalRotationRadians + uniformRotationRadians
+
         const progress = count > 1 ? i / (count - 1) : 0
         // Convert percentage scaleStep to decimal (50% -> 0.5, 100% -> 1.0)
         const scaleStepDecimal = scaleStep / 100
         const interpolatedScale = 1 + (scaleStepDecimal - 1) * progress
         
-        // When source shape is rotated, we need to calculate from its center
-        // not from the top-left corner which moves when rotated
-        let baseX = inputInstance.transform.x
-        let baseY = inputInstance.transform.y
-        let positionCorrected = inputInstance.metadata?.positionCorrected === true
-        
-        // Only correct for rotation if this is the original shape from the canvas,
-        // not an already-transformed instance from a previous modifier
-        // We can detect this by checking if there are no modifier-specific indices
-        const isFromPreviousModifier = inputInstance.metadata?.linearArrayIndex !== undefined || 
-                                      inputInstance.metadata?.circularArrayIndex !== undefined || 
-                                      inputInstance.metadata?.gridArrayIndex !== undefined ||
-                                      inputInstance.metadata?.sourceInstance !== undefined
-        const hasRotation = inputInstance.transform.rotation !== 0
-        
-        if (editor && hasRotation && !positionCorrected && !isFromPreviousModifier) {
-          // Get the visual center of the rotated original shape
+        // Get the proper visual center of the source shape, accounting for rotation
+        let sourceCenterX = inputInstance.transform.x + shapeWidth / 2
+        let sourceCenterY = inputInstance.transform.y + shapeHeight / 2
+
+        // For rotated shapes, we need to use the actual visual center
+        const sourceRotation = inputInstance.transform.rotation || 0
+        if (editor && sourceRotation !== 0) {
           const bounds = editor.getShapePageBounds(inputInstance.shape.id)
           if (bounds) {
-            // Calculate from center, then convert back to top-left for positioning
-            const centerX = bounds.x + bounds.width / 2
-            const centerY = bounds.y + bounds.height / 2
-            baseX = centerX - shapeWidth / 2
-            baseY = centerY - shapeHeight / 2
-            positionCorrected = true
+            sourceCenterX = bounds.x + bounds.width / 2
+            sourceCenterY = bounds.y + bounds.height / 2
           }
         }
-        
-        // Apply offsets to the corrected base position
+
+        // Calculate base clone position with linear offset from source center
+        let cloneCenterX = sourceCenterX + pixelOffsetX
+        let cloneCenterY = sourceCenterY + pixelOffsetY
+
+        // If source shape is rotated, apply orbital rotation around source center
+        if (sourceRotation !== 0) {
+          // Apply orbital rotation around source center
+          const offsetX = pixelOffsetX
+          const offsetY = pixelOffsetY
+
+          const cos = Math.cos(sourceRotation)
+          const sin = Math.sin(sourceRotation)
+
+          const rotatedOffsetX = offsetX * cos - offsetY * sin
+          const rotatedOffsetY = offsetX * sin + offsetY * cos
+
+          cloneCenterX = sourceCenterX + rotatedOffsetX
+          cloneCenterY = sourceCenterY + rotatedOffsetY
+        }
+
+        // Convert back to top-left position for the clone
+        const finalX = cloneCenterX - shapeWidth / 2
+        const finalY = cloneCenterY - shapeHeight / 2
+
         const newTransform: Transform = {
-          x: baseX + pixelOffsetX,
-          y: baseY + pixelOffsetY,
-          rotation: inputInstance.transform.rotation + rotationRadians,
+          x: finalX,
+          y: finalY,
+          rotation: inputInstance.transform.rotation + totalRotationRadians,
           scaleX: inputInstance.transform.scaleX * interpolatedScale,
           scaleY: inputInstance.transform.scaleY * interpolatedScale
         }
@@ -84,8 +96,7 @@ export const LinearArrayProcessor: ModifierProcessor = {
             ...inputInstance.metadata,
             arrayIndex: newInstances.length, // Use sequential index for clone mapping
             sourceInstance: inputInstance.index,
-            linearArrayIndex: i, // Store linear-specific index separately
-            positionCorrected: positionCorrected // Mark if position was corrected for rotation
+            linearArrayIndex: i // Store linear-specific index separately
           }
         }
         
@@ -103,11 +114,11 @@ export const LinearArrayProcessor: ModifierProcessor = {
 
 // Group processing function for linear arrays
 function processGroupArray(
-  input: ShapeState, 
-  settings: LinearArraySettings, 
+  input: ShapeState,
+  settings: LinearArraySettings,
   groupContext: GroupContext
 ): ShapeState {
-  const { count, offsetX, offsetY, rotation, scaleStep } = settings
+  const { count, offsetX, offsetY, rotationIncrement, rotateAll, scaleStep } = settings
   const { groupTopLeft, groupBounds, groupTransform } = groupContext
   
   
@@ -124,16 +135,18 @@ function processGroupArray(
     
     for (let i = 1; i < count; i++) { // Start from i=1, skip the original (i=0)
       
-      // Calculate rotation in radians for this clone
-      const rotationRadians = (rotation * (i - 1) * Math.PI / 180) // Use (i-1) so first clone has no rotation
+      // Calculate incremental and uniform rotation for this clone
+      const incrementalRotationRadians = (rotationIncrement * (i - 1) * Math.PI / 180) // Use (i-1) so first clone has no rotation
+      const uniformRotationRadians = degreesToRadians(rotateAll)
+      const totalRotationRadians = incrementalRotationRadians + uniformRotationRadians
       
       // Calculate the offset from the group's top-left corner
       const offsetFromTopLeftX = pixelOffsetX * (i - 1) // Use (i-1) so first clone has no offset
       const offsetFromTopLeftY = pixelOffsetY * (i - 1)
       
       // Apply rotation to the offset around the group's top-left corner
-      const cos = Math.cos(rotationRadians)
-      const sin = Math.sin(rotationRadians)
+      const cos = Math.cos(incrementalRotationRadians)
+      const sin = Math.sin(incrementalRotationRadians)
       const rotatedOffsetX = offsetFromTopLeftX * cos - offsetFromTopLeftY * sin
       const rotatedOffsetY = offsetFromTopLeftX * sin + offsetFromTopLeftY * cos
       
@@ -151,15 +164,17 @@ function processGroupArray(
         i - 1, // Use (i-1) so first clone has no offset
         (offsetX / groupBounds.width) * 100, // Convert back to percentage based on shape
         (offsetY / groupBounds.height) * 100,
-        rotation,
+        rotationIncrement,
+        rotateAll,
         scaleStep,
-        count
+        count,
+        undefined // No editor available in group context
       )
       
       // Calculate the final position of this shape in the cloned group
       let finalX = newGroupTopLeftX + shapeRelativeX
       let finalY = newGroupTopLeftY + shapeRelativeY
-      let finalRotation = inputInstance.transform.rotation + relativePosition.rotation
+      let finalRotation = inputInstance.transform.rotation + totalRotationRadians
       const finalScale = relativePosition.scaleX
       
       
