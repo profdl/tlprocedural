@@ -2,15 +2,16 @@ import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, ty
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 import { BezierBounds } from './services/BezierBounds'
 import { BezierState } from './services/BezierState'
-import { 
-  generateBezierHandles, 
+import {
+  generateBezierHandles,
   createHandleMemoKey,
-  createHandleDragKey 
+  createHandleDragKey
 } from './utils/bezierUtils'
 import { bezierLog } from './utils/bezierConstants'
 import { BezierPath } from './components/BezierPath'
 import { BezierControlPoints } from './components/BezierControlPoints'
 import { BezierHoverPreview } from './components/BezierHoverPreview'
+import { LRUCache } from '../../utils/LRUCache'
 
 export interface BezierPoint {
   x: number
@@ -211,28 +212,26 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     return BezierBounds.getOutlinePoints(shape)
   }
 
-  // Memoized handle generation for performance optimization
-  private handleMemo = new Map<string, TLHandle[]>()
+  // LRU cache for handle generation performance optimization
+  private handleCache = new LRUCache<string, TLHandle[]>(100) // Increase capacity from 50 to 100
   
   // Handle management for interactive bezier points
   override getHandles(shape: BezierShape): TLHandle[] {
     // Create memoization key based on points and edit mode
-    const memoKey = createHandleMemoKey(shape)
-    
+    const cacheKey = createHandleMemoKey(shape)
+
     // Check if we have cached handles for this configuration
-    if (this.handleMemo.has(memoKey)) {
-      return this.handleMemo.get(memoKey)!
+    const cachedHandles = this.handleCache.get(cacheKey)
+    if (cachedHandles) {
+      return cachedHandles
     }
-    
+
     // Generate new handles using utility function
     const handles = generateBezierHandles(shape)
-    
-    // Cache the result (limit cache size to prevent memory leaks)
-    if (this.handleMemo.size > 50) {
-      this.handleMemo.clear() // Simple cache cleanup
-    }
-    this.handleMemo.set(memoKey, handles)
-    
+
+    // Cache the result using LRU cache (automatic eviction of least recently used)
+    this.handleCache.set(cacheKey, handles)
+
     return handles
   }
 

@@ -1,10 +1,10 @@
-import { useMemo, useCallback } from 'react'
+import { useMemo, useRef } from 'react'
 import { useEditor, type TLShape, type TLShapePartial, createShapeId, type TLShapeId } from 'tldraw'
 import { ModifierStack, extractShapesFromState } from '../../../store/modifiers'
 import { isPathModifierType } from '../../../store/modifiers/core/PathModifier'
 import type { TLModifier } from '../../../types/modifiers'
-import { 
-  logShapeOperation 
+import {
+  logShapeOperation
 } from '../utils'
 
 interface UseStackedModifierProps {
@@ -15,7 +15,6 @@ interface UseStackedModifierProps {
 interface ProcessedShapeResult {
   processedShapes: TLShapePartial[]
   shapeKey: string
-  modifiersKey: string
 }
 
 /**
@@ -24,32 +23,65 @@ interface ProcessedShapeResult {
  */
 export function useStackedModifier({ shape, modifiers }: UseStackedModifierProps): ProcessedShapeResult {
   const editor = useEditor()
+
+  // Use refs to store stable references
+  const shapeRef = useRef(shape)
+  const modifiersRef = useRef(modifiers)
+
+  // Update refs on each render but memoize expensive computations
+  shapeRef.current = shape
+  modifiersRef.current = modifiers
+
+  // Memoize shape dimensions separately to avoid repeated type casting
+  const shapeDimensions = useMemo(() => {
+    const props = shape.props as { w?: number; h?: number }
+    return { w: props.w || 0, h: props.h || 0 }
+  }, [shape.props])
+
+  // Create stable dependency keys using primitive values only
+  const shapeKey = useMemo(() => {
+    return `${shape.id}-${shape.x}-${shape.y}-${shape.rotation}-${shapeDimensions.w}-${shapeDimensions.h}`
+  }, [shape.id, shape.x, shape.y, shape.rotation, shapeDimensions.w, shapeDimensions.h])
+
+  // Optimize modifier key generation with primitive dependencies
+  const modifiersKey = useMemo(() => {
+    const enabledIds: string[] = []
+    const enabledTypes: string[] = []
+
+    for (const mod of modifiers) {
+      if (mod.enabled) {
+        enabledIds.push(mod.id)
+        enabledTypes.push(mod.type)
+      }
+    }
+
+    return `${enabledIds.join(',')}-${enabledTypes.join(',')}`
+  }, [modifiers.map(m => m.enabled ? `${m.id}:${m.type}` : '').filter(Boolean).join(',')])
   
-  // Create stable dependency keys to avoid infinite loops
-  const shapeKey = `${shape.id}-${shape.x}-${shape.y}-${shape.rotation}-${JSON.stringify(shape.props)}`
-  const modifiersKey = modifiers.map(m => `${m.id}-${m.enabled}-${JSON.stringify(m.props)}`).join('|')
   
-  
-  // Create a stable callback for processing modifiers
-  const getProcessedShapes = useCallback(() => {
+  // Optimize processing with better memoization strategy
+  const processedShapes = useMemo(() => {
     try {
-      logShapeOperation('useStackedModifier', shape.id, {
-        shapeType: shape.type,
-        modifierCount: modifiers.filter(m => m.enabled).length,
-        modifiers: modifiers.map(m => ({ type: m.type, enabled: m.enabled }))
+      const currentShape = shapeRef.current
+      const currentModifiers = modifiersRef.current
+
+      logShapeOperation('useStackedModifier', currentShape.id, {
+        shapeType: currentShape.type,
+        modifierCount: currentModifiers.filter(m => m.enabled).length,
+        modifiers: currentModifiers.map(m => ({ type: m.type, enabled: m.enabled }))
       })
 
-      if (!modifiers.length) return []
+      if (!currentModifiers.length) return []
 
-      const result = ModifierStack.processModifiers(shape, modifiers, editor)
+      const result = ModifierStack.processModifiers(currentShape, currentModifiers, editor)
       const shapes = extractShapesFromState(result)
 
       if (!result || !shapes) {
-        console.warn(`Modifier processing returned no valid shapes for ${shape.id}`)
+        console.warn(`Modifier processing returned no valid shapes for ${currentShape.id}`)
         return []
       }
 
-      logShapeOperation('useStackedModifier Result', shape.id, {
+      logShapeOperation('useStackedModifier Result', currentShape.id, {
         instances: result.instances.length,
         extractedShapes: shapes.length,
         isGroupModifier: result.metadata?.isGroupModifier
@@ -60,30 +92,26 @@ export function useStackedModifier({ shape, modifiers }: UseStackedModifierProps
         const cloneId = createShapeId()
 
         // All shapes are now created the same way since flipping is done in shape data
-        return createRegularShape(processedShape, cloneId, index, modifiers)
+        return createRegularShape(processedShape, cloneId, index, currentModifiers)
       })
 
       return shapePartials
     } catch (error) {
       console.error('Error in modifier processing:', error, {
-        shapeId: shape.id,
-        shapeType: shape.type,
-        modifiers: modifiers.map(m => ({ type: m.type, enabled: m.enabled }))
+        shapeId: shapeRef.current.id,
+        shapeType: shapeRef.current.type,
+        modifiers: modifiersRef.current.map(m => ({ type: m.type, enabled: m.enabled }))
       })
       // Return empty array to gracefully handle the error
       return []
     }
-  }, [editor, modifiers, shape])
+  }, [editor, shapeKey, modifiersKey])
   
-  // Process all modifiers using the stable callback
-  const processedShapes = useMemo(() => {
-    return getProcessedShapes()
-  }, [getProcessedShapes])
+  // Remove redundant useMemo wrapper since we already memoized above
 
   return {
     processedShapes,
-    shapeKey,
-    modifiersKey
+    shapeKey
   }
 }
 

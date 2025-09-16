@@ -75,7 +75,7 @@ export function useFloatingPanel({
 
     // Update position in store for real-time snapping detection
     setPanelPosition(panelId, constrainedPosition)
-  }, [panelId, panel.size, constrainPosition, setPanelPosition, generateSnapGuides])
+  }, [panelId, panel.size.width, panel.size.height, constrainPosition, setPanelPosition, generateSnapGuides])
 
   const handleDragStop = useCallback((_e: DraggableEvent, data: DraggableData) => {
     setIsDragging(false)

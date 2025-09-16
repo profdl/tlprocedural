@@ -18,15 +18,14 @@ export function StackedModifier({ shape, modifiers }: StackedModifierProps) {
   const editor = useEditor()
   
   // Process shapes with modifiers
-  const { processedShapes, shapeKey, modifiersKey } = useStackedModifier({ shape, modifiers })
+  const { processedShapes, shapeKey } = useStackedModifier({ shape, modifiers })
   
   // Manage clones in the editor
-  useCloneManager({ 
-    shape, 
-    modifiers, 
-    processedShapes, 
-    shapeKey, 
-    modifiersKey 
+  useCloneManager({
+    shape,
+    modifiers,
+    processedShapes,
+    shapeKey
   })
 
   // Render graphics for circular array modifiers
