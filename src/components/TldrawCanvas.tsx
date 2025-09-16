@@ -18,6 +18,7 @@ import { CustomStylePanel } from './CustomStylePanel'
 import { CustomToolbar } from './CustomToolbar'
 import { ModifierOverlay } from './ModifierRenderer'
 import { isArrayClone } from './modifiers/utils'
+import type { BezierPoint } from './shapes/BezierShape'
 import { useModifierStore } from '../store/modifierStore'
 
 import { SineWaveShapeUtil } from './shapes/SineWaveShape'
@@ -643,14 +644,14 @@ export function TldrawCanvas() {
               }
               
               // Simple bounds calculation for the new points
-              const allPoints = newPoints.flatMap((p: any) => [
+              const allPoints = (newPoints as BezierPoint[]).flatMap((p: BezierPoint) => [
                 { x: p.x, y: p.y },
                 ...(p.cp1 ? [p.cp1] : []),
                 ...(p.cp2 ? [p.cp2] : [])
               ])
-              
-              const xs = allPoints.map((p: any) => p.x)
-              const ys = allPoints.map((p: any) => p.y)
+
+              const xs = allPoints.map((p: { x: number; y: number }) => p.x)
+              const ys = allPoints.map((p: { x: number; y: number }) => p.y)
               const minX = Math.min(...xs)
               const minY = Math.min(...ys)
               const maxX = Math.max(...xs)
@@ -660,7 +661,7 @@ export function TldrawCanvas() {
               const newH = Math.max(1, maxY - minY)
               
               // Normalize points to new bounds
-              const normalizedPoints = newPoints.map((p: any) => ({
+              const normalizedPoints = (newPoints as BezierPoint[]).map((p: BezierPoint): BezierPoint => ({
                 x: p.x - minX,
                 y: p.y - minY,
                 cp1: p.cp1 ? { x: p.cp1.x - minX, y: p.cp1.y - minY } : undefined,
@@ -722,17 +723,28 @@ export function TldrawCanvas() {
     // Handle keyboard events for bezier edit mode
     const handleKeyDown = (e: KeyboardEvent) => {
       const editingBezierShape = editor.getOnlySelectedShape() as TLShape | null
-      if (!editingBezierShape || editingBezierShape.type !== 'bezier' || !(editingBezierShape.props as any).editMode) {
+      if (!editingBezierShape || editingBezierShape.type !== 'bezier') {
+        return
+      }
+
+      // Type the bezier shape props
+      const bezierProps = editingBezierShape.props as {
+        editMode?: boolean
+        selectedPointIndices?: number[]
+        points?: BezierPoint[]
+      }
+
+      if (!bezierProps.editMode) {
         return
       }
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        const selectedIndices = (editingBezierShape.props as any).selectedPointIndices || []
-        
+        const selectedIndices = bezierProps.selectedPointIndices || []
+
         if (selectedIndices.length > 0) {
-          
+
           // Don't allow deletion if it would leave less than 2 points
-          const currentPoints = (editingBezierShape.props as any).points || []
+          const currentPoints = bezierProps.points || []
           if (currentPoints.length - selectedIndices.length < 2) {
             return
           }

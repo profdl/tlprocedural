@@ -166,7 +166,7 @@ export abstract class PathModifier<TSettings extends PathModifierSettings = Path
     return {
       ...pathData,
       data: Array.isArray(pathData.data)
-        ? [...pathData.data as any[]]
+        ? [...pathData.data]
         : pathData.data,
       bounds: pathData.bounds ? { ...pathData.bounds } : undefined
     }

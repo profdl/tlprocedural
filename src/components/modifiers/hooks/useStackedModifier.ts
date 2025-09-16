@@ -32,33 +32,47 @@ export function useStackedModifier({ shape, modifiers }: UseStackedModifierProps
   
   // Create a stable callback for processing modifiers
   const getProcessedShapes = useCallback(() => {
-    logShapeOperation('useStackedModifier', shape.id, {
-      shapeType: shape.type,
-      modifierCount: modifiers.filter(m => m.enabled).length,
-      modifiers: modifiers.map(m => ({ type: m.type, enabled: m.enabled }))
-    })
-    
-    if (!modifiers.length) return []
-    
-    const result = ModifierStack.processModifiers(shape, modifiers, editor)
-    const shapes = extractShapesFromState(result)
-    
-    logShapeOperation('useStackedModifier Result', shape.id, {
-      instances: result.instances.length,
-      extractedShapes: shapes.length,
-      isGroupModifier: result.metadata?.isGroupModifier
-    })
-    
-    
-    // Convert to TLShapePartial for tldraw, including all shapes
-    const shapePartials = shapes.map((processedShape, index) => {
-      const cloneId = createShapeId()
-      
-      // All shapes are now created the same way since flipping is done in shape data
-      return createRegularShape(processedShape, cloneId, index, modifiers)
-    })
-    
-    return shapePartials
+    try {
+      logShapeOperation('useStackedModifier', shape.id, {
+        shapeType: shape.type,
+        modifierCount: modifiers.filter(m => m.enabled).length,
+        modifiers: modifiers.map(m => ({ type: m.type, enabled: m.enabled }))
+      })
+
+      if (!modifiers.length) return []
+
+      const result = ModifierStack.processModifiers(shape, modifiers, editor)
+      const shapes = extractShapesFromState(result)
+
+      if (!result || !shapes) {
+        console.warn(`Modifier processing returned no valid shapes for ${shape.id}`)
+        return []
+      }
+
+      logShapeOperation('useStackedModifier Result', shape.id, {
+        instances: result.instances.length,
+        extractedShapes: shapes.length,
+        isGroupModifier: result.metadata?.isGroupModifier
+      })
+
+      // Convert to TLShapePartial for tldraw, including all shapes
+      const shapePartials = shapes.map((processedShape, index) => {
+        const cloneId = createShapeId()
+
+        // All shapes are now created the same way since flipping is done in shape data
+        return createRegularShape(processedShape, cloneId, index, modifiers)
+      })
+
+      return shapePartials
+    } catch (error) {
+      console.error('Error in modifier processing:', error, {
+        shapeId: shape.id,
+        shapeType: shape.type,
+        modifiers: modifiers.map(m => ({ type: m.type, enabled: m.enabled }))
+      })
+      // Return empty array to gracefully handle the error
+      return []
+    }
   }, [editor, modifiers, shape])
   
   // Process all modifiers using the stable callback

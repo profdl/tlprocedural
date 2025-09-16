@@ -8,7 +8,9 @@
       "Bash(npm run build:*)",
       "Read(//Users/daniellefcourt/Desktop/**)",
       "Bash(git checkout:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(tree:*)",
+      "mcp__ide__getDiagnostics"
     ],
     "deny": [],
     "ask": []

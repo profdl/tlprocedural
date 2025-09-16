@@ -1,4 +1,4 @@
-import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle } from 'tldraw'
+import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, type IndexKey } from 'tldraw'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 
 export type LineShape = TLBaseShape<
@@ -129,7 +129,7 @@ export class LineShapeUtil extends FlippableShapeUtil<LineShape> {
       {
         id: 'start',
         type: 'vertex',
-        index: 'a1' as any,
+        index: 'a1' as IndexKey,
         x: startX,
         y: startY,
         canSnap: true,
@@ -137,7 +137,7 @@ export class LineShapeUtil extends FlippableShapeUtil<LineShape> {
       {
         id: 'end',
         type: 'vertex',
-        index: 'a2' as any,
+        index: 'a2' as IndexKey,
         x: endX,
         y: endY,
         canSnap: true,

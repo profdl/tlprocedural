@@ -1,4 +1,4 @@
-import { useEditor, track, type TLShape } from 'tldraw'
+import { useEditor, track, type TLShape, type TLDefaultColorStyle, type TLDefaultSizeStyle } from 'tldraw'
 import type { TriangleShape } from './TriangleShape'
 import { EnhancedNumberInput } from '../modifiers/ui/EnhancedNumberInput'
 
@@ -81,10 +81,10 @@ export const TriangleControls = track(({ shapes }: TriangleControlsProps) => {
             w: w,
             h: h,
             geo: 'triangle',
-            color: tldrawColor as any,
+            color: tldrawColor as TLDefaultColorStyle,
             fill: fill ? 'solid' : 'none',
             dash: 'solid',
-            size: size as any,
+            size: size as TLDefaultSizeStyle,
           }
         })
         

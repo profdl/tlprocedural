@@ -61,9 +61,24 @@ export class ModifierStack {
 
     // Process each modifier in sequence
     for (const modifier of enabledModifiers) {
-      const processor = ModifierStack.getProcessor(modifier.type)
-      if (processor) {
-        currentState = processor.process(currentState, modifier.props, undefined, editor)
+      try {
+        const processor = ModifierStack.getProcessor(modifier.type)
+        if (processor) {
+          const previousState = currentState
+          currentState = processor.process(currentState, modifier.props, undefined, editor)
+
+          // Validate the result
+          if (!currentState || !currentState.instances) {
+            console.warn(`Modifier ${modifier.type} (${modifier.id}) returned invalid state, reverting to previous state`)
+            currentState = previousState
+          }
+        } else {
+          console.warn(`No processor found for modifier type: ${modifier.type}`)
+        }
+      } catch (error) {
+        console.error(`Error processing modifier ${modifier.type} (${modifier.id}):`, error)
+        // Continue with the previous state instead of crashing
+        console.warn(`Skipping modifier ${modifier.type} due to error`)
       }
     }
 

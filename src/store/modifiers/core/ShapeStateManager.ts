@@ -1,4 +1,4 @@
-import type { TLShape } from 'tldraw'
+import type { TLShape, JsonValue } from 'tldraw'
 import type { 
   ShapeState, 
   ShapeInstance, 
@@ -68,12 +68,15 @@ export function extractShapesFromState(state: ShapeState): TLShape[] {
     }
 
     // Transfer all instance metadata to shape meta
-    (baseShape as any).meta = {
-      ...baseShape.meta,
-      ...instance.metadata as Record<string, unknown>
+    const updatedBaseShape: TLShape = {
+      ...baseShape,
+      meta: {
+        ...baseShape.meta,
+        ...(instance.metadata as Record<string, JsonValue> || {})
+      }
     }
-    
-    return baseShape
+
+    return updatedBaseShape
   })
 }
 

@@ -1,11 +1,16 @@
 import { ModifierRendererCore } from './modifiers/components/ModifierRendererCore'
+import { ModifierErrorBoundary } from './modifiers/ErrorBoundary'
 
 /**
  * Refactored ModifierRenderer component
  * Uses extracted components for better separation of concerns
  */
 export function ModifierRenderer() {
-  return <ModifierRendererCore />
+  return (
+    <ModifierErrorBoundary>
+      <ModifierRendererCore />
+    </ModifierErrorBoundary>
+  )
 }
 
 /**

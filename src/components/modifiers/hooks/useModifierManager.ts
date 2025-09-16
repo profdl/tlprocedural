@@ -110,16 +110,20 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
                 ...modifiedShape.props
               }
             }
-            
+
             // Include metadata if the shape was path-modified
             if (modifiedShape.meta?.pathModified) {
-              (updateData as any).meta = {
-                ...actualOriginalShape.meta,
-                ...modifiedShape.meta
+              const updateDataWithMeta = {
+                ...updateData,
+                meta: {
+                  ...actualOriginalShape.meta,
+                  ...modifiedShape.meta
+                }
               }
+              editor.updateShape(updateDataWithMeta)
+            } else {
+              editor.updateShape(updateData)
             }
-            
-            editor.updateShape(updateData)
             
             // Clean up any existing clones from the modifier system
             const existingClones = editor.getCurrentPageShapes().filter((s: TLShape) => {
@@ -262,13 +266,17 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
             }
 
             if (modifiedShape.meta?.pathModified) {
-              (updateData as any).meta = {
-                ...actualOriginalShape.meta,
-                ...modifiedShape.meta
+              const updateDataWithMeta = {
+                ...updateData,
+                meta: {
+                  ...actualOriginalShape.meta,
+                  ...modifiedShape.meta
+                }
               }
+              editor.updateShape(updateDataWithMeta)
+            } else {
+              editor.updateShape(updateData)
             }
-
-            editor.updateShape(updateData)
 
             // Clean up any existing clones from the modifier system
             const existingClones = editor.getCurrentPageShapes().filter((s: TLShape) => {

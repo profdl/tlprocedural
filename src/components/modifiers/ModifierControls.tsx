@@ -2,6 +2,7 @@ import type { TLShape } from 'tldraw'
 import { useModifierManager } from './hooks/useModifierManager'
 import { ModifierActionButtons } from './components/ModifierActionButtons'
 import { ModifierList } from './components/ModifierList'
+import { ModifierErrorBoundary } from './ErrorBoundary'
 
 interface ModifierControlsProps {
   /** Array of currently selected shapes */
@@ -35,19 +36,32 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
   }
 
   return (
-    <div className="modifier-controls" onPointerDown={(e) => e.stopPropagation()}>
-      <ModifierActionButtons
-        selectedShape={!!selectedShape}
-        hasEnabledModifiers={hasEnabledModifiers}
-        onAddModifier={addModifier}
-        onApplyModifiers={applyModifiers}
-      />
-      <ModifierList
-        modifiers={shapeModifiers}
-        onToggleModifier={toggleModifier}
-        onRemoveModifier={removeModifier}
-        shapeId={selectedShape.id}
-      />
-    </div>
+    <ModifierErrorBoundary
+      fallback={
+        <div className="modifier-controls-error" style={{
+          padding: '12px',
+          color: '#d63031',
+          fontSize: '12px',
+          textAlign: 'center'
+        }}>
+          Modifier controls unavailable
+        </div>
+      }
+    >
+      <div className="modifier-controls" onPointerDown={(e) => e.stopPropagation()}>
+        <ModifierActionButtons
+          selectedShape={!!selectedShape}
+          hasEnabledModifiers={hasEnabledModifiers}
+          onAddModifier={addModifier}
+          onApplyModifiers={applyModifiers}
+        />
+        <ModifierList
+          modifiers={shapeModifiers}
+          onToggleModifier={toggleModifier}
+          onRemoveModifier={removeModifier}
+          shapeId={selectedShape.id}
+        />
+      </div>
+    </ModifierErrorBoundary>
   )
 }

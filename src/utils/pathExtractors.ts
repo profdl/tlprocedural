@@ -190,17 +190,26 @@ function extractCirclePath(shape: TLShape): PointsPathData | null {
   }
 }
 
+// Type definitions for TLDraw shape segments
+interface DrawShapeSegment {
+  points?: Array<{ x: number; y: number; z?: number }>
+}
+
+interface DrawShapeProps {
+  segments?: DrawShapeSegment[]
+}
+
 // TLDraw built-in shape extractors (simplified)
 function extractDrawPath(shape: TLShape, editor?: Editor): PointsPathData | null {
   // TLDraw draw shapes already have point data
-  const segments = (shape.props as { segments?: unknown[] }).segments
+  const segments = (shape.props as DrawShapeProps).segments
   if (!segments) return null
-  
+
   const points: VecLike[] = []
-  segments.forEach((segment: any) => {
+  segments.forEach((segment: DrawShapeSegment) => {
     if (segment.points && Array.isArray(segment.points)) {
-      segment.points.forEach((point: Record<string, unknown>) => {
-        points.push({ x: point.x as number, y: point.y as number })
+      segment.points.forEach((point: { x: number; y: number; z?: number }) => {
+        points.push({ x: point.x, y: point.y })
       })
     }
   })
@@ -326,10 +335,10 @@ function pathToTriangle(pathData: PathData, shape: TLShape): Partial<TLShape> | 
   if (pathData.type === 'points') {
     const points = pathData.data as VecLike[]
     if (points.length === 0) return null
-    
+
     // Calculate bounds from the modified points
     const bounds = pathData.bounds || calculatePathBounds(points)
-    
+
     return {
       props: {
         ...shape.props,
@@ -341,7 +350,10 @@ function pathToTriangle(pathData: PathData, shape: TLShape): Partial<TLShape> | 
       meta: {
         ...shape.meta,
         pathModified: true,
-        originalBounds: { w: (shape.props as any).w, h: (shape.props as any).h }
+        originalBounds: {
+          w: (shape.props as { w?: number }).w || 0,
+          h: (shape.props as { h?: number }).h || 0
+        }
       }
     }
   } else if (pathData.bounds) {
@@ -362,10 +374,10 @@ function pathToCircle(pathData: PathData, shape: TLShape): Partial<TLShape> | nu
   if (pathData.type === 'points') {
     const points = pathData.data as VecLike[]
     if (points.length === 0) return null
-    
+
     // Calculate bounds from the modified points
     const bounds = pathData.bounds || calculatePathBounds(points)
-    
+
     return {
       props: {
         ...shape.props,
@@ -377,7 +389,10 @@ function pathToCircle(pathData: PathData, shape: TLShape): Partial<TLShape> | nu
       meta: {
         ...shape.meta,
         pathModified: true,
-        originalBounds: { w: (shape.props as any).w, h: (shape.props as any).h }
+        originalBounds: {
+          w: (shape.props as { w?: number }).w || 0,
+          h: (shape.props as { h?: number }).h || 0
+        }
       }
     }
   } else if (pathData.bounds) {

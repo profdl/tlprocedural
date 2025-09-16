@@ -1,5 +1,8 @@
 import { useCallback, useRef, useState } from 'react'
 import { type DraggableData, type ResizableDelta } from 'react-rnd'
+
+// Import the DraggableEvent type from react-draggable (which react-rnd uses)
+import type { DraggableEvent } from 'react-draggable'
 import { usePanelStore, type PanelId, type PanelPosition, type PanelSize } from '../../../store/panelStore'
 import { useSnapDetection, type SnapGuide } from './useSnapDetection'
 import { usePanelConstraints } from './usePanelConstraints'
@@ -51,7 +54,7 @@ export function useFloatingPanel({
     onDragStart?.()
   }, [panelId, panel.position, setPanelDragging, bringPanelToFront, onDragStart])
 
-  const handleDrag = useCallback((e: any, data: DraggableData) => {
+  const handleDrag = useCallback((e: DraggableEvent, data: DraggableData) => {
     // Update mouse position for snap intent detection
     if ('clientX' in e && 'clientY' in e && e.clientX && e.clientY) {
       setMousePosition({ x: e.clientX, y: e.clientY })
@@ -74,7 +77,7 @@ export function useFloatingPanel({
     setPanelPosition(panelId, constrainedPosition)
   }, [panelId, panel.size, constrainPosition, setPanelPosition, generateSnapGuides])
 
-  const handleDragStop = useCallback((_e: any, data: DraggableData) => {
+  const handleDragStop = useCallback((_e: DraggableEvent, data: DraggableData) => {
     setIsDragging(false)
     setActiveSnapGuides([])
     setPanelDragging(panelId, false)

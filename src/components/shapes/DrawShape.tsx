@@ -1,4 +1,4 @@
-import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle } from 'tldraw'
+import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, type IndexKey } from 'tldraw'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 
 export type DrawShape = TLBaseShape<
@@ -213,7 +213,7 @@ export class DrawShapeUtil extends FlippableShapeUtil<DrawShape> {
       handles.push({
         id: `point-${i}`,
         type: 'vertex',
-        index: `a${i}` as any,
+        index: `a${i}` as IndexKey,
         x: segment.x,
         y: segment.y,
         canSnap: true,
