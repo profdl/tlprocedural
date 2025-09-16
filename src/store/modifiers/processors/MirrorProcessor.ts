@@ -22,19 +22,7 @@ export const MirrorProcessor: ModifierProcessor = {
     
     const newInstances: ShapeInstance[] = []
 
-    // First, keep all original instances from the input (e.g., from linear array)
-    input.instances.forEach(inputInstance => {
-      newInstances.push({
-        ...inputInstance,
-        index: newInstances.length,
-        metadata: {
-          ...inputInstance.metadata,
-          arrayIndex: newInstances.length
-        }
-      })
-    })
-
-    // Then, create mirrored copies of ALL instances
+    // Create mirrored copies of ALL instances (no original preservation)
     input.instances.forEach(inputInstance => {
       // Check if this instance is from a previous modifier
       const isFromPreviousModifier = inputInstance.metadata?.linearArrayIndex !== undefined ||
