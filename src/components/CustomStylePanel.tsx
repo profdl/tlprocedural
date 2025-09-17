@@ -1,5 +1,5 @@
-import { FloatingPanelSystem } from './panels/FloatingPanelSystem'
+import { StackedPanelSystem } from './panels/StackedPanelSystem'
 
 export const CustomStylePanel = () => {
-  return <FloatingPanelSystem />
+  return <StackedPanelSystem />
 }

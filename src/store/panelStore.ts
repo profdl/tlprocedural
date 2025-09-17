@@ -1,11 +1,9 @@
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
-import { constraintSolver } from '../components/panels/utils/constraintSolver'
 
 export type PanelId = 'properties' | 'style' | 'modifiers'
 
 export interface PanelPosition {
-  x: number
   y: number
 }
 
@@ -14,12 +12,9 @@ export interface PanelSize {
   height: number
 }
 
-export interface PanelSnapState {
-  snappedToBrowser: ('top' | 'bottom' | 'left' | 'right')[]
-  snappedToPanels: Array<{
-    panelId: PanelId
-    edge: 'top' | 'bottom' | 'left' | 'right'
-  }>
+export interface PanelStackState {
+  isReordering: boolean
+  insertIndex?: number
 }
 
 export interface PanelState {
@@ -32,8 +27,7 @@ export interface PanelState {
   contentHeight?: number
   order: number
   isDragging?: boolean
-  isResizing?: boolean
-  snapState?: PanelSnapState
+  stackState?: PanelStackState
 }
 
 interface PanelStoreState {
@@ -41,152 +35,150 @@ interface PanelStoreState {
   panels: Record<PanelId, PanelState>
   panelOrder: PanelId[]
   activePanelId: PanelId | null
+  viewportHeight: number
 
   // Panel management
   initializePanels: () => void
   setPanelCollapsed: (id: PanelId, collapsed: boolean) => void
   setPanelVisible: (id: PanelId, visible: boolean) => void
-  setPanelPosition: (id: PanelId, position: PanelPosition) => void
-  setPanelSize: (id: PanelId, size: Partial<PanelSize>) => void
   setPanelContentHeight: (id: PanelId, contentHeight: number) => void
   setActivePanel: (id: PanelId | null) => void
+  setViewportHeight: (height: number) => void
 
-  // Floating panel state
+  // Stacked panel state
   setPanelDragging: (id: PanelId, isDragging: boolean) => void
-  setPanelResizing: (id: PanelId, isResizing: boolean) => void
-  setPanelSnapState: (id: PanelId, snapState: PanelSnapState) => void
-  clearPanelSnapState: (id: PanelId) => void
+  setPanelStackState: (id: PanelId, stackState: PanelStackState) => void
+  clearPanelStackState: (id: PanelId) => void
 
   // Layout management
   resetPanelLayout: () => void
-  initializeRightAlignedLayout: () => void
-  bringPanelToFront: (id: PanelId) => void
+  reorderPanels: (fromIndex: number, toIndex: number) => void
 
-  // Stacked panel ordering
+  // Panel ordering
   setPanelOrder: (order: PanelId[]) => void
+  insertPanelAt: (panelId: PanelId, index: number) => void
+
+  // Position calculation
+  calculatePanelPositions: () => void
+  getCalculatedPanelHeight: (panelId: PanelId) => number
 }
 
 // Panel layout constants
 const PANEL_WIDTH = 280
-const RIGHT_MARGIN = 8  // Reduced margin for closer edge snapping
-const TOP_MARGIN = 8  // Changed from 60 to snap to top
-const PANEL_GAP = 8
+const TOP_MARGIN = 8
+const PANEL_GAP = 1
+const BOTTOM_MARGIN = 40
+const COLLAPSED_HEIGHT = 40
 
-// Function to calculate right-aligned positions
-const calculateRightAlignedPositions = (panels?: Record<PanelId, PanelState>) => {
-  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
-  const rightX = viewportWidth - PANEL_WIDTH - RIGHT_MARGIN
-
-  // Use more accurate heights based on actual CSS measurements
-  // Each input row is ~32px, content padding is 16px total (8px floating + 8px inner)
-  const propertiesHeight = panels?.properties?.contentHeight || 208 // header + 5 rows + gaps + padding
-  const styleHeight = panels?.style?.contentHeight || 188 // header + 4 rows + gaps + padding
-
-  return {
-    properties: {
-      x: rightX,
-      y: TOP_MARGIN
-    },
-    style: {
-      x: rightX,
-      y: TOP_MARGIN + propertiesHeight + PANEL_GAP
-    },
-    modifiers: {
-      x: rightX,
-      y: TOP_MARGIN + propertiesHeight + PANEL_GAP + styleHeight + PANEL_GAP
-    }
+// Function to calculate stacked panel positions and heights
+const calculateStackedLayout = (panelOrder: PanelId[], panels: Record<PanelId, PanelState>, viewportHeight: number) => {
+  let currentY = TOP_MARGIN
+  const positions: Record<PanelId, PanelPosition> = {
+    properties: { y: 0 },
+    style: { y: 0 },
+    modifiers: { y: 0 }
   }
+  const calculatedHeights: Record<PanelId, number> = {
+    properties: 0,
+    style: 0,
+    modifiers: 0
+  }
+
+  // Calculate positions and heights for visible panels
+  const visiblePanels = panelOrder.filter(id => panels[id]?.isVisible)
+
+  // First pass: calculate fixed heights for properties and style panels
+  const fixedHeights: Record<PanelId, number> = {
+    properties: panels.properties?.contentHeight || 218,
+    style: panels.style?.contentHeight || 148,
+    modifiers: 0 // Will be calculated based on remaining space
+  }
+
+  // Calculate remaining height for modifiers panel
+  const fixedPanelsHeight = visiblePanels
+    .filter(id => id !== 'modifiers')
+    .reduce((total, id) => {
+      const height = panels[id]?.isCollapsed ? COLLAPSED_HEIGHT : fixedHeights[id] || 200
+      return total + height + PANEL_GAP
+    }, 0)
+
+  const availableHeight = viewportHeight - TOP_MARGIN - BOTTOM_MARGIN
+  const modifiersHeight = Math.max(200, availableHeight - fixedPanelsHeight)
+
+  // Second pass: assign positions and final heights
+  visiblePanels.forEach(id => {
+    positions[id] = { y: currentY }
+
+    let panelHeight: number
+    if (panels[id]?.isCollapsed) {
+      panelHeight = COLLAPSED_HEIGHT
+    } else if (id === 'modifiers') {
+      panelHeight = modifiersHeight
+    } else {
+      panelHeight = fixedHeights[id] || 200
+    }
+
+    calculatedHeights[id] = panelHeight
+    currentY += panelHeight + PANEL_GAP
+  })
+
+  return { positions, calculatedHeights }
 }
 
-// Default panel configurations with right-aligned positions
-const createDefaultPanels = (): Record<PanelId, PanelState> => {
-  const positions = calculateRightAlignedPositions()
-
-  return {
+// Default panel configurations for stacked layout
+const createDefaultPanels = (viewportHeight: number = 1080): Record<PanelId, PanelState> => {
+  const defaultOrder: PanelId[] = ['properties', 'style', 'modifiers']
+  const defaultPanels = {
     properties: {
-      id: 'properties',
+      id: 'properties' as PanelId,
       isCollapsed: false,
       isVisible: true,
-      position: positions.properties,
-      size: { width: PANEL_WIDTH, height: 208 },
-      originalSize: { width: PANEL_WIDTH, height: 208 },
+      position: { y: TOP_MARGIN },
+      size: { width: PANEL_WIDTH, height: 218 },
+      originalSize: { width: PANEL_WIDTH, height: 218 },
       order: 0,
-      isDragging: false,
-      isResizing: false,
-      snapState: {
-        snappedToBrowser: ['right', 'top'],
-        snappedToPanels: []
-      }
+      isDragging: false
     },
     style: {
-      id: 'style',
+      id: 'style' as PanelId,
       isCollapsed: false,
-      isVisible: false,
-      position: positions.style,
-      size: { width: PANEL_WIDTH, height: 188 },
-      originalSize: { width: PANEL_WIDTH, height: 188 },
+      isVisible: true,
+      position: { y: TOP_MARGIN + 218 + PANEL_GAP },
+      size: { width: PANEL_WIDTH, height: 148 },
+      originalSize: { width: PANEL_WIDTH, height: 148 },
       order: 1,
-      isDragging: false,
-      isResizing: false,
-      snapState: {
-        snappedToBrowser: ['right'],
-        snappedToPanels: [{
-          panelId: 'properties',
-          edge: 'bottom'
-        }]
-      }
+      isDragging: false
     },
     modifiers: {
-      id: 'modifiers',
+      id: 'modifiers' as PanelId,
       isCollapsed: false,
-      isVisible: false,
-      position: positions.modifiers,
-      size: { width: PANEL_WIDTH, height: 400 },
-      originalSize: { width: PANEL_WIDTH, height: 400 },
+      isVisible: true,
+      position: { y: TOP_MARGIN + 218 + PANEL_GAP + 148 + PANEL_GAP },
+      size: { width: PANEL_WIDTH, height: 200 },
+      originalSize: { width: PANEL_WIDTH, height: 200 },
       order: 2,
-      isDragging: false,
-      isResizing: false,
-      snapState: {
-        snappedToBrowser: ['right'],
-        snappedToPanels: [{
-          panelId: 'style',
-          edge: 'bottom'
-        }]
-      }
+      isDragging: false
     }
   }
+
+  // Calculate proper layout
+  const { positions, calculatedHeights } = calculateStackedLayout(defaultOrder, defaultPanels, viewportHeight)
+
+  // Apply calculated positions and heights
+  Object.keys(defaultPanels).forEach(id => {
+    const panelId = id as PanelId
+    if (positions[panelId]) {
+      defaultPanels[panelId].position = positions[panelId]
+      if (calculatedHeights[panelId]) {
+        defaultPanels[panelId].size.height = calculatedHeights[panelId]
+      }
+    }
+  })
+
+  return defaultPanels
 }
 
 const defaultPanels = createDefaultPanels()
-
-// Helper function to apply constraint-based position updates
-const applyConstraintUpdates = (panels: Record<PanelId, PanelState>): Record<PanelId, PanelState> => {
-  // Create constraints from current snap states
-  constraintSolver.createConstraintsFromSnapState(panels)
-
-  // Solve constraints to get new positions
-  const newPositions = constraintSolver.solve({
-    panels,
-    viewport: {
-      width: typeof window !== 'undefined' ? window.innerWidth : 1920,
-      height: typeof window !== 'undefined' ? window.innerHeight : 1080
-    },
-    constraints: constraintSolver.getConstraints()
-  })
-
-  // Apply new positions to panels
-  const updatedPanels = { ...panels }
-  for (const [panelId, newPosition] of Object.entries(newPositions)) {
-    if (updatedPanels[panelId as PanelId]) {
-      updatedPanels[panelId as PanelId] = {
-        ...updatedPanels[panelId as PanelId],
-        position: newPosition
-      }
-    }
-  }
-
-  return updatedPanels
-}
 
 export const usePanelStore = create<PanelStoreState>()(
   subscribeWithSelector((set, get) => ({
@@ -194,16 +186,41 @@ export const usePanelStore = create<PanelStoreState>()(
     panels: defaultPanels,
     panelOrder: ['properties', 'style', 'modifiers'],
     activePanelId: null,
+    viewportHeight: typeof window !== 'undefined' ? window.innerHeight : 1080,
 
     // Initialize panels with default configuration
     initializePanels: () => {
-      set({ panels: createDefaultPanels() })
+      const currentState = get()
+      const newPanels = createDefaultPanels(currentState.viewportHeight)
+      set({ panels: newPanels })
     },
 
-    // Initialize panels with right-aligned layout
-    initializeRightAlignedLayout: () => {
-      const rightAlignedPanels = createDefaultPanels()
-      set({ panels: rightAlignedPanels })
+    // Set viewport height and recalculate layout
+    setViewportHeight: (height: number) => {
+      set(state => {
+        const { positions, calculatedHeights } = calculateStackedLayout(state.panelOrder, state.panels, height)
+        const updatedPanels = { ...state.panels }
+
+        Object.keys(updatedPanels).forEach(id => {
+          const panelId = id as PanelId
+          if (positions[panelId]) {
+            updatedPanels[panelId] = {
+              ...updatedPanels[panelId],
+              position: positions[panelId],
+              size: {
+                ...updatedPanels[panelId].size,
+                height: calculatedHeights[panelId] || updatedPanels[panelId].size.height
+              }
+            }
+          }
+        })
+
+        return {
+          ...state,
+          viewportHeight: height,
+          panels: updatedPanels
+        }
+      })
     },
 
     // Set panel collapsed state
@@ -212,29 +229,36 @@ export const usePanelStore = create<PanelStoreState>()(
         const targetPanel = state.panels[id]
         if (!targetPanel) return state
 
-        // Calculate the new height
-        const COLLAPSED_HEIGHT = 32
-        const newHeight = collapsed ? COLLAPSED_HEIGHT : targetPanel.originalSize.height
-
-        // Update the target panel
+        // Update collapsed state
         const updatedPanels = {
           ...state.panels,
           [id]: {
             ...targetPanel,
-            isCollapsed: collapsed,
-            size: {
-              ...targetPanel.size,
-              height: newHeight
-            }
+            isCollapsed: collapsed
           }
         }
 
-        // Use constraint solver to automatically update dependent panel positions
-        const finalPanels = applyConstraintUpdates(updatedPanels)
+        // Recalculate layout with new collapsed state
+        const { positions, calculatedHeights } = calculateStackedLayout(state.panelOrder, updatedPanels, state.viewportHeight)
+
+        // Apply calculated positions and heights
+        Object.keys(updatedPanels).forEach(panelKey => {
+          const panelId = panelKey as PanelId
+          if (positions[panelId]) {
+            updatedPanels[panelId] = {
+              ...updatedPanels[panelId],
+              position: positions[panelId],
+              size: {
+                ...updatedPanels[panelId].size,
+                height: calculatedHeights[panelId] || updatedPanels[panelId].size.height
+              }
+            }
+          }
+        })
 
         return {
           ...state,
-          panels: finalPanels
+          panels: updatedPanels
         }
       })
     },
@@ -252,50 +276,38 @@ export const usePanelStore = create<PanelStoreState>()(
       }))
     },
 
-    // Set panel position
-    setPanelPosition: (id: PanelId, position: PanelPosition) => {
-      set(state => ({
-        panels: {
-          ...state.panels,
-          [id]: {
-            ...state.panels[id],
-            position
-          }
-        }
-      }))
-    },
-
-    // Set panel size
-    setPanelSize: (id: PanelId, size: Partial<PanelSize>) => {
+    // Calculate panel positions based on current order
+    calculatePanelPositions: () => {
       set(state => {
-        const targetPanel = state.panels[id]
-        if (!targetPanel) return state
+        const { positions, calculatedHeights } = calculateStackedLayout(state.panelOrder, state.panels, state.viewportHeight)
+        const updatedPanels = { ...state.panels }
 
-        // Update the target panel
-        const updatedPanels = {
-          ...state.panels,
-          [id]: {
-            ...targetPanel,
-            size: {
-              ...targetPanel.size,
-              ...size
-            },
-            // Update originalSize if panel is not collapsed
-            originalSize: targetPanel.isCollapsed ? targetPanel.originalSize : {
-              ...targetPanel.originalSize,
-              ...size
+        Object.keys(updatedPanels).forEach(id => {
+          const panelId = id as PanelId
+          if (positions[panelId]) {
+            updatedPanels[panelId] = {
+              ...updatedPanels[panelId],
+              position: positions[panelId],
+              size: {
+                ...updatedPanels[panelId].size,
+                height: calculatedHeights[panelId] || updatedPanels[panelId].size.height
+              }
             }
           }
-        }
-
-        // Use constraint solver to automatically update dependent panel positions
-        const finalPanels = applyConstraintUpdates(updatedPanels)
+        })
 
         return {
           ...state,
-          panels: finalPanels
+          panels: updatedPanels
         }
       })
+    },
+
+    // Get calculated height for a specific panel
+    getCalculatedPanelHeight: (panelId: PanelId): number => {
+      const state = get()
+      const { calculatedHeights } = calculateStackedLayout(state.panelOrder, state.panels, state.viewportHeight)
+      return calculatedHeights[panelId] || state.panels[panelId]?.size.height || 200
     },
 
     // Set panel content height (measured from content)
@@ -303,10 +315,6 @@ export const usePanelStore = create<PanelStoreState>()(
       set(state => {
         const targetPanel = state.panels[id]
         if (!targetPanel) return state
-
-        // Calculate height difference based on content height change
-        const oldContentHeight = targetPanel.contentHeight || targetPanel.size.height
-        const heightDifference = contentHeight - oldContentHeight
 
         // Update the target panel with new content height
         const updatedPanels = {
@@ -317,13 +325,26 @@ export const usePanelStore = create<PanelStoreState>()(
           }
         }
 
-        // If content height changed significantly, use constraint solver
-        if (Math.abs(heightDifference) > 5) { // 5px threshold to avoid micro adjustments
-          const finalPanels = applyConstraintUpdates(updatedPanels)
-          return {
-            ...state,
-            panels: finalPanels
-          }
+        // Recalculate layout if content height changed significantly
+        const oldContentHeight = targetPanel.contentHeight || targetPanel.size.height
+        const heightDifference = Math.abs(contentHeight - oldContentHeight)
+
+        if (heightDifference > 5) {
+          const { positions, calculatedHeights } = calculateStackedLayout(state.panelOrder, updatedPanels, state.viewportHeight)
+
+          Object.keys(updatedPanels).forEach(panelKey => {
+            const panelId = panelKey as PanelId
+            if (positions[panelId]) {
+              updatedPanels[panelId] = {
+                ...updatedPanels[panelId],
+                position: positions[panelId],
+                size: {
+                  ...updatedPanels[panelId].size,
+                  height: calculatedHeights[panelId] || updatedPanels[panelId].size.height
+                }
+              }
+            }
+          })
         }
 
         return {
@@ -372,42 +393,28 @@ export const usePanelStore = create<PanelStoreState>()(
       }))
     },
 
-    // Set panel resizing state
-    setPanelResizing: (id: PanelId, isResizing: boolean) => {
+    // Set panel stack state (for reordering)
+    setPanelStackState: (id: PanelId, stackState: PanelStackState) => {
       set(state => ({
         panels: {
           ...state.panels,
           [id]: {
             ...state.panels[id],
-            isResizing
+            stackState
           }
         }
       }))
     },
 
-    // Set panel snap state
-    setPanelSnapState: (id: PanelId, snapState: PanelSnapState) => {
+    // Clear panel stack state
+    clearPanelStackState: (id: PanelId) => {
       set(state => ({
         panels: {
           ...state.panels,
           [id]: {
             ...state.panels[id],
-            snapState
-          }
-        }
-      }))
-    },
-
-    // Clear panel snap state
-    clearPanelSnapState: (id: PanelId) => {
-      set(state => ({
-        panels: {
-          ...state.panels,
-          [id]: {
-            ...state.panels[id],
-            snapState: {
-              snappedToBrowser: [],
-              snappedToPanels: []
+            stackState: {
+              isReordering: false
             }
           }
         }
@@ -416,23 +423,61 @@ export const usePanelStore = create<PanelStoreState>()(
 
     // Reset panel layout to defaults
     resetPanelLayout: () => {
-      set({ panels: createDefaultPanels() })
+      const currentState = get()
+      set({
+        panels: createDefaultPanels(currentState.viewportHeight),
+        panelOrder: ['properties', 'style', 'modifiers']
+      })
     },
 
-    // Bring panel to front (highest z-index)
-    bringPanelToFront: (id: PanelId) => {
-      const panels = get().panels
-      const maxOrder = Math.max(...Object.values(panels).map(p => p.order))
+    // Reorder panels from one index to another
+    reorderPanels: (fromIndex: number, toIndex: number) => {
+      set(state => {
+        const newOrder = [...state.panelOrder]
+        const [movedPanel] = newOrder.splice(fromIndex, 1)
+        newOrder.splice(toIndex, 0, movedPanel)
 
-      set(state => ({
-        panels: {
-          ...state.panels,
-          [id]: {
-            ...state.panels[id],
-            order: maxOrder + 1
+        // Recalculate positions based on new order
+        const { positions, calculatedHeights } = calculateStackedLayout(newOrder, state.panels, state.viewportHeight)
+        const updatedPanels = { ...state.panels }
+
+        Object.keys(updatedPanels).forEach(id => {
+          const panelId = id as PanelId
+          if (positions[panelId]) {
+            updatedPanels[panelId] = {
+              ...updatedPanels[panelId],
+              position: positions[panelId],
+              size: {
+                ...updatedPanels[panelId].size,
+                height: calculatedHeights[panelId] || updatedPanels[panelId].size.height
+              }
+            }
           }
+        })
+
+        return {
+          ...state,
+          panelOrder: newOrder,
+          panels: updatedPanels
         }
-      }))
+      })
+    },
+
+    // Insert panel at specific index
+    insertPanelAt: (panelId: PanelId, index: number) => {
+      set(state => {
+        const currentIndex = state.panelOrder.indexOf(panelId)
+        if (currentIndex === -1) return state
+
+        const newOrder = [...state.panelOrder]
+        newOrder.splice(currentIndex, 1)
+        newOrder.splice(index, 0, panelId)
+
+        return {
+          ...state,
+          panelOrder: newOrder
+        }
+      })
     }
   }))
 )

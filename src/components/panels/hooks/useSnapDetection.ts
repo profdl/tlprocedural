@@ -18,6 +18,13 @@ interface SnapGuide {
   targetPanelId?: PanelId
 }
 
+interface SwapCandidate {
+  targetPanelId: PanelId
+  swapType: 'above-top' | 'below-bottom' | 'left-of-left' | 'right-of-right'
+  targetPosition: PanelPosition
+  currentPanelNewPosition: PanelPosition
+}
+
 interface SnapResult {
   position: PanelPosition
   snappedToBrowser: ('top' | 'bottom' | 'left' | 'right')[]
@@ -32,6 +39,7 @@ interface SnapResult {
     strength: number
     type: 'browser' | 'panel'
   } | null
+  swapCandidate?: SwapCandidate | null
 }
 
 interface SnapDetectionProps {
@@ -104,6 +112,101 @@ export function useSnapDetection({
       })
     })
   }, [otherPanels, detectCollision, getEffectivePanelSize])
+
+  // Detect swap scenarios where panel should switch places with another
+  const detectSwapScenario = useCallback((
+    position: PanelPosition,
+    size: PanelSize
+  ): SwapCandidate | null => {
+    for (const panel of otherPanels) {
+      const effectiveSize = getEffectivePanelSize(panel)
+      const panelRect = {
+        x: panel.position.x,
+        y: panel.position.y,
+        width: effectiveSize.width,
+        height: effectiveSize.height
+      }
+
+      // Check if trying to place above a panel that's already at the top
+      if (Math.abs(panelRect.y) < 10) { // Panel is at or very near top
+        const wouldBeAbove = position.y + size.height + snapGap <= panelRect.y
+        if (wouldBeAbove) {
+          // Check if there's horizontal overlap (would be stacked)
+          const horizontalOverlap = !(position.x + size.width < panelRect.x || position.x > panelRect.x + panelRect.width)
+          if (horizontalOverlap) {
+            return {
+              targetPanelId: panel.id,
+              swapType: 'above-top',
+              targetPosition: position, // Current panel goes to intended position
+              currentPanelNewPosition: { // Target panel moves down
+                x: panelRect.x,
+                y: position.y + size.height + snapGap
+              }
+            }
+          }
+        }
+      }
+
+      // Check if trying to place below a panel that's already at the bottom
+      if (Math.abs(viewport.height - (panelRect.y + panelRect.height)) < 10) { // Panel is at or very near bottom
+        const wouldBeBelow = position.y >= panelRect.y + panelRect.height + snapGap
+        if (wouldBeBelow) {
+          const horizontalOverlap = !(position.x + size.width < panelRect.x || position.x > panelRect.x + panelRect.width)
+          if (horizontalOverlap) {
+            return {
+              targetPanelId: panel.id,
+              swapType: 'below-bottom',
+              targetPosition: position,
+              currentPanelNewPosition: {
+                x: panelRect.x,
+                y: position.y - panelRect.height - snapGap
+              }
+            }
+          }
+        }
+      }
+
+      // Check if trying to place left of a panel that's already at the left edge
+      if (Math.abs(panelRect.x) < 10) { // Panel is at or very near left
+        const wouldBeLeft = position.x + size.width + snapGap <= panelRect.x
+        if (wouldBeLeft) {
+          const verticalOverlap = !(position.y + size.height < panelRect.y || position.y > panelRect.y + panelRect.height)
+          if (verticalOverlap) {
+            return {
+              targetPanelId: panel.id,
+              swapType: 'left-of-left',
+              targetPosition: position,
+              currentPanelNewPosition: {
+                x: position.x + size.width + snapGap,
+                y: panelRect.y
+              }
+            }
+          }
+        }
+      }
+
+      // Check if trying to place right of a panel that's already at the right edge
+      if (Math.abs(viewport.width - (panelRect.x + panelRect.width)) < 10) { // Panel is at or very near right
+        const wouldBeRight = position.x >= panelRect.x + panelRect.width + snapGap
+        if (wouldBeRight) {
+          const verticalOverlap = !(position.y + size.height < panelRect.y || position.y > panelRect.y + panelRect.height)
+          if (verticalOverlap) {
+            return {
+              targetPanelId: panel.id,
+              swapType: 'right-of-right',
+              targetPosition: position,
+              currentPanelNewPosition: {
+                x: position.x - panelRect.width - snapGap,
+                y: panelRect.y
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return null
+  }, [otherPanels, getEffectivePanelSize, viewport, snapGap])
 
   // Find best edge snap position to prevent collision
   const findBestEdgeSnapPosition = useCallback((
@@ -545,7 +648,27 @@ export function useSnapDetection({
     // Generate snap guides for visual feedback
     const snapGuides = generateSnapGuides(position, size)
 
-    // Check for collisions first
+    // Check for swap scenarios first (highest priority)
+    const swapCandidate = !isRealTime ? detectSwapScenario(position, size) : null
+
+    // If we have a valid swap scenario, return it
+    if (swapCandidate) {
+      return {
+        position: swapCandidate.targetPosition,
+        snappedToBrowser: [],
+        snappedToPanels: [],
+        hasCollision: false,
+        snapGuides,
+        magneticAttraction: {
+          targetPosition: swapCandidate.targetPosition,
+          strength: 1.0, // Max strength for swap operations
+          type: 'panel'
+        },
+        swapCandidate
+      }
+    }
+
+    // Check for collisions
     const hasCollision = hasCollisions(position, size)
 
     // Get magnetic attraction (this is now our primary snapping logic)
@@ -632,9 +755,10 @@ export function useSnapDetection({
       snappedToPanels,
       hasCollision: hasCollisions(finalPosition, size),
       snapGuides,
-      magneticAttraction
+      magneticAttraction,
+      swapCandidate: null
     }
-  }, [otherPanels, viewport, snapGap, generateSnapGuides, hasCollisions, findBestEdgeSnapPosition, getEffectivePanelSize, calculateMagneticAttraction])
+  }, [otherPanels, viewport, snapGap, generateSnapGuides, hasCollisions, findBestEdgeSnapPosition, getEffectivePanelSize, calculateMagneticAttraction, detectSwapScenario])
 
   // Get panels that are snapped to a specific panel
   const getPanelsSnappedTo = useCallback((targetPanelId: PanelId): Array<{
@@ -677,6 +801,7 @@ export function useSnapDetection({
     generateSnapGuides,
     hasCollisions,
     findBestEdgeSnapPosition,
+    detectSwapScenario,
     getPanelsSnappedTo,
     getPanelsBelowRecursive,
     calculateMagneticAttraction,
@@ -685,4 +810,4 @@ export function useSnapDetection({
 }
 
 // Export the types for use in other components
-export type { SnapGuide, SnapResult }
+export type { SnapGuide, SnapResult, SwapCandidate }

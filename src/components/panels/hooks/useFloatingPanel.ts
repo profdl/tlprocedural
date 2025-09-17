@@ -30,7 +30,8 @@ export function useFloatingPanel({
     setPanelResizing,
     setPanelSnapState,
     clearPanelSnapState,
-    bringPanelToFront
+    bringPanelToFront,
+    swapPanelPositions
   } = usePanelStore()
 
   const panel = panels[panelId]
@@ -88,33 +89,44 @@ export function useFloatingPanel({
     if (shouldUpdateMagnetic) {
       lastMagneticUpdateRef.current = now
 
-      // Calculate magnetic attraction based on constrained position
-      const magneticAttraction = calculateMagneticAttraction(constrainedPosition, panel.size)
+      // Check for swap scenarios first during real-time drag
+      const realTimeSnapResult = detectSnapping(constrainedPosition, panel.size, true)
 
-      // Apply visual magnetic feedback only (no position changes during drag)
-      if (magneticAttraction && magneticAttraction.strength > 0.3) {
-        const strength = Math.pow(magneticAttraction.strength, 0.5)
-        setMagneticStrength(strength)
+      // If we detect a potential swap, show different visual feedback
+      if (realTimeSnapResult.swapCandidate) {
+        setMagneticStrength(1.0) // Max strength for swap indication
+        setMagneticOffset({ x: 0, y: 0 }) // No offset for swaps
+        setGhostPosition(realTimeSnapResult.swapCandidate.targetPosition)
+        setShowGhost(true)
+      } else {
+        // Calculate magnetic attraction based on constrained position
+        const magneticAttraction = calculateMagneticAttraction(constrainedPosition, panel.size)
 
-        // Calculate visual offset for magnetic pull effect (subtle)
-        const maxOffset = 2 // Maximum 2px visual offset (reduced from 3px)
-        const offsetStrength = strength * 0.4 // Slightly stronger visual feedback
-        const offsetX = (magneticAttraction.targetPosition.x - constrainedPosition.x) * offsetStrength * maxOffset / 100
-        const offsetY = (magneticAttraction.targetPosition.y - constrainedPosition.y) * offsetStrength * maxOffset / 100
+        // Apply visual magnetic feedback only (no position changes during drag)
+        if (magneticAttraction && magneticAttraction.strength > 0.3) {
+          const strength = Math.pow(magneticAttraction.strength, 0.5)
+          setMagneticStrength(strength)
 
-        setMagneticOffset({ x: offsetX, y: offsetY })
+          // Calculate visual offset for magnetic pull effect (subtle)
+          const maxOffset = 2 // Maximum 2px visual offset (reduced from 3px)
+          const offsetStrength = strength * 0.4 // Slightly stronger visual feedback
+          const offsetX = (magneticAttraction.targetPosition.x - constrainedPosition.x) * offsetStrength * maxOffset / 100
+          const offsetY = (magneticAttraction.targetPosition.y - constrainedPosition.y) * offsetStrength * maxOffset / 100
 
-        // Show ghost preview at target position when attraction is strong
-        if (magneticAttraction.strength > 0.6) {
-          setGhostPosition(magneticAttraction.targetPosition)
-          setShowGhost(true)
+          setMagneticOffset({ x: offsetX, y: offsetY })
+
+          // Show ghost preview at target position when attraction is strong
+          if (magneticAttraction.strength > 0.6) {
+            setGhostPosition(magneticAttraction.targetPosition)
+            setShowGhost(true)
+          } else {
+            setShowGhost(false)
+          }
         } else {
+          setMagneticStrength(0)
+          setMagneticOffset({ x: 0, y: 0 })
           setShowGhost(false)
         }
-      } else {
-        setMagneticStrength(0)
-        setMagneticOffset({ x: 0, y: 0 })
-        setShowGhost(false)
       }
     }
 
@@ -140,6 +152,32 @@ export function useFloatingPanel({
 
     // Apply snapping on drop - detectSnapping now handles magnetic attraction internally
     const snapResult = detectSnapping(finalDragPosition, panel.size, false)
+
+    // Handle swap scenarios first (highest priority)
+    if (snapResult.swapCandidate) {
+      console.log('Executing panel swap:', snapResult.swapCandidate)
+
+      // Execute the swap operation
+      swapPanelPositions(
+        panelId,
+        snapResult.swapCandidate.targetPanelId,
+        snapResult.swapCandidate.targetPosition,
+        snapResult.swapCandidate.currentPanelNewPosition
+      )
+
+      // Show snap animation for visual feedback
+      setIsSnapping(true)
+      setTimeout(() => {
+        setIsSnapping(false)
+      }, 350)
+
+      // Clear mouse position and exit early - swap handles all positioning
+      setMousePosition(undefined)
+      onDragStop?.()
+      return
+    }
+
+    // Handle normal snapping
     let finalPosition = constrainPosition(snapResult.position, panel.size, 10)
 
     // If we have magnetic attraction (which means we're snapping), show snap animation
@@ -179,7 +217,7 @@ export function useFloatingPanel({
     setMousePosition(undefined)
 
     onDragStop?.()
-  }, [panelId, panel.size, detectSnapping, constrainPosition, setPanelPosition, setPanelDragging, setPanelSnapState, clearPanelSnapState, bringPanelToFront, onDragStop])
+  }, [panelId, panel.size, detectSnapping, constrainPosition, setPanelPosition, setPanelDragging, setPanelSnapState, clearPanelSnapState, bringPanelToFront, swapPanelPositions, onDragStop])
 
   // Handle resize events
   const handleResizeStart = useCallback(() => {
