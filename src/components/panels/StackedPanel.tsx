@@ -107,7 +107,7 @@ export function StackedPanel({
             : '0 2px 8px rgba(0, 0, 0, 0.1)',
           transition: dragState.isDragging
             ? 'box-shadow 0.2s ease'
-            : 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease',
+            : 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease',
           ...panelStyle
         }}
         onClick={handlePanelClick}

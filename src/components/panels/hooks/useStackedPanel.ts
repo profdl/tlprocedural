@@ -33,9 +33,7 @@ export function useStackedPanel({
     clearPanelStackState,
     reorderPanels,
     setActivePanel,
-    calculatePanelPositions,
-    viewportHeight,
-    setViewportHeight
+    calculatePanelPositions
   } = usePanelStore()
 
   const panel = panels[panelId]
@@ -50,18 +48,6 @@ export function useStackedPanel({
   const panelRef = useRef<HTMLDivElement>(null)
   const insertIndexRef = useRef<number | undefined>(undefined)
 
-  // Monitor viewport height changes
-  useEffect(() => {
-    const handleResize = () => {
-      const newHeight = window.innerHeight
-      if (newHeight !== viewportHeight) {
-        setViewportHeight(newHeight)
-      }
-    }
-
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [viewportHeight, setViewportHeight])
 
   // Calculate drop zones between panels
   const calculateDropZones = useCallback(() => {
