@@ -42,7 +42,7 @@ export class DrawShapeUtil extends FlippableShapeUtil<DrawShape> {
       w: 1,
       h: 1,
       color: '#000000',
-      strokeWidth: 2,
+      strokeWidth: 1,
       segments: [],
       isClosed: false,
       smoothing: 0.5,

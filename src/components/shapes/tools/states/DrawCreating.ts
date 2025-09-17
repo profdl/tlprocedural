@@ -114,7 +114,7 @@ export class DrawCreating extends StateNode {
         h,
         segments: normalizedSegments,
         color: '#000000',
-        strokeWidth: 2,
+        strokeWidth: 1,
         isClosed: false,
         smoothing: 0.5,
       },

@@ -441,7 +441,7 @@ export function generateBezierHandles(shape: BezierShape): TLHandle[] {
   
   shape.props.points.forEach((point, i) => {
     // Anchor point handle - needed for dragging functionality
-    // The visual styling is handled by our custom SVG, but TLDraw needs the handle for interaction
+    // Visual rendering is handled by BezierControlPoints component
     handles.push({
       id: `bezier-${i}-anchor`,
       type: 'vertex',

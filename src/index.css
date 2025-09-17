@@ -108,6 +108,22 @@ textarea:focus-visible,
   outline-offset: 2px !important;
 }
 
+/* Hide TLDraw handles for bezier anchor points specifically to prevent double rendering */
+[data-testid="handle:bezier-0-anchor"],
+[data-testid="handle:bezier-1-anchor"],
+[data-testid="handle:bezier-2-anchor"],
+[data-testid="handle:bezier-3-anchor"],
+[data-testid="handle:bezier-4-anchor"],
+[data-testid="handle:bezier-5-anchor"],
+[data-testid="handle:bezier-6-anchor"],
+[data-testid="handle:bezier-7-anchor"],
+[data-testid="handle:bezier-8-anchor"],
+[data-testid="handle:bezier-9-anchor"],
+[data-testid*="handle:bezier"][data-testid*="-anchor"] {
+  opacity: 0 !important;
+  pointer-events: auto !important; /* Keep interaction but hide visually */
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;

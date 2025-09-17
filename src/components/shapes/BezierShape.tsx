@@ -82,7 +82,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
       w: 1,
       h: 1,
       color: '#000000',
-      strokeWidth: 2,
+      strokeWidth: 1,
       fill: false,
       points: [],
       isClosed: false,

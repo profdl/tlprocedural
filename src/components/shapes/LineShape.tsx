@@ -36,7 +36,7 @@ export class LineShapeUtil extends FlippableShapeUtil<LineShape> {
       w: 100,
       h: 100,
       color: '#000000',
-      strokeWidth: 2,
+      strokeWidth: 1,
       dash: 'solid',
       startX: 0,
       startY: 0,

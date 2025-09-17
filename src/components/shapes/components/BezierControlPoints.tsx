@@ -73,7 +73,7 @@ export const BezierControlPoints: React.FC<BezierControlPointsProps> = ({
             cy={point.y}
             r={selectedPointIndices.includes(i) ? BEZIER_THRESHOLDS.ANCHOR_RADIUS_SELECTED : BEZIER_THRESHOLDS.ANCHOR_RADIUS}
             fill={selectedPointIndices.includes(i) ? BEZIER_STYLES.ANCHOR_POINT_SELECTED : BEZIER_STYLES.ANCHOR_POINT_COLOR}
-            stroke={BEZIER_STYLES.CONTROL_POINT_COLOR}
+            stroke={selectedPointIndices.includes(i) ? 'white' : BEZIER_STYLES.CONTROL_POINT_COLOR}
             strokeWidth={selectedPointIndices.includes(i) ? BEZIER_STYLES.ANCHOR_STROKE_SELECTED : BEZIER_STYLES.ANCHOR_STROKE}
             style={{ cursor: 'pointer' }}
           />

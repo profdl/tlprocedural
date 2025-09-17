@@ -33,7 +33,7 @@ export const BezierPath: React.FC<BezierPathProps> = ({
       strokeWidth={strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
-      strokeDasharray={editMode ? BEZIER_STYLES.EDIT_MODE_DASH : undefined}
+      strokeDasharray={undefined}
       opacity={editMode ? BEZIER_STYLES.EDIT_MODE_OPACITY : 1}
       style={{ cursor: editMode ? 'crosshair' : 'default' }}
     />

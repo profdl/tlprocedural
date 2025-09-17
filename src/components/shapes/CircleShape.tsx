@@ -35,7 +35,7 @@ export class CircleShapeUtil extends FlippableShapeUtil<CircleShape> {
       w: 100,
       h: 100,
       color: '#000000',
-      strokeWidth: 2,
+      strokeWidth: 1,
       fill: false,
     }
   }

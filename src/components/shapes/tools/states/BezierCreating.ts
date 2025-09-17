@@ -395,7 +395,7 @@ export class BezierCreating extends StateNode {
           h,
           points: normalizedPoints,
           color: '#000000', // Default color
-          strokeWidth: 2,
+          strokeWidth: 1,
           fill: false,
           isClosed: isClosed,
           editMode: forceEditMode !== undefined ? forceEditMode : !isClosed,
@@ -457,7 +457,7 @@ export class BezierCreating extends StateNode {
         h,
         points: normalizedPoints,
         color: '#000000', // Default color
-        strokeWidth: 2,
+        strokeWidth: 1,
         fill: false,
         isClosed: isClosed,
         editMode: forceEditMode !== undefined ? forceEditMode : !isClosed,

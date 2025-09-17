@@ -31,7 +31,7 @@ export class PolygonShapeUtil extends FlippableShapeUtil<PolygonShape> {
       h: 120,
       sides: 6,
       color: '#000000',
-      strokeWidth: 2,
+      strokeWidth: 1,
       fill: false,
     }
   }
