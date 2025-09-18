@@ -106,18 +106,22 @@ export class ModifierStack {
     
     // Create initial state with child shapes in the group, not just the selected one
     const allInstances = childShapes.map((groupShape: TLShape, index: number) => {
-      
+      // Convert child shape position from parent space to page space
+      const childPageBounds = editor.getShapePageBounds(groupShape.id)
+      const pageX = childPageBounds ? childPageBounds.x : groupShape.x
+      const pageY = childPageBounds ? childPageBounds.y : groupShape.y
+
       return {
         shape: groupShape,
         transform: {
-          x: groupShape.x,
-          y: groupShape.y,
+          x: pageX,
+          y: pageY,
           rotation: groupShape.rotation || 0,
           scaleX: 1,
           scaleY: 1
         },
         index,
-        metadata: { 
+        metadata: {
           isOriginal: true,
           isGroupMember: true,
           groupId: group.id

@@ -6,7 +6,7 @@ import type {
   LinearArraySettings,
   GroupContext
 } from '../../../types/modifiers'
-import { calculateLinearPosition, getShapeDimensions, degreesToRadians } from '../../../components/modifiers/utils'
+import { getShapeDimensions, degreesToRadians } from '../../../components/modifiers/utils'
 
 // Linear Array Processor implementation  
 export const LinearArrayProcessor: ModifierProcessor = {
@@ -125,7 +125,7 @@ function processGroupArray(
   groupContext: GroupContext
 ): ShapeState {
   const { count, offsetX, offsetY, rotationIncrement, rotateAll, scaleStep } = settings
-  const { groupTopLeft, groupBounds, groupTransform } = groupContext
+  const { groupBounds, groupTransform } = groupContext
   
   
   // Start with empty instances (we'll generate new ones)
