@@ -823,6 +823,19 @@ export const usePanelStore = create<PanelStoreState>()(
         // Remove panel from tab group
         const newPanelIds = tabGroup.panelIds.filter(id => id !== panelId)
 
+        // Find tab group position in display order to insert panel nearby
+        const tabGroupIndex = state.tabGroupOrder.indexOf(panel.tabGroupId)
+
+        // Insert panel after the tab group position in panel order
+        // Count how many individual panels come before this tab group
+        let insertPosition = 0
+        const displayOrder = [...state.panelOrder.filter(id => state.panels[id]?.isVisible && !state.panels[id]?.tabGroupId)]
+
+        // Add individual panels that come before tab groups
+        for (let i = 0; i < tabGroupIndex && i < state.tabGroupOrder.length; i++) {
+          insertPosition = displayOrder.length
+        }
+
         // Update panel to be independent
         const updatedPanels = {
           ...state.panels,
@@ -846,8 +859,11 @@ export const usePanelStore = create<PanelStoreState>()(
           }
         })
 
-        // Add panel back to panel order
-        const newPanelOrder = [...state.panelOrder, panelId]
+        // Insert panel at calculated position instead of at the end
+        const newPanelOrder = [...state.panelOrder]
+        if (!newPanelOrder.includes(panelId)) {
+          newPanelOrder.splice(Math.min(insertPosition, newPanelOrder.length), 0, panelId)
+        }
 
         // Update or remove tab group
         let updatedTabGroups = { ...state.tabGroups }
@@ -869,8 +885,10 @@ export const usePanelStore = create<PanelStoreState>()(
             size: tabGroup.size
           }
 
-          // Add last panel back to panel order
-          newPanelOrder.push(lastPanelId)
+          // Add last panel to the order at the same position
+          if (!newPanelOrder.includes(lastPanelId)) {
+            newPanelOrder.splice(Math.min(insertPosition + 1, newPanelOrder.length), 0, lastPanelId)
+          }
 
           // Remove tab group
           delete updatedTabGroups[panel.tabGroupId]
@@ -892,6 +910,11 @@ export const usePanelStore = create<PanelStoreState>()(
           tabGroupOrder: updatedTabGroupOrder
         }
       })
+
+      // Recalculate panel positions after the state update
+      setTimeout(() => {
+        get().calculatePanelPositions()
+      }, 0)
     },
 
     setActiveTab: (tabGroupId: string, panelId: PanelId) => {
