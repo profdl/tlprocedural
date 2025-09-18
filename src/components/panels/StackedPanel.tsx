@@ -1,15 +1,15 @@
-import { type ReactNode } from 'react'
-import { TldrawUiButton, TldrawUiButtonIcon } from 'tldraw'
-import { type PanelId } from '../../store/panelStore'
-import { useStackedPanel } from './hooks/useStackedPanel'
+import { type ReactNode } from "react";
+import { TldrawUiButton, TldrawUiButtonIcon } from "tldraw";
+import { type PanelId } from "../../store/panelStore";
+import { useStackedPanel } from "./hooks/useStackedPanel";
 
 interface StackedPanelProps {
-  id: PanelId
-  title: string
-  children: ReactNode
-  isCollapsed: boolean
-  onToggleCollapse: () => void
-  className?: string
+  id: PanelId;
+  title: string;
+  children: ReactNode;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
+  className?: string;
 }
 
 export function StackedPanel({
@@ -18,14 +18,13 @@ export function StackedPanel({
   children,
   isCollapsed,
   onToggleCollapse,
-  className = ''
+  className = "",
 }: StackedPanelProps) {
-
   const stackedPanelData = useStackedPanel({
-    panelId: id
-  })
+    panelId: id,
+  });
 
-  if (!stackedPanelData) return null
+  if (!stackedPanelData) return null;
 
   const {
     panel,
@@ -35,14 +34,14 @@ export function StackedPanel({
     handleMouseDown,
     handlePanelClick,
     getPanelStyle,
-    getDropZoneIndicators
-  } = stackedPanelData
+    getDropZoneIndicators,
+  } = stackedPanelData;
 
-  const dropZoneIndicators = getDropZoneIndicators()
-  const panelStyle = getPanelStyle()
+  const dropZoneIndicators = getDropZoneIndicators();
+  const panelStyle = getPanelStyle();
 
   // Calculate effective height
-  const effectiveHeight = isCollapsed ? 40 : panel.size.height
+  const effectiveHeight = isCollapsed ? 28 : panel.size.height;
 
   return (
     <>
@@ -68,18 +67,20 @@ export function StackedPanel({
           key={index}
           className="stacked-panel__drop-zone"
           style={{
-            position: 'absolute',
+            position: "absolute",
             top: indicator.y - 2,
             right: 8,
             width: 280,
             height: 4,
-            backgroundColor: '#007acc',
+            backgroundColor: "#007acc",
             borderRadius: 2,
             zIndex: 2000,
             opacity: indicator.isActive ? 1 : 0,
-            transition: 'opacity 0.2s ease',
-            boxShadow: '0 0 8px rgba(0, 122, 204, 0.5)',
-            animation: indicator.isActive ? 'dropZonePulse 1s ease-in-out infinite alternate' : 'none'
+            transition: "opacity 0.2s ease",
+            boxShadow: "0 0 8px rgba(0, 122, 204, 0.5)",
+            animation: indicator.isActive
+              ? "dropZonePulse 1s ease-in-out infinite alternate"
+              : "none",
           }}
         />
       ))}
@@ -88,27 +89,25 @@ export function StackedPanel({
       <div
         ref={panelRef}
         className={`stacked-panel ${className} ${
-          dragState.isDragging ? 'stacked-panel--dragging' : ''
-        } ${
-          isCollapsed ? 'stacked-panel--collapsed' : ''
-        }`}
+          dragState.isDragging ? "stacked-panel--dragging" : ""
+        } ${isCollapsed ? "stacked-panel--collapsed" : ""}`}
         style={{
-          position: 'absolute',
+          position: "absolute",
           top: panel.position.y,
           right: 8,
           width: 280,
           height: effectiveHeight,
-          backgroundColor: 'var(--color-panel)',
-          border: '1px solid var(--color-low)',
+          backgroundColor: "var(--color-panel)",
+          border: "1px solid var(--color-low)",
           borderRadius: 8,
-          overflow: 'hidden',
+          overflow: "hidden",
           boxShadow: dragState.isDragging
-            ? '0 8px 24px rgba(0, 0, 0, 0.25)'
-            : '0 2px 8px rgba(0, 0, 0, 0.1)',
+            ? "0 8px 24px rgba(0, 0, 0, 0.25)"
+            : "0 2px 8px rgba(0, 0, 0, 0.1)",
           transition: dragState.isDragging
-            ? 'box-shadow 0.2s ease'
-            : 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease',
-          ...panelStyle
+            ? "box-shadow 0.2s ease"
+            : "top 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease",
+          ...panelStyle,
         }}
         onClick={handlePanelClick}
       >
@@ -116,21 +115,20 @@ export function StackedPanel({
         <div
           className="stacked-panel__header"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '8px 12px',
-            height: 40,
-            background: 'var(--color-panel)',
-            borderBottom: '1px solid var(--color-low)'
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "4px 8px 5px 8px",
+            height: 28,
+            background: "var(--color-panel)",
           }}
         >
           <div
             className="stacked-panel__header-left"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              minWidth: 0
+              display: "flex",
+              alignItems: "center",
+              minWidth: 0,
             }}
           >
             {/* Drag handle */}
@@ -139,25 +137,27 @@ export function StackedPanel({
               className="stacked-panel__drag-handle"
               onMouseDown={handleMouseDown}
               style={{
-                cursor: dragState.isDragging ? 'grabbing' : 'grab',
-                padding: '4px',
-                marginRight: '8px',
-                fontSize: '14px',
-                color: dragState.isDragging ? 'var(--color-text-0)' : 'var(--color-text-2)',
-                userSelect: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                borderRadius: '4px',
-                backgroundColor: 'var(--color-panel)'
+                cursor: dragState.isDragging ? "grabbing" : "grab",
+                padding: "2px",
+                marginRight: "4px",
+                fontSize: "14px",
+                color: dragState.isDragging
+                  ? "var(--color-text-0)"
+                  : "var(--color-text-2)",
+                userSelect: "none",
+                display: "flex",
+                alignItems: "center",
+                borderRadius: "4px",
+                backgroundColor: "var(--color-panel)",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--color-muted-1)'
-                e.currentTarget.style.color = 'var(--color-text-0)'
+                e.currentTarget.style.backgroundColor = "var(--color-muted-1)";
+                e.currentTarget.style.color = "var(--color-text-0)";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--color-panel)'
+                e.currentTarget.style.backgroundColor = "var(--color-panel)";
                 if (!dragState.isDragging) {
-                  e.currentTarget.style.color = 'var(--color-text-2)'
+                  e.currentTarget.style.color = "var(--color-text-2)";
                 }
               }}
               title="Drag to reorder"
@@ -166,11 +166,16 @@ export function StackedPanel({
             </div>
 
             {/* Title */}
-            <span className="stacked-panel__title" style={{
-              fontSize: '14px',
-              fontWeight: 500,
-              color: 'var(--color-text-1)'
-            }}>
+            <span
+              className="stacked-panel__title"
+              style={{
+                fontSize: "10px",
+                fontWeight: 500,
+                color: "var(--color-text-1)",
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              }}
+            >
               {title}
             </span>
           </div>
@@ -178,9 +183,9 @@ export function StackedPanel({
           <div
             className="stacked-panel__header-right"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
             }}
           >
             {/* Collapse/Expand button */}
@@ -202,16 +207,15 @@ export function StackedPanel({
           <div
             className="stacked-panel__content"
             style={{
-              padding: '8px',
-              height: effectiveHeight - 40, // Subtract header height
-              overflow: 'auto'
+              padding: "8px",
+              height: effectiveHeight - 28, // Subtract header height
+              overflow: "auto",
             }}
           >
             {children}
           </div>
         )}
       </div>
-
     </>
-  )
+  );
 }

@@ -60,7 +60,7 @@ export function useStackedPanel({
     dropZones.push({ y: currentY - 4, index: 0 })
 
     visiblePanels.forEach((id, index) => {
-      const panelHeight = panels[id]?.isCollapsed ? 32 : panels[id]?.size.height || 200
+      const panelHeight = panels[id]?.isCollapsed ? 28 : panels[id]?.size.height || 200
       currentY += panelHeight
 
       // Add drop zone between panels
@@ -68,7 +68,7 @@ export function useStackedPanel({
         dropZones.push({ y: currentY + 4, index: index + 1 })
       }
 
-      currentY += 8 // PANEL_GAP
+      currentY += 1 // PANEL_GAP
     })
 
     // Add drop zone at the bottom

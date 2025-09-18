@@ -68,7 +68,7 @@ const PANEL_WIDTH = 280
 const TOP_MARGIN = 8
 const PANEL_GAP = 1
 const BOTTOM_MARGIN = 40
-const COLLAPSED_HEIGHT = 40
+const COLLAPSED_HEIGHT = 28
 
 // Function to calculate stacked panel positions and heights
 const calculateStackedLayout = (panelOrder: PanelId[], panels: Record<PanelId, PanelState>, viewportHeight: number) => {
@@ -89,8 +89,8 @@ const calculateStackedLayout = (panelOrder: PanelId[], panels: Record<PanelId, P
 
   // First pass: calculate fixed heights for properties and style panels
   const fixedHeights: Record<PanelId, number> = {
-    properties: panels.properties?.contentHeight || 218,
-    style: panels.style?.contentHeight || 148,
+    properties: panels.properties?.contentHeight || 213,
+    style: panels.style?.contentHeight || 164,
     modifiers: 0 // Will be calculated based on remaining space
   }
 
@@ -134,8 +134,8 @@ const createDefaultPanels = (viewportHeight: number = 1080): Record<PanelId, Pan
       isCollapsed: false,
       isVisible: true,
       position: { y: TOP_MARGIN },
-      size: { width: PANEL_WIDTH, height: 218 },
-      originalSize: { width: PANEL_WIDTH, height: 218 },
+      size: { width: PANEL_WIDTH, height: 213 },
+      originalSize: { width: PANEL_WIDTH, height: 213 },
       order: 0,
       isDragging: false
     },
@@ -143,9 +143,9 @@ const createDefaultPanels = (viewportHeight: number = 1080): Record<PanelId, Pan
       id: 'style' as PanelId,
       isCollapsed: false,
       isVisible: true,
-      position: { y: TOP_MARGIN + 218 + PANEL_GAP },
-      size: { width: PANEL_WIDTH, height: 148 },
-      originalSize: { width: PANEL_WIDTH, height: 148 },
+      position: { y: TOP_MARGIN + 213 + PANEL_GAP },
+      size: { width: PANEL_WIDTH, height: 164 },
+      originalSize: { width: PANEL_WIDTH, height: 164 },
       order: 1,
       isDragging: false
     },
@@ -153,7 +153,7 @@ const createDefaultPanels = (viewportHeight: number = 1080): Record<PanelId, Pan
       id: 'modifiers' as PanelId,
       isCollapsed: false,
       isVisible: true,
-      position: { y: TOP_MARGIN + 218 + PANEL_GAP + 148 + PANEL_GAP },
+      position: { y: TOP_MARGIN + 213 + PANEL_GAP + 164 + PANEL_GAP },
       size: { width: PANEL_WIDTH, height: 200 },
       originalSize: { width: PANEL_WIDTH, height: 200 },
       order: 2,
