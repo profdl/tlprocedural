@@ -42,17 +42,21 @@ import { CustomArrowTool } from './shapes/ArrowTool'
 // Using only custom shapes - no native tldraw shapes
 
 // Custom Grid Component inspired by cuttle.xyz
-const CuttleGrid = ({ size, ...camera }: { size: number } & { x: number; y: number; z: number }) => {
+const CuttleGrid = (camera: { x: number; y: number; z: number }) => {
   const editor = useEditor()
 
   const screenBounds = useValue('screenBounds', () => editor.getViewportScreenBounds(), [])
   const devicePixelRatio = useValue('dpr', () => editor.getInstanceState().devicePixelRatio, [])
+  const isGridMode = useValue('isGridMode', () => editor.getInstanceState().isGridMode, [])
   const isDarkMode = useIsDarkMode()
+
+  // Use a default visual grid size for display, independent of snap calculations
+  const visualGridSize = 10
 
   const canvas = useRef<HTMLCanvasElement>(null)
 
   useLayoutEffect(() => {
-    if (!canvas.current) return
+    if (!canvas.current || !isGridMode) return
     
     const canvasW = screenBounds.w * devicePixelRatio
     const canvasH = screenBounds.h * devicePixelRatio
@@ -66,12 +70,12 @@ const CuttleGrid = ({ size, ...camera }: { size: number } & { x: number; y: numb
 
     const pageViewportBounds = editor.getViewportPageBounds()
 
-    const startPageX = Math.ceil(pageViewportBounds.minX / size) * size
-    const startPageY = Math.ceil(pageViewportBounds.minY / size) * size
-    const endPageX = Math.floor(pageViewportBounds.maxX / size) * size
-    const endPageY = Math.floor(pageViewportBounds.maxY / size) * size
-    const numRows = Math.round((endPageY - startPageY) / size)
-    const numCols = Math.round((endPageX - startPageX) / size)
+    const startPageX = Math.ceil(pageViewportBounds.minX / visualGridSize) * visualGridSize
+    const startPageY = Math.ceil(pageViewportBounds.minY / visualGridSize) * visualGridSize
+    const endPageX = Math.floor(pageViewportBounds.maxX / visualGridSize) * visualGridSize
+    const endPageY = Math.floor(pageViewportBounds.maxY / visualGridSize) * visualGridSize
+    const numRows = Math.round((endPageY - startPageY) / visualGridSize)
+    const numCols = Math.round((endPageX - startPageX) / visualGridSize)
 
     // Colors for cuttle.xyz style grid
     const minorLineColor = isDarkMode ? '#333' : '#f0f0f0'
@@ -83,19 +87,19 @@ const CuttleGrid = ({ size, ...camera }: { size: number } & { x: number; y: numb
     ctx.lineWidth = 1
 
     for (let row = 0; row <= numRows; row++) {
-      const pageY = startPageY + row * size
+      const pageY = startPageY + row * visualGridSize
       const canvasY = (pageY + camera.y) * camera.z * devicePixelRatio
-      
+
       ctx.beginPath()
       ctx.moveTo(0, canvasY)
       ctx.lineTo(canvasW, canvasY)
       ctx.stroke()
     }
-    
+
     for (let col = 0; col <= numCols; col++) {
-      const pageX = startPageX + col * size
+      const pageX = startPageX + col * visualGridSize
       const canvasX = (pageX + camera.x) * camera.z * devicePixelRatio
-      
+
       ctx.beginPath()
       ctx.moveTo(canvasX, 0)
       ctx.lineTo(canvasX, canvasH)
@@ -107,22 +111,22 @@ const CuttleGrid = ({ size, ...camera }: { size: number } & { x: number; y: numb
     ctx.lineWidth = 1
 
     for (let row = 0; row <= numRows; row++) {
-      const pageY = startPageY + row * size
-      if (approximately(pageY % (size * 10), 0)) {
+      const pageY = startPageY + row * visualGridSize
+      if (approximately(pageY % (visualGridSize * 10), 0)) {
         const canvasY = (pageY + camera.y) * camera.z * devicePixelRatio
-        
+
         ctx.beginPath()
         ctx.moveTo(0, canvasY)
         ctx.lineTo(canvasW, canvasY)
         ctx.stroke()
       }
     }
-    
+
     for (let col = 0; col <= numCols; col++) {
-      const pageX = startPageX + col * size
-      if (approximately(pageX % (size * 10), 0)) {
+      const pageX = startPageX + col * visualGridSize
+      if (approximately(pageX % (visualGridSize * 10), 0)) {
         const canvasX = (pageX + camera.x) * camera.z * devicePixelRatio
-        
+
         ctx.beginPath()
         ctx.moveTo(canvasX, 0)
         ctx.lineTo(canvasX, canvasH)
@@ -152,7 +156,7 @@ const CuttleGrid = ({ size, ...camera }: { size: number } & { x: number; y: numb
       ctx.stroke()
     }
 
-  }, [screenBounds, camera, size, devicePixelRatio, editor, isDarkMode])
+  }, [screenBounds, camera, visualGridSize, devicePixelRatio, editor, isDarkMode, isGridMode])
 
   return <canvas className="tl-grid" ref={canvas} />
 }
@@ -161,6 +165,8 @@ const components: TLComponents = {
   StylePanel: CustomStylePanel,
   Toolbar: CustomToolbar,
   Grid: CuttleGrid,
+  SnapIndicator: null, // Disable built-in snap indicators
+  SnapLine: null, // Disable snap lines to fully prevent automatic grid snapping
 }
 
 // Helper function to create SVG data URLs for Lucide icons
@@ -311,15 +317,67 @@ export function TldrawCanvas() {
     // Connect the editor to the modifier store
     modifierStore.setEditor(editor)
 
-    // Disable built-in grid mode to prevent automatic grid snapping
-    // The visual grid is handled by our custom CuttleGrid component
-    // This allows users to control snapping via the snap mode toggle
-    editor.updateInstanceState({
-      isGridMode: false
+    // Separate grid visibility from snapping behavior
+    // Grid visibility is controlled by the isGridMode preference (shows/hides our CuttleGrid)
+    // Snapping is controlled by the isSnapMode user preference
+    // We need to prevent TLDraw's built-in grid-snap coupling by managing gridSize dynamically
+
+    // Core insight: TLDraw uses document.gridSize for internal snap calculations
+    // Setting gridSize to 0 disables internal grid snapping while preserving grid visibility
+    const DEFAULT_GRID_SIZE = 10
+
+    const updateGridSnapBehavior = () => {
+      const isGridMode = editor.getInstanceState().isGridMode
+      const isSnapMode = editor.user.getUserPreferences().isSnapMode
+
+      // Logic for grid size based on grid mode and snap preferences:
+      // - Grid visible + Snap enabled: use default gridSize for snapping
+      // - Grid visible + Snap disabled: use very small gridSize to prevent division by zero
+      // - Grid hidden: gridSize doesn't matter for snapping, but keep it consistent
+      const shouldEnableGridSnapping = isGridMode && isSnapMode
+      const targetGridSize = shouldEnableGridSnapping ? DEFAULT_GRID_SIZE : 0.001
+
+      // Only update if necessary to avoid unnecessary renders
+      const currentGridSize = editor.getDocumentSettings().gridSize
+      if (currentGridSize !== targetGridSize) {
+        editor.updateDocumentSettings({ gridSize: targetGridSize })
+      }
+    }
+
+    // Set up listener for instance state changes (grid mode changes)
+    const cleanupGridModeListener = editor.store.listen((entry) => {
+      // Check if instance state changed (includes isGridMode)
+      const hasInstanceChange = Object.keys(entry.changes.updated).some(key =>
+        key.includes('instance') || entry.changes.added[key] || entry.changes.removed[key]
+      )
+      if (hasInstanceChange) {
+        updateGridSnapBehavior()
+      }
     })
-    
-    // Note: Snap mode can be toggled by the user via the menu - don't force enable it
-    
+
+    // Set up listener for user preference changes (snap mode changes)
+    // TLDraw doesn't expose a direct way to listen to user preference changes,
+    // so we'll use a polling approach or side effect handler
+    const cleanupUserPrefListener = editor.sideEffects.registerAfterChangeHandler(
+      'instance',
+      () => {
+        // This gets called on instance changes, we can check if we need to update
+        updateGridSnapBehavior()
+      }
+    )
+
+    // Set default grid and snap preferences
+    editor.updateInstanceState({ isGridMode: true })
+    editor.user.updateUserPreferences({ isSnapMode: false })
+
+    // Initial setup
+    updateGridSnapBehavior()
+
+    const cleanupSnapControl = () => {
+      cleanupGridModeListener()
+      cleanupUserPrefListener()
+    }
+
     // Center the view on the origin (0,0)
     editor.zoomToFit()
     editor.resetZoom()
@@ -380,6 +438,7 @@ export function TldrawCanvas() {
       cleanupKeepArrayClonesLocked()
       cleanupDeleteHandler()
       cleanupSelection()
+      cleanupSnapControl()
       bezierEditModeService.destroy()
     }
   }
