@@ -12,7 +12,8 @@
       "Bash(tree:*)",
       "mcp__ide__getDiagnostics",
       "Bash(npm run typecheck:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(mcp__ide__getDiagnostics:*)"
     ],
     "deny": [],
     "ask": []

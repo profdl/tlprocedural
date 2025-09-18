@@ -40,9 +40,13 @@ export function convertShapeForPathModification(
 
 /**
  * Check if a shape type can store path data natively
+ * NOTE: For noise/path modifiers, we want to force conversion to Bezier
+ * even for shapes that can technically store path data, because
+ * path-modified polygons lose transform controls.
  */
 function canStorePathData(shapeType: string): boolean {
-  return ['bezier', 'triangle', 'circle', 'polygon'].includes(shapeType)
+  // Only Bezier shapes truly support complex path data with full transform controls
+  return shapeType === 'bezier'
 }
 
 /**
@@ -51,17 +55,18 @@ function canStorePathData(shapeType: string): boolean {
 function shouldConvertToBezier(pathData: PathData): boolean {
   if (pathData.type === 'points') {
     const points = pathData.data as VecLike[]
-    
-    // Convert if we have many points (heavily subdivided) or complex geometry
-    if (points.length > 10) {
-      return true
-    }
-    
-    // Convert if the path is very different from original geometry
-    // (This could be enhanced with more sophisticated shape analysis)
-    return false
+
+    console.log('🔍 Checking if should convert to Bezier:', {
+      pointCount: points.length,
+      willConvert: true // Always convert for path modifications
+    })
+
+    // Always convert path-modified shapes to Bezier for proper transform controls
+    // Previously we only converted if points.length > 10, but this caused issues
+    // with transform controls on noise-modified polygons
+    return true
   }
-  
+
   // Always convert bezier and SVG paths that can't be stored in simple shapes
   return pathData.type === 'bezier' || pathData.type === 'svg'
 }
@@ -105,18 +110,27 @@ function convertToBezierShape(
       fill: (originalShape.props as Record<string, unknown>).fill as boolean || false,
       points: bezierPoints,
       isClosed: true, // Most shapes we convert are closed
-      editMode: false
+      editMode: false // CRITICAL: Ensure editMode is false to enable transform controls
     },
     meta: {
       ...originalShape.meta,
       convertedFromType: originalShape.type,
       pathModified: true,
-      originalBounds: { 
+      originalBounds: {
         w: (originalShape.props as Record<string, unknown>).w as number,
-        h: (originalShape.props as Record<string, unknown>).h as number 
+        h: (originalShape.props as Record<string, unknown>).h as number
       }
     }
   } as BezierShape
+
+  // Debug: Log the conversion to help diagnose transform control issues
+  console.log('🔄 Shape converted for noise modifier:', {
+    originalType: originalShape.type,
+    newType: 'bezier',
+    editMode: bezierShape.props.editMode,
+    bounds: bounds,
+    pointCount: bezierPoints.length
+  })
   
   return bezierShape
 }

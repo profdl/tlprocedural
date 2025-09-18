@@ -413,12 +413,22 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     }
   }
 
-  // Rotation is handled by TLDraw's built-in transform system
-  // No custom onRotate needed - TLDraw applies rotation to the entire shape container
+  // Handle rotation - don't allow rotation in edit mode
+  override onRotate = (shape: BezierShape) => {
+    // Prevent rotation in edit mode
+    if (shape.props.editMode) return shape
+    // Allow default rotation behavior
+    return shape
+  }
 
   // Disable transform controls during edit mode but allow basic interaction
-  override canResize = (shape: BezierShape) => !shape.props.editMode
-  canRotate = (shape: BezierShape) => !shape.props.editMode
+  override canResize = (shape: BezierShape) => {
+    const canResize = !shape.props.editMode
+    if (!canResize) {
+      console.log('🚫 Bezier canResize=false, editMode:', shape.props.editMode, 'shape:', shape.id)
+    }
+    return canResize
+  }
   override canBind = () => true
   
   // Override hideSelectionBoundsFg to hide selection bounds in edit mode

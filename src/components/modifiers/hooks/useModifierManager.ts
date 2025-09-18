@@ -106,13 +106,19 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
           // Update the original shape with the modified data
           editor.run(() => {
             // Create update object preserving all properties
+            // CRITICAL: Use modifiedShape.type to handle shape conversions (e.g., polygon → bezier)
+            // When shape type changes, use only the new props to avoid invalid property mixing
+            const isTypeChange = actualOriginalShape.type !== modifiedShape.type
+
             const updateData = {
               id: actualOriginalShape.id,
-              type: actualOriginalShape.type,
-              props: {
-                ...actualOriginalShape.props,
-                ...modifiedShape.props
-              }
+              type: modifiedShape.type,
+              props: isTypeChange
+                ? modifiedShape.props  // Type change: use only new props (prevents polygon+isClosed errors)
+                : {  // Same type: merge props for updates
+                    ...actualOriginalShape.props,
+                    ...modifiedShape.props
+                  }
             }
 
             // Include metadata if the shape was path-modified
@@ -124,9 +130,64 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
                   ...modifiedShape.meta
                 }
               }
-              editor.updateShape(updateDataWithMeta)
+              console.log('🔧 Applying path modifier - updating shape with meta:', {
+                id: updateDataWithMeta.id,
+                originalType: actualOriginalShape.type,
+                newType: updateDataWithMeta.type,
+                isTypeChange,
+                editMode: (updateDataWithMeta.props as any)?.editMode,
+                pathModified: updateDataWithMeta.meta?.pathModified
+              })
+
+              if (isTypeChange) {
+                // TLDraw can't change shape type via updateShape - must delete and recreate
+                console.log('🔄 Type change detected: deleting and recreating shape')
+
+                // Preserve position and transform properties from original shape
+                const shapeToCreate = {
+                  ...updateDataWithMeta,
+                  x: actualOriginalShape.x,
+                  y: actualOriginalShape.y,
+                  rotation: actualOriginalShape.rotation,
+                  opacity: actualOriginalShape.opacity,
+                  parentId: actualOriginalShape.parentId,
+                  index: actualOriginalShape.index
+                }
+
+                editor.deleteShapes([actualOriginalShape.id])
+                editor.createShapes([shapeToCreate])
+              } else {
+                editor.updateShape(updateDataWithMeta)
+              }
             } else {
-              editor.updateShape(updateData)
+              console.log('🔧 Applying path modifier - updating shape:', {
+                id: updateData.id,
+                originalType: actualOriginalShape.type,
+                newType: updateData.type,
+                isTypeChange,
+                editMode: (updateData.props as any)?.editMode
+              })
+
+              if (isTypeChange) {
+                // TLDraw can't change shape type via updateShape - must delete and recreate
+                console.log('🔄 Type change detected: deleting and recreating shape')
+
+                // Preserve position and transform properties from original shape
+                const shapeToCreate = {
+                  ...updateData,
+                  x: actualOriginalShape.x,
+                  y: actualOriginalShape.y,
+                  rotation: actualOriginalShape.rotation,
+                  opacity: actualOriginalShape.opacity,
+                  parentId: actualOriginalShape.parentId,
+                  index: actualOriginalShape.index
+                }
+
+                editor.deleteShapes([actualOriginalShape.id])
+                editor.createShapes([shapeToCreate])
+              } else {
+                editor.updateShape(updateData)
+              }
             }
             
             // Clean up any existing clones from the modifier system
@@ -260,13 +321,18 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
 
           // Update the original shape with the modified data
           editor.run(() => {
+            // Check if shape type is changing to handle prop merging correctly
+            const isTypeChange = actualOriginalShape.type !== modifiedShape.type
+
             const updateData = {
               id: actualOriginalShape.id,
-              type: actualOriginalShape.type,
-              props: {
-                ...actualOriginalShape.props,
-                ...modifiedShape.props
-              }
+              type: modifiedShape.type, // CRITICAL: Use modifiedShape.type for shape conversions
+              props: isTypeChange
+                ? modifiedShape.props  // Type change: use only new props
+                : {  // Same type: merge props for updates
+                    ...actualOriginalShape.props,
+                    ...modifiedShape.props
+                  }
             }
 
             if (modifiedShape.meta?.pathModified) {
@@ -277,9 +343,42 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
                   ...modifiedShape.meta
                 }
               }
-              editor.updateShape(updateDataWithMeta)
+
+              if (isTypeChange) {
+                // TLDraw can't change shape type via updateShape - must delete and recreate
+                const shapeToCreate = {
+                  ...updateDataWithMeta,
+                  x: actualOriginalShape.x,
+                  y: actualOriginalShape.y,
+                  rotation: actualOriginalShape.rotation,
+                  opacity: actualOriginalShape.opacity,
+                  parentId: actualOriginalShape.parentId,
+                  index: actualOriginalShape.index
+                }
+
+                editor.deleteShapes([actualOriginalShape.id])
+                editor.createShapes([shapeToCreate])
+              } else {
+                editor.updateShape(updateDataWithMeta)
+              }
             } else {
-              editor.updateShape(updateData)
+              if (isTypeChange) {
+                // TLDraw can't change shape type via updateShape - must delete and recreate
+                const shapeToCreate = {
+                  ...updateData,
+                  x: actualOriginalShape.x,
+                  y: actualOriginalShape.y,
+                  rotation: actualOriginalShape.rotation,
+                  opacity: actualOriginalShape.opacity,
+                  parentId: actualOriginalShape.parentId,
+                  index: actualOriginalShape.index
+                }
+
+                editor.deleteShapes([actualOriginalShape.id])
+                editor.createShapes([shapeToCreate])
+              } else {
+                editor.updateShape(updateData)
+              }
             }
 
             // Clean up any existing clones from the modifier system
