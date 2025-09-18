@@ -14,7 +14,9 @@
       "Bash(npm run typecheck:*)",
       "Bash(npm run:*)",
       "Bash(mcp__ide__getDiagnostics:*)",
-      "Bash(tsc -b --noEmit)"
+      "Bash(tsc -b --noEmit)",
+      "WebSearch",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": []
