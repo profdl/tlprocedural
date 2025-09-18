@@ -73,7 +73,9 @@ export function getTopLeftFromCenter(shape: TLShape, centerX: number, centerY: n
  */
 export function applyRotationToShapes(editor: Editor, shapeIds: string[], rotation: number): void {
   if (rotation !== 0 && shapeIds.length > 0) {
-    editor.rotateShapesBy(shapeIds as import('tldraw').TLShapeId[], rotation)
+    editor.run(() => {
+      editor.rotateShapesBy(shapeIds as import('tldraw').TLShapeId[], rotation)
+    }, { ignoreShapeLock: true, history: 'ignore' })
   }
 }
 

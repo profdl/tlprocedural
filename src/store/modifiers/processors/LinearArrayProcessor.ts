@@ -126,55 +126,55 @@ function processGroupArray(
 ): ShapeState {
   const { count, offsetX, offsetY, rotationIncrement, rotateAll, scaleStep } = settings
   const { groupBounds, groupTransform } = groupContext
-  
-  
+
+
   // Start with empty instances (we'll generate new ones)
   const newInstances: ShapeInstance[] = []
-  
-  // For each existing instance (which represents a shape in the group), create the array
-  input.instances.forEach(inputInstance => {
 
-    for (let i = 0; i < count; i++) { // Start from i=0, include the original
+  // For each array index, create a complete group clone
+  for (let i = 0; i < count; i++) { // Start from i=0, include the original
 
-      // Use group dimensions for percentage-based offsets (same as individual shape logic)
-      const pixelOffsetX = (offsetX / 100) * groupBounds.width * i
-      const pixelOffsetY = (offsetY / 100) * groupBounds.height * i
+    // Use group dimensions for percentage-based offsets (same as individual shape logic)
+    const pixelOffsetX = (offsetX / 100) * groupBounds.width * i
+    const pixelOffsetY = (offsetY / 100) * groupBounds.height * i
 
-      // Calculate incremental and uniform rotation for this index (same as individual shape logic)
-      const incrementalRotationRadians = degreesToRadians(rotationIncrement * i)
-      const uniformRotationRadians = degreesToRadians(rotateAll)
-      const totalRotationRadians = incrementalRotationRadians + uniformRotationRadians
+    // Calculate incremental and uniform rotation for this index (same as individual shape logic)
+    const incrementalRotationRadians = degreesToRadians(rotationIncrement * i)
+    const uniformRotationRadians = degreesToRadians(rotateAll)
+    const totalRotationRadians = incrementalRotationRadians + uniformRotationRadians
 
-      // Calculate scaling (same as individual shape logic)
-      const progress = count > 1 ? i / (count - 1) : 0
-      const scaleStepDecimal = scaleStep / 100
-      const interpolatedScale = 1 + (scaleStepDecimal - 1) * progress
+    // Calculate scaling (same as individual shape logic)
+    const progress = count > 1 ? i / (count - 1) : 0
+    const scaleStepDecimal = scaleStep / 100
+    const interpolatedScale = 1 + (scaleStepDecimal - 1) * progress
 
-      // Get the group center (same pattern as individual shape center calculation)
-      const groupCenterX = groupBounds.centerX
-      const groupCenterY = groupBounds.centerY
+    // Get the group center (same pattern as individual shape center calculation)
+    const groupCenterX = groupBounds.centerX
+    const groupCenterY = groupBounds.centerY
 
-      // Calculate base clone center position with linear offset from group center (same as individual shape logic)
-      let cloneCenterX = groupCenterX + pixelOffsetX
-      let cloneCenterY = groupCenterY + pixelOffsetY
+    // Calculate base clone center position with linear offset from group center (same as individual shape logic)
+    let cloneCenterX = groupCenterX + pixelOffsetX
+    let cloneCenterY = groupCenterY + pixelOffsetY
 
-      // If group has rotation, apply orbital rotation around group center (same as individual shape logic)
-      const groupRotation = groupTransform?.rotation || 0
-      if (groupRotation !== 0) {
-        // Apply orbital rotation around group center
-        const offsetX = pixelOffsetX
-        const offsetY = pixelOffsetY
+    // If group has rotation, apply orbital rotation around group center (same as individual shape logic)
+    const groupRotation = groupTransform?.rotation || 0
+    if (groupRotation !== 0) {
+      // Apply orbital rotation around group center
+      const offsetX = pixelOffsetX
+      const offsetY = pixelOffsetY
 
-        const cos = Math.cos(groupRotation)
-        const sin = Math.sin(groupRotation)
+      const cos = Math.cos(groupRotation)
+      const sin = Math.sin(groupRotation)
 
-        const rotatedOffsetX = offsetX * cos - offsetY * sin
-        const rotatedOffsetY = offsetX * sin + offsetY * cos
+      const rotatedOffsetX = offsetX * cos - offsetY * sin
+      const rotatedOffsetY = offsetX * sin + offsetY * cos
 
-        cloneCenterX = groupCenterX + rotatedOffsetX
-        cloneCenterY = groupCenterY + rotatedOffsetY
-      }
+      cloneCenterX = groupCenterX + rotatedOffsetX
+      cloneCenterY = groupCenterY + rotatedOffsetY
+    }
 
+    // For each child shape in the group, create a clone in this group instance
+    input.instances.forEach(inputInstance => {
       // Calculate the relative position of this shape within the group (from group center)
       const shapeRelativeX = inputInstance.transform.x - groupCenterX
       const shapeRelativeY = inputInstance.transform.y - groupCenterY
@@ -183,11 +183,25 @@ function processGroupArray(
       const scaledRelativeX = shapeRelativeX * interpolatedScale
       const scaledRelativeY = shapeRelativeY * interpolatedScale
 
+      // For group-level rotation, we need to rotate the relative position around the group center
+      let rotatedRelativeX = scaledRelativeX
+      let rotatedRelativeY = scaledRelativeY
+
+      if (totalRotationRadians !== 0) {
+        const cos = Math.cos(totalRotationRadians)
+        const sin = Math.sin(totalRotationRadians)
+
+        rotatedRelativeX = scaledRelativeX * cos - scaledRelativeY * sin
+        rotatedRelativeY = scaledRelativeX * sin + scaledRelativeY * cos
+      }
+
       // Calculate the final position of this shape in the cloned group
-      let finalX = cloneCenterX + scaledRelativeX
-      let finalY = cloneCenterY + scaledRelativeY
-      let finalRotation = inputInstance.transform.rotation + totalRotationRadians
-      
+      const finalX = cloneCenterX + rotatedRelativeX
+      const finalY = cloneCenterY + rotatedRelativeY
+
+      // Add group rotation to individual shape rotation for proper visual appearance
+      const finalRotation = inputInstance.transform.rotation + totalRotationRadians
+
       // Compose the transform
       const newTransform: Transform = {
         x: finalX,
@@ -196,7 +210,7 @@ function processGroupArray(
         scaleX: inputInstance.transform.scaleX * interpolatedScale,
         scaleY: inputInstance.transform.scaleY * interpolatedScale
       }
-      
+
       const newInstance: ShapeInstance = {
         shape: { ...inputInstance.shape },
         transform: newTransform,
@@ -206,13 +220,15 @@ function processGroupArray(
           arrayIndex: newInstances.length, // Use sequential index for clone mapping
           sourceInstance: inputInstance.index,
           linearArrayIndex: i, // Store linear-specific index separately
-          isGroupClone: true
+          isGroupClone: true,
+          groupCloneIndex: i, // Track which group clone this shape belongs to
+          groupTotalRotation: totalRotationRadians // Store group rotation for potential future use
         }
       }
-      
+
       newInstances.push(newInstance)
-    }
-  })
+    })
+  }
   return {
     ...input,
     instances: newInstances
