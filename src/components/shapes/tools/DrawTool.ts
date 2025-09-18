@@ -10,5 +10,5 @@ export class DrawTool extends StateNode {
     return [DrawIdle, DrawCreating]
   }
 
-  override shapeType = 'custom-draw'
+  override shapeType = 'bezier'
 }
