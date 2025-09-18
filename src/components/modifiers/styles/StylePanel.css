@@ -32,7 +32,7 @@
   justify-content: center;
   border-radius: 4px;
   background: var(--color-muted-1);
-  border: 1px solid var(--color-panel-contrast);
+  border: 1px solid var(--color-divider);
   color: var(--color-text-1);
   cursor: pointer;
   transition: all 0.1s ease;
@@ -240,7 +240,7 @@
 .style-controls__color-input {
   width: 28px;
   height: 28px;
-  border: 1px solid var(--color-panel-contrast);
+  border: 1px solid var(--color-divider);
   border-radius: 4px;
   cursor: pointer;
   background: none;
@@ -252,7 +252,7 @@
   flex: 1;
   height: 28px;
   padding: 4px 6px;
-  border: 1px solid var(--color-panel-contrast);
+  border: 1px solid var(--color-divider);
   border-radius: 4px;
   background: var(--color-panel);
   color: var(--color-text-1);
@@ -268,7 +268,7 @@
   height: 28px; /* Match input height */
   padding: 0 8px;
   background: var(--color-panel);
-  border: 1px solid var(--color-panel-contrast);
+  border: 1px solid var(--color-divider);
   border-radius: 4px;
 }
 
@@ -348,7 +348,7 @@
 
 .modifier-controls__item {
   background: var(--color-panel);
-  border: 1px solid #d0d0d0;
+  border: 1px solid var(--color-divider);
   border-radius: 8px;
   overflow: hidden;
   margin-bottom: 8px;
@@ -358,7 +358,7 @@
 /* Ensure borders show in custom style panel context */
 .custom-style-panel__content .modifier-controls__item {
   background: var(--color-panel) !important;
-  border: 1px solid #d0d0d0 !important;
+  border: 1px solid var(--color-divider) !important;
   border-radius: 8px !important;
   overflow: hidden !important;
   margin-bottom: 8px !important;
@@ -367,8 +367,8 @@
 
 /* Fallback for debugging - use fixed colors if CSS vars don't work */
 .custom-style-panel__content .modifier-controls__item {
-  border: 1px solid #d0d0d0 !important;
-  background: #f9f9f9 !important;
+  border: 1px solid var(--color-divider) !important;
+  background: var(--color-panel) !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
 }
 

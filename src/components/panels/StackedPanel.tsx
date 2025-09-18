@@ -121,7 +121,7 @@ export function StackedPanel({
             justifyContent: 'space-between',
             padding: '8px 12px',
             height: 40,
-            background: 'white',
+            background: 'var(--color-panel)',
             borderBottom: '1px solid var(--color-low)'
           }}
         >
@@ -148,14 +148,14 @@ export function StackedPanel({
                 display: 'flex',
                 alignItems: 'center',
                 borderRadius: '4px',
-                backgroundColor: 'white'
+                backgroundColor: 'var(--color-panel)'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'white'
+                e.currentTarget.style.backgroundColor = 'var(--color-muted-1)'
                 e.currentTarget.style.color = 'var(--color-text-0)'
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'white'
+                e.currentTarget.style.backgroundColor = 'var(--color-panel)'
                 if (!dragState.isDragging) {
                   e.currentTarget.style.color = 'var(--color-text-2)'
                 }

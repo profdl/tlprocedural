@@ -11,9 +11,9 @@
   gap: 4px;
   padding: 0px 6px;
   border-radius: 4px;
-  background: white;
-  border: 1px solid #2f80ed;
-  color: #2f80ed;
+  background: var(--color-panel);
+  border: 1px solid var(--color-divider);
+  color: var(--color-text-1);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -24,9 +24,9 @@
 }
 
 .add-button__main:hover {
-  background: #f5f9ff;
-  border-color: #1a6fd8;
-  color: #1a6fd8;
+  background: var(--color-muted);
+  border-color: var(--color-divider);
+  color: var(--color-text-1);
 }
 
 .add-button__main:disabled {
@@ -100,13 +100,13 @@
 }
 
 .modifier-controls__add-button .add-button__main {
-  background: white !important;
-  border: 1px solid #2f80ed !important;
-  color: #2f80ed !important;
+  background: var(--color-panel) !important;
+  border: 1px solid var(--color-divider) !important;
+  color: var(--color-text-1) !important;
 }
 
 .modifier-controls__add-button .add-button__main:hover {
-  background: #f5f9ff !important;
-  border-color: #1a6fd8 !important;
-  color: #1a6fd8 !important;
+  background: var(--color-muted) !important;
+  border-color: var(--color-divider) !important;
+  color: var(--color-text-1) !important;
 }

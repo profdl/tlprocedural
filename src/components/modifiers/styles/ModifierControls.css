@@ -102,7 +102,7 @@
 }
 
 .modifier-controls__item {
-  border: 1px solid #d0d0d0;
+  border: 1px solid var(--color-divider);
   border-radius: 8px;
   background: var(--color-panel);
   margin-bottom: 8px;
@@ -112,7 +112,7 @@
 
 /* Ensure borders show in custom style panel context */
 .custom-style-panel__content .modifier-controls__item {
-  border: 1px solid #d0d0d0 !important;
+  border: 1px solid var(--color-divider) !important;
   border-radius: 8px !important;
   background: var(--color-panel) !important;
   margin-bottom: 8px !important;
@@ -122,8 +122,8 @@
 
 /* Fallback for debugging - use fixed colors if CSS vars don't work */
 .custom-style-panel__content .modifier-controls__item {
-  border: 1px solid #d0d0d0 !important;
-  background: #f9f9f9 !important;
+  border: 1px solid var(--color-divider) !important;
+  background: var(--color-panel) !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
 }
 
@@ -291,7 +291,7 @@
   min-height: 24px !important;
   padding: 0 !important;
   background: var(--color-muted-1) !important;
-  border: 1px solid var(--color-panel-contrast) !important;
+  border: 1px solid var(--color-divider) !important;
   color: var(--color-text-1) !important;
   cursor: pointer !important;
   transition: all 0.1s ease !important;
@@ -324,7 +324,7 @@
 .modifier-controls__select {
   padding: 4px 8px;
   background: var(--color-panel);
-  border: 1px solid var(--color-panel-contrast);
+  border: 1px solid var(--color-divider);
   border-radius: 4px;
   color: var(--color-text-1);
   font-size: 11px;
@@ -350,7 +350,7 @@
   left: 0;
   right: 0;
   background: var(--color-panel);
-  border: 1px solid var(--color-panel-contrast);
+  border: 1px solid var(--color-divider);
   border-radius: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 1000;
