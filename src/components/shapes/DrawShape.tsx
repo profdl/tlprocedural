@@ -1,4 +1,4 @@
-import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, type IndexKey } from 'tldraw'
+import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, type IndexKey, type VecLike } from 'tldraw'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 
 export type DrawShape = TLBaseShape<
@@ -16,6 +16,8 @@ export type DrawShape = TLBaseShape<
     isClosed: boolean
     smoothing: number
     editMode?: boolean
+    points?: VecLike[] // Optional path data for modified draw shapes
+    renderAsPath?: boolean // Flag to render as path instead of geometry
   }
 >
 

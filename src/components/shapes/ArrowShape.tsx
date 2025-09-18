@@ -1,4 +1,4 @@
-import { HTMLContainer, T, type TLBaseShape, type RecordProps } from 'tldraw'
+import { HTMLContainer, T, type TLBaseShape, type RecordProps, type VecLike } from 'tldraw'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 
 export type CustomArrowShape = TLBaseShape<
@@ -9,6 +9,8 @@ export type CustomArrowShape = TLBaseShape<
     color: string
     strokeWidth: number
     fill: boolean
+    points?: VecLike[] // Optional path data for modified arrows
+    renderAsPath?: boolean // Flag to render as path instead of geometry
   }
 >
 

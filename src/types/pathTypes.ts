@@ -121,7 +121,7 @@ export const SHAPE_PATH_CAPABILITIES: Record<string, ShapePathCapability> = {
     hasNativeSupport: false,
     requiresConversion: true
   },
-  
+
   // Custom shapes
   'polygon': {
     canExtractPath: true,
@@ -148,6 +148,24 @@ export const SHAPE_PATH_CAPABILITIES: Record<string, ShapePathCapability> = {
     requiresConversion: true
   },
   'triangle': {
+    canExtractPath: true,
+    pathType: 'points',
+    hasNativeSupport: true,
+    requiresConversion: false
+  },
+  'custom-line': {
+    canExtractPath: true,
+    pathType: 'points',
+    hasNativeSupport: true,
+    requiresConversion: false
+  },
+  'custom-draw': {
+    canExtractPath: true,
+    pathType: 'points',
+    hasNativeSupport: true,
+    requiresConversion: false
+  },
+  'custom-arrow': {
     canExtractPath: true,
     pathType: 'points',
     hasNativeSupport: true,

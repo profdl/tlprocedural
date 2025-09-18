@@ -8,6 +8,9 @@ import type {
 import type { BezierPoint, BezierShape } from '../components/shapes/BezierShape'
 import type { PolygonShape } from '../components/shapes/PolygonShape'
 import type { SineWaveShape } from '../components/shapes/SineWaveShape'
+import type { LineShape } from '../components/shapes/LineShape'
+import type { DrawShape } from '../components/shapes/DrawShape'
+import type { CustomArrowShape } from '../components/shapes/ArrowShape'
 import { SHAPE_PATH_CAPABILITIES, canProcessShapeAsPaths } from '../types/pathTypes'
 
 /**
@@ -46,6 +49,14 @@ export function shapeToPath(shape: TLShape, editor?: Editor): PathData | null {
         return extractArrowPath(shape, editor)
       case 'geo':
         return extractGeoPath(shape, editor)
+
+      // Custom line-based shapes
+      case 'custom-line':
+        return extractCustomLinePath(shape)
+      case 'custom-draw':
+        return extractCustomDrawPath(shape)
+      case 'custom-arrow':
+        return extractCustomArrowPath(shape)
       
       default:
         console.warn(`No path extractor for shape type: ${shape.type}`)
@@ -78,7 +89,13 @@ export function pathToShapeUpdates(
         return pathToTriangle(pathData, originalShape)
       case 'circle':
         return pathToCircle(pathData, originalShape)
-      
+      case 'custom-line':
+        return pathToCustomLine(pathData, originalShape)
+      case 'custom-draw':
+        return pathToCustomDraw(pathData, originalShape)
+      case 'custom-arrow':
+        return pathToCustomArrow(pathData, originalShape)
+
       default:
         console.warn(`No path-to-shape converter for type: ${originalShape.type}`)
         return null
@@ -91,14 +108,30 @@ export function pathToShapeUpdates(
 
 // Custom shape extractors
 function extractPolygonPath(shape: PolygonShape): PointsPathData | null {
-  const { w, h, sides } = shape.props
+  const props = shape.props as PolygonShape['props'] & {
+    points?: VecLike[];
+    renderAsPath?: boolean;
+  }
+
+  // If polygon has been modified and has path points, use those
+  if (props.renderAsPath && props.points && props.points.length >= 3) {
+    return {
+      type: 'points',
+      data: [...props.points], // Clone the points
+      isClosed: true,
+      bounds: calculatePathBounds(props.points)
+    }
+  }
+
+  // Otherwise extract original polygon geometry
+  const { w, h, sides } = props
   const centerX = w / 2
   const centerY = h / 2
   const radiusX = w / 2
   const radiusY = h / 2
 
   const points: VecLike[] = []
-  
+
   for (let i = 0; i < sides; i++) {
     const angle = (i * 2 * Math.PI) / sides - Math.PI / 2
     const x = centerX + radiusX * Math.cos(angle)
@@ -155,7 +188,6 @@ function extractTrianglePath(shape: TLShape): PointsPathData | null {
 
   // If triangle has been modified and has path points, use those
   if (props.renderAsPath && props.points && props.points.length >= 3) {
-    console.log(`Using existing subdivided triangle points (${props.points.length} points)`)
     return {
       type: 'points',
       data: [...props.points], // Clone the points
@@ -173,8 +205,6 @@ function extractTrianglePath(shape: TLShape): PointsPathData | null {
     { x: 0, y: h },         // Bottom left
     { x: w, y: h }          // Bottom right
   ]
-
-  console.log(`Extracting original triangle geometry (3 points)`)
 
   return {
     type: 'points',
@@ -194,7 +224,6 @@ function extractCirclePath(shape: TLShape): PointsPathData | null {
 
   // If circle has been modified and has path points, use those
   if (props.renderAsPath && props.points && props.points.length >= 3) {
-    console.log(`Using existing subdivided circle points (${props.points.length} points)`)
     return {
       type: 'points',
       data: [...props.points], // Clone the points
@@ -221,8 +250,6 @@ function extractCirclePath(shape: TLShape): PointsPathData | null {
     const y = centerY + radiusY * Math.sin(angle)
     points.push({ x, y })
   }
-
-  console.log(`Extracting original circle geometry (${segments} points)`)
 
   return {
     type: 'points',
@@ -481,7 +508,7 @@ export function pathDataToBounds(pathData: PathData): { x: number; y: number; w:
   if (pathData.bounds) {
     return pathData.bounds
   }
-  
+
   if (pathData.type === 'points') {
     return calculatePathBounds(pathData.data as VecLike[])
   } else if (pathData.type === 'bezier') {
@@ -489,6 +516,199 @@ export function pathDataToBounds(pathData: PathData): { x: number; y: number; w:
     const points = bezierPoints.map(bp => ({ x: bp.x, y: bp.y }))
     return calculatePathBounds(points)
   }
-  
+
   return { x: 0, y: 0, w: 0, h: 0 }
+}
+
+// Custom shape extractors
+function extractCustomLinePath(shape: TLShape): PointsPathData | null {
+  const props = shape.props as LineShape['props'] & {
+    points?: VecLike[];
+    renderAsPath?: boolean;
+  }
+
+  // If line has been modified and has path points, use those
+  if (props.renderAsPath && props.points && props.points.length >= 2) {
+    return {
+      type: 'points',
+      data: [...props.points],
+      isClosed: false,
+      bounds: calculatePathBounds(props.points)
+    }
+  }
+
+  // Extract original line geometry
+  const { startX, startY, endX, endY } = props
+  const points: VecLike[] = [
+    { x: startX, y: startY },
+    { x: endX, y: endY }
+  ]
+
+  return {
+    type: 'points',
+    data: points,
+    isClosed: false,
+    bounds: calculatePathBounds(points)
+  }
+}
+
+function extractCustomDrawPath(shape: TLShape): PointsPathData | null {
+  const props = shape.props as DrawShape['props'] & {
+    points?: VecLike[];
+    renderAsPath?: boolean;
+  }
+
+  // If draw shape has been modified and has path points, use those
+  if (props.renderAsPath && props.points && props.points.length >= 2) {
+    return {
+      type: 'points',
+      data: [...props.points],
+      isClosed: props.isClosed,
+      bounds: calculatePathBounds(props.points)
+    }
+  }
+
+  // Extract original draw path from segments
+  const points: VecLike[] = []
+
+  for (const segment of props.segments) {
+    points.push({ x: segment.x, y: segment.y })
+  }
+
+  if (points.length === 0) {
+    return null
+  }
+
+  return {
+    type: 'points',
+    data: points,
+    isClosed: props.isClosed,
+    bounds: calculatePathBounds(points)
+  }
+}
+
+function extractCustomArrowPath(shape: TLShape): PointsPathData | null {
+  const props = shape.props as CustomArrowShape['props'] & {
+    points?: VecLike[];
+    renderAsPath?: boolean;
+  }
+
+  // If arrow has been modified and has path points, use those
+  if (props.renderAsPath && props.points && props.points.length >= 2) {
+    return {
+      type: 'points',
+      data: [...props.points],
+      isClosed: false,
+      bounds: calculatePathBounds(props.points)
+    }
+  }
+
+  // Extract original arrow geometry (simplified as line for now)
+  const { w, h } = props
+  const points: VecLike[] = [
+    { x: 0, y: h / 2 },        // Start point (left)
+    { x: w * 0.8, y: h / 2 },  // Body end
+    { x: w * 0.8, y: 0 },      // Arrow top
+    { x: w, y: h / 2 },        // Arrow tip
+    { x: w * 0.8, y: h },      // Arrow bottom
+    { x: w * 0.8, y: h / 2 },  // Back to body
+  ]
+
+  return {
+    type: 'points',
+    data: points,
+    isClosed: false,
+    bounds: { x: 0, y: 0, w, h }
+  }
+}
+
+// Custom shape path-to-shape converters
+function pathToCustomLine(pathData: PathData, shape: TLShape): Partial<TLShape> | null {
+  if (pathData.type === 'points') {
+    const points = pathData.data as VecLike[]
+    if (points.length === 0) return null
+
+    // For custom line, store the modified points and set render flag
+    const bounds = pathData.bounds || calculatePathBounds(points)
+
+    return {
+      props: {
+        ...shape.props,
+        w: bounds.w,
+        h: bounds.h,
+        points: points,
+        renderAsPath: true
+      },
+      meta: {
+        ...shape.meta,
+        pathModified: true,
+        originalBounds: {
+          w: (shape.props as { w?: number }).w || 0,
+          h: (shape.props as { h?: number }).h || 0
+        }
+      }
+    }
+  }
+
+  return null
+}
+
+function pathToCustomDraw(pathData: PathData, shape: TLShape): Partial<TLShape> | null {
+  if (pathData.type === 'points') {
+    const points = pathData.data as VecLike[]
+    if (points.length === 0) return null
+
+    // For custom draw, store the modified points and set render flag
+    const bounds = pathData.bounds || calculatePathBounds(points)
+
+    return {
+      props: {
+        ...shape.props,
+        w: bounds.w,
+        h: bounds.h,
+        points: points,
+        renderAsPath: true
+      },
+      meta: {
+        ...shape.meta,
+        pathModified: true,
+        originalBounds: {
+          w: (shape.props as { w?: number }).w || 0,
+          h: (shape.props as { h?: number }).h || 0
+        }
+      }
+    }
+  }
+
+  return null
+}
+
+function pathToCustomArrow(pathData: PathData, shape: TLShape): Partial<TLShape> | null {
+  if (pathData.type === 'points') {
+    const points = pathData.data as VecLike[]
+    if (points.length === 0) return null
+
+    // For custom arrow, store the modified points and set render flag
+    const bounds = pathData.bounds || calculatePathBounds(points)
+
+    return {
+      props: {
+        ...shape.props,
+        w: bounds.w,
+        h: bounds.h,
+        points: points,
+        renderAsPath: true
+      },
+      meta: {
+        ...shape.meta,
+        pathModified: true,
+        originalBounds: {
+          w: (shape.props as { w?: number }).w || 0,
+          h: (shape.props as { h?: number }).h || 0
+        }
+      }
+    }
+  }
+
+  return null
 }

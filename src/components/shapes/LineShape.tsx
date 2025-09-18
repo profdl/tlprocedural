@@ -1,4 +1,4 @@
-import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, type IndexKey } from 'tldraw'
+import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, type IndexKey, type VecLike } from 'tldraw'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 
 export type LineShape = TLBaseShape<
@@ -13,6 +13,8 @@ export type LineShape = TLBaseShape<
     startY: number
     endX: number
     endY: number
+    points?: VecLike[] // Optional path data for modified lines
+    renderAsPath?: boolean // Flag to render as path instead of geometry
   }
 >
 
@@ -29,6 +31,11 @@ export class LineShapeUtil extends FlippableShapeUtil<LineShape> {
     startY: T.number,
     endX: T.number,
     endY: T.number,
+    points: T.optional(T.arrayOf(T.object({
+      x: T.number,
+      y: T.number,
+    }))),
+    renderAsPath: T.optional(T.boolean),
   }
 
   override getDefaultProps(): LineShape['props'] {
@@ -46,26 +53,34 @@ export class LineShapeUtil extends FlippableShapeUtil<LineShape> {
   }
 
   override component(shape: LineShape) {
-    const { startX, startY, endX, endY, color, strokeWidth, dash } = shape.props
-    
+    const { startX, startY, endX, endY, color, strokeWidth, dash, points, renderAsPath } = shape.props
+
     const strokeDasharray = {
       solid: 'none',
       dashed: '8 4',
       dotted: '2 2'
     }[dash]
 
+    let pathData: string
+
+    if (renderAsPath && points && points.length >= 2) {
+      // Render from modified path points
+      pathData = this.pointsToPath(points)
+    } else {
+      // Render original line geometry
+      pathData = `M ${startX} ${startY} L ${endX} ${endY}`
+    }
+
     return (
       <HTMLContainer>
-        <svg 
-          width={shape.props.w} 
-          height={shape.props.h} 
+        <svg
+          width={shape.props.w}
+          height={shape.props.h}
           style={{ overflow: 'visible' }}
         >
-          <line
-            x1={startX}
-            y1={startY}
-            x2={endX}
-            y2={endY}
+          <path
+            d={pathData}
+            fill="none"
             stroke={color}
             strokeWidth={strokeWidth}
             strokeDasharray={strokeDasharray}
@@ -74,6 +89,20 @@ export class LineShapeUtil extends FlippableShapeUtil<LineShape> {
         </svg>
       </HTMLContainer>
     )
+  }
+
+  // Convert points array to SVG path string
+  private pointsToPath(points: VecLike[]): string {
+    if (points.length === 0) return ''
+
+    const commands: string[] = []
+    commands.push(`M ${points[0].x} ${points[0].y}`)
+
+    for (let i = 1; i < points.length; i++) {
+      commands.push(`L ${points[i].x} ${points[i].y}`)
+    }
+
+    return commands.join(' ')
   }
 
   override indicator(shape: LineShape) {

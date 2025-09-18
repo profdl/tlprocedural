@@ -1,4 +1,4 @@
-import { HTMLContainer, T, type TLBaseShape, type RecordProps } from 'tldraw'
+import { HTMLContainer, T, type TLBaseShape, type RecordProps, type VecLike } from 'tldraw'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 
 export type PolygonShape = TLBaseShape<
@@ -10,6 +10,8 @@ export type PolygonShape = TLBaseShape<
     color: string
     strokeWidth: number
     fill: boolean
+    points?: VecLike[] // Optional path data for modified polygons
+    renderAsPath?: boolean // Flag to render as path instead of geometry
   }
 >
 
@@ -23,6 +25,11 @@ export class PolygonShapeUtil extends FlippableShapeUtil<PolygonShape> {
     color: T.string,
     strokeWidth: T.number,
     fill: T.boolean,
+    points: T.optional(T.arrayOf(T.object({
+      x: T.number,
+      y: T.number,
+    }))),
+    renderAsPath: T.optional(T.boolean),
   }
 
   override getDefaultProps(): PolygonShape['props'] {
@@ -37,15 +44,22 @@ export class PolygonShapeUtil extends FlippableShapeUtil<PolygonShape> {
   }
 
   override component(shape: PolygonShape) {
-    const { w, h, color, strokeWidth, fill } = shape.props
-    
+    const { w, h, color, strokeWidth, fill, points, renderAsPath } = shape.props
+
     // Get flip transform from the FlippableShapeUtil
     const flipTransform = this.getFlipTransform(shape)
-    
-    // Use the same scaling logic as getOutline to ensure visual consistency
-    const outline = this.getOutline(shape)
-    const points = outline.map(p => `${p.x},${p.y}`)
-    const pathData = `M ${points.join(' L ')} Z`
+
+    let pathData: string
+
+    if (renderAsPath && points && points.length >= 3) {
+      // Render from modified path points
+      pathData = this.pointsToPath(points)
+    } else {
+      // Use the same scaling logic as getOutline to ensure visual consistency
+      const outline = this.getOutline(shape)
+      const pointsStr = outline.map(p => `${p.x},${p.y}`)
+      pathData = `M ${pointsStr.join(' L ')} Z`
+    }
     
     return (
       <HTMLContainer>
@@ -68,6 +82,21 @@ export class PolygonShapeUtil extends FlippableShapeUtil<PolygonShape> {
         </svg>
       </HTMLContainer>
     )
+  }
+
+  // Convert points array to SVG path string
+  private pointsToPath(points: VecLike[]): string {
+    if (points.length === 0) return ''
+
+    const commands: string[] = []
+    commands.push(`M ${points[0].x} ${points[0].y}`)
+
+    for (let i = 1; i < points.length; i++) {
+      commands.push(`L ${points[i].x} ${points[i].y}`)
+    }
+
+    commands.push('Z') // Close the path
+    return commands.join(' ')
   }
 
   override indicator() {
