@@ -58,6 +58,14 @@ export function StackedPanel({
               transform: scaleY(1.2);
             }
           }
+          .stacked-panel__toggle .tlui-button__icon,
+          .stacked-panel__toggle .tlui-button__icon svg,
+          .stacked-panel__toggle svg {
+            width: 12px !important;
+            height: 12px !important;
+            min-width: 12px !important;
+            min-height: 12px !important;
+          }
         `}
       </style>
 
@@ -99,7 +107,7 @@ export function StackedPanel({
           height: effectiveHeight,
           backgroundColor: "var(--color-panel)",
           border: "1px solid var(--color-low)",
-          borderRadius: 8,
+          borderRadius: 4,
           overflow: "hidden",
           boxShadow: dragState.isDragging
             ? "0 8px 24px rgba(0, 0, 0, 0.25)"
@@ -194,6 +202,12 @@ export function StackedPanel({
               onClick={onToggleCollapse}
               title={isCollapsed ? "Expand" : "Collapse"}
               className="stacked-panel__toggle"
+              style={{
+                width: "16px",
+                height: "16px",
+                minWidth: "16px",
+                minHeight: "16px"
+              }}
             >
               <TldrawUiButtonIcon
                 icon={isCollapsed ? "chevron-right" : "chevron-down"}
