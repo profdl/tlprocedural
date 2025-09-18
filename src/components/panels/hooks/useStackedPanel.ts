@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, useEffect } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { usePanelStore, type PanelId } from '../../../store/panelStore'
 
 interface UseStackedPanelProps {

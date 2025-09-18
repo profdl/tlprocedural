@@ -36,9 +36,7 @@ const PANEL_CONFIGS: PanelConfig[] = [
 export function StackedPanelSystem() {
   const {
     panels,
-    panelOrder,
     tabGroups,
-    tabGroupOrder,
     setPanelCollapsed,
     initializePanels,
     setViewportHeight,
@@ -115,7 +113,11 @@ export function StackedPanelSystem() {
         }
 
         // Create panel contents map for the tab group
-        const panelContents: Record<PanelId, React.ReactNode> = {}
+        const panelContents: Record<PanelId, React.ReactNode> = {
+          properties: null,
+          style: null,
+          modifiers: null
+        }
         tabGroup.panelIds.forEach(panelId => {
           panelContents[panelId] = getPanelContent(panelId)
         })

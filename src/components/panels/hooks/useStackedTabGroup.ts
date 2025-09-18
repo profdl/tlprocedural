@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState, useEffect } from 'react'
-import { usePanelStore, type TabGroupState } from '../../../store/panelStore'
+import { useCallback, useRef, useState } from 'react'
+import { usePanelStore } from '../../../store/panelStore'
 
 interface UseStackedTabGroupProps {
   tabGroupId: string

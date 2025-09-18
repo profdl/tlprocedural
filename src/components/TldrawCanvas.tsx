@@ -166,7 +166,6 @@ const components: TLComponents = {
   Toolbar: CustomToolbar,
   Grid: CuttleGrid,
   SnapIndicator: null, // Disable built-in snap indicators
-  SnapLine: null, // Disable snap lines to fully prevent automatic grid snapping
 }
 
 // Helper function to create SVG data URLs for Lucide icons
@@ -348,8 +347,9 @@ export function TldrawCanvas() {
     const cleanupGridModeListener = editor.store.listen((entry) => {
       // Check if instance state changed (includes isGridMode)
       const hasInstanceChange = Object.keys(entry.changes.updated).some(key =>
-        key.includes('instance') || entry.changes.added[key] || entry.changes.removed[key]
-      )
+        key.includes('instance')
+      ) || Object.keys(entry.changes.added).some(key => key.includes('instance')) ||
+          Object.keys(entry.changes.removed).some(key => key.includes('instance'))
       if (hasInstanceChange) {
         updateGridSnapBehavior()
       }

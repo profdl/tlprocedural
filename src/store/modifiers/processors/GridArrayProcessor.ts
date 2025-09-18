@@ -103,7 +103,7 @@ function processGroupGridArray(
   groupContext: GroupContext
 ): ShapeState {
   const { rows, columns, spacingX, spacingY, offsetX, offsetY } = settings
-  const { groupTopLeft, groupBounds, groupTransform } = groupContext
+  const { groupBounds, groupTransform } = groupContext
   
   const newInstances: ShapeInstance[] = []
   
