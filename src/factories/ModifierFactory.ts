@@ -109,7 +109,7 @@ export class CircularArrayModifierFactory extends BaseModifierFactory<TLCircular
         centerY: 0,
         rotateEach: 0,
         rotateAll: 0,
-        alignToTangent: false,
+        alignToTangent: true,
         ...settings
       }
     }

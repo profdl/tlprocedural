@@ -23,8 +23,8 @@ export const LinearArrayProcessor: ModifierProcessor = {
     
     // For each existing instance, create the array
     input.instances.forEach(inputInstance => {
-      // Create array positions starting from i=1, skip the original (i=0)
-      for (let i = 1; i < count; i++) {
+      // Create array positions starting from i=0, include the original
+      for (let i = 0; i < count; i++) {
         // Get shape dimensions for offset calculation
         const { width: shapeWidth, height: shapeHeight } = getShapeDimensions(inputInstance.shape)
         
@@ -47,8 +47,14 @@ export const LinearArrayProcessor: ModifierProcessor = {
         let sourceCenterY = inputInstance.transform.y + shapeHeight / 2
 
         // For rotated shapes, we need to use the actual visual center
+        // But only for original shapes, not instances from previous modifiers
         const sourceRotation = inputInstance.transform.rotation || 0
-        if (editor && sourceRotation !== 0) {
+        const isFromPreviousModifier = inputInstance.metadata?.linearArrayIndex !== undefined ||
+                                      inputInstance.metadata?.circularArrayIndex !== undefined ||
+                                      inputInstance.metadata?.gridArrayIndex !== undefined ||
+                                      inputInstance.metadata?.sourceInstance !== undefined
+
+        if (editor && sourceRotation !== 0 && !isFromPreviousModifier) {
           const bounds = editor.getShapePageBounds(inputInstance.shape.id)
           if (bounds) {
             sourceCenterX = bounds.x + bounds.width / 2
@@ -133,16 +139,16 @@ function processGroupArray(
   // For each existing instance (which represents a shape in the group), create the array
   input.instances.forEach(inputInstance => {
     
-    for (let i = 1; i < count; i++) { // Start from i=1, skip the original (i=0)
+    for (let i = 0; i < count; i++) { // Start from i=0, include the original
       
       // Calculate incremental and uniform rotation for this clone
-      const incrementalRotationRadians = (rotationIncrement * (i - 1) * Math.PI / 180) // Use (i-1) so first clone has no rotation
+      const incrementalRotationRadians = (rotationIncrement * i * Math.PI / 180) // Use i so first clone (i=0) has no rotation
       const uniformRotationRadians = degreesToRadians(rotateAll)
       const totalRotationRadians = incrementalRotationRadians + uniformRotationRadians
-      
+
       // Calculate the offset from the group's top-left corner
-      const offsetFromTopLeftX = pixelOffsetX * (i - 1) // Use (i-1) so first clone has no offset
-      const offsetFromTopLeftY = pixelOffsetY * (i - 1)
+      const offsetFromTopLeftX = pixelOffsetX * i // Use i so first clone (i=0) has no offset
+      const offsetFromTopLeftY = pixelOffsetY * i
       
       // Apply rotation to the offset around the group's top-left corner
       const cos = Math.cos(incrementalRotationRadians)
@@ -161,7 +167,7 @@ function processGroupArray(
       // Calculate position using improved transform utilities
       const relativePosition = calculateLinearPosition(
         inputInstance.shape,
-        i - 1, // Use (i-1) so first clone has no offset
+        i, // Use i so first clone (i=0) has no offset
         (offsetX / groupBounds.width) * 100, // Convert back to percentage based on shape
         (offsetY / groupBounds.height) * 100,
         rotationIncrement,
