@@ -413,12 +413,16 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     }
   }
 
-  // Handle rotation - don't allow rotation in edit mode
-  override onRotate = (shape: BezierShape) => {
+  // Handle rotation - prevent rotation in edit mode only
+  override onRotate = (initial: BezierShape, current: BezierShape) => {
     // Prevent rotation in edit mode
-    if (shape.props.editMode) return shape
-    // Allow default rotation behavior
-    return shape
+    if (initial.props.editMode || current.props.editMode) {
+      return initial
+    }
+
+    // For normal mode, allow TLDraw's default rotation behavior
+    // Don't return anything (undefined) to let TLDraw handle rotation normally
+    return undefined
   }
 
   // Disable transform controls during edit mode but allow basic interaction
