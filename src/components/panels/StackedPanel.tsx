@@ -73,24 +73,38 @@ export function StackedPanel({
       {dropZoneIndicators.map((indicator, index: number) => (
         <div
           key={index}
-          className="stacked-panel__drop-zone"
+          className={`stacked-panel__drop-zone ${
+            indicator.isMergeZone ? "stacked-panel__drop-zone--merge" : ""
+          }`}
           style={{
             position: "absolute",
-            top: indicator.y - 2,
+            top: indicator.y - (indicator.isMergeZone ? 12 : 2),
             right: 8,
             width: 280,
-            height: 4,
-            backgroundColor: "#007acc",
-            borderRadius: 2,
+            height: indicator.isMergeZone ? 24 : 4,
+            backgroundColor: indicator.isMergeZone ? "#ff6b35" : "#007acc",
+            borderRadius: indicator.isMergeZone ? 4 : 2,
             zIndex: 2000,
             opacity: indicator.isActive ? 1 : 0,
             transition: "opacity 0.2s ease",
-            boxShadow: "0 0 8px rgba(0, 122, 204, 0.5)",
+            boxShadow: indicator.isMergeZone
+              ? "0 0 12px rgba(255, 107, 53, 0.6)"
+              : "0 0 8px rgba(0, 122, 204, 0.5)",
             animation: indicator.isActive
               ? "dropZonePulse 1s ease-in-out infinite alternate"
               : "none",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "white",
+            fontSize: "10px",
+            fontWeight: "600",
+            textTransform: "uppercase",
+            letterSpacing: "0.5px",
           }}
-        />
+        >
+          {indicator.isMergeZone && "Merge"}
+        </div>
       ))}
 
       {/* Main panel */}

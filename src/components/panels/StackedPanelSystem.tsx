@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { usePanelStore, type PanelId } from '../../store/panelStore'
 import { StackedPanel } from './StackedPanel'
+import { TabbedPanelContainer } from './TabbedPanelContainer'
 
 // Import the individual panel content components
 import { PropertiesPanelContent } from './PropertiesPanelContent'
@@ -36,9 +37,12 @@ export function StackedPanelSystem() {
   const {
     panels,
     panelOrder,
+    tabGroups,
+    tabGroupOrder,
     setPanelCollapsed,
     initializePanels,
-    setViewportHeight
+    setViewportHeight,
+    getDisplayOrder
   } = usePanelStore()
 
   // Monitor shape selection to control panel visibility
@@ -66,29 +70,66 @@ export function StackedPanelSystem() {
     }
   }, [setViewportHeight])
 
-  // Render panels in the order specified by panelOrder
-  const renderPanels = () => {
-    return panelOrder.map(panelId => {
-      const panel = panels[panelId]
-      const config = PANEL_CONFIGS.find(c => c.id === panelId)
+  // Helper function to get panel content component
+  const getPanelContent = (panelId: PanelId) => {
+    const config = PANEL_CONFIGS.find(c => c.id === panelId)
+    if (!config) return null
 
-      if (!panel || !config || !panel.isVisible) {
-        return null
+    const PanelContent = config.component
+    return <PanelContent />
+  }
+
+  // Render panels and tab groups in display order
+  const renderPanels = () => {
+    const displayOrder = getDisplayOrder()
+
+    return displayOrder.map(item => {
+      if (item.type === 'panel') {
+        const panelId = item.id as PanelId
+        const panel = panels[panelId]
+        const config = PANEL_CONFIGS.find(c => c.id === panelId)
+
+        if (!panel || !config || !panel.isVisible || panel.tabGroupId) {
+          return null
+        }
+
+        const PanelContent = config.component
+
+        return (
+          <StackedPanel
+            key={panelId}
+            id={panelId}
+            title={config.title}
+            isCollapsed={panel.isCollapsed}
+            onToggleCollapse={() => setPanelCollapsed(panelId, !panel.isCollapsed)}
+          >
+            <PanelContent />
+          </StackedPanel>
+        )
+      } else if (item.type === 'tabGroup') {
+        const tabGroupId = item.id
+        const tabGroup = tabGroups[tabGroupId]
+
+        if (!tabGroup || tabGroup.panelIds.length === 0) {
+          return null
+        }
+
+        // Create panel contents map for the tab group
+        const panelContents: Record<PanelId, React.ReactNode> = {}
+        tabGroup.panelIds.forEach(panelId => {
+          panelContents[panelId] = getPanelContent(panelId)
+        })
+
+        return (
+          <TabbedPanelContainer
+            key={tabGroupId}
+            tabGroup={tabGroup}
+            panelContents={panelContents}
+          />
+        )
       }
 
-      const PanelContent = config.component
-
-      return (
-        <StackedPanel
-          key={panelId}
-          id={panelId}
-          title={config.title}
-          isCollapsed={panel.isCollapsed}
-          onToggleCollapse={() => setPanelCollapsed(panelId, !panel.isCollapsed)}
-        >
-          <PanelContent />
-        </StackedPanel>
-      )
+      return null
     })
   }
 

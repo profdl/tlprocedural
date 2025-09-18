@@ -17,6 +17,18 @@ export interface PanelStackState {
   insertIndex?: number
 }
 
+export interface TabGroupState {
+  id: string
+  panelIds: PanelId[]
+  activeTabId: PanelId
+  position: PanelPosition
+  size: PanelSize
+  isCollapsed: boolean
+  order: number
+  isDragging?: boolean
+  stackState?: PanelStackState
+}
+
 export interface PanelState {
   id: PanelId
   isCollapsed: boolean
@@ -28,6 +40,8 @@ export interface PanelState {
   order: number
   isDragging?: boolean
   stackState?: PanelStackState
+  tabGroupId?: string
+  tabIndex?: number
 }
 
 interface PanelStoreState {
@@ -36,6 +50,8 @@ interface PanelStoreState {
   panelOrder: PanelId[]
   activePanelId: PanelId | null
   viewportHeight: number
+  tabGroups: Record<string, TabGroupState>
+  tabGroupOrder: string[]
 
   // Panel management
   initializePanels: () => void
@@ -50,9 +66,21 @@ interface PanelStoreState {
   setPanelStackState: (id: PanelId, stackState: PanelStackState) => void
   clearPanelStackState: (id: PanelId) => void
 
+  // Tab group management
+  createTabGroup: (panelIds: PanelId[], position?: PanelPosition) => string
+  mergeIntoTabGroup: (targetPanelId: PanelId, draggedPanelId: PanelId) => void
+  splitPanelFromTabGroup: (panelId: PanelId) => void
+  setActiveTab: (tabGroupId: string, panelId: PanelId) => void
+  reorderTabsInGroup: (tabGroupId: string, fromIndex: number, toIndex: number) => void
+  setTabGroupCollapsed: (tabGroupId: string, collapsed: boolean) => void
+  setTabGroupDragging: (tabGroupId: string, isDragging: boolean) => void
+  setTabGroupStackState: (tabGroupId: string, stackState: PanelStackState) => void
+  clearTabGroupStackState: (tabGroupId: string) => void
+
   // Layout management
   resetPanelLayout: () => void
   reorderPanels: (fromIndex: number, toIndex: number) => void
+  reorderTabGroups: (fromIndex: number, toIndex: number) => void
 
   // Panel ordering
   setPanelOrder: (order: PanelId[]) => void
@@ -61,6 +89,10 @@ interface PanelStoreState {
   // Position calculation
   calculatePanelPositions: () => void
   getCalculatedPanelHeight: (panelId: PanelId) => number
+
+  // Utility functions
+  getDisplayOrder: () => Array<{ type: 'panel' | 'tabGroup'; id: string }>
+  isTabGroupEmpty: (tabGroupId: string) => boolean
 }
 
 // Panel layout constants
@@ -70,7 +102,138 @@ const PANEL_GAP = 0
 const BOTTOM_MARGIN = 40
 const COLLAPSED_HEIGHT = 28
 
-// Function to calculate stacked panel positions and heights
+// Function to calculate stacked layout including tab groups
+const calculateStackedLayoutWithTabGroups = (
+  panelOrder: PanelId[],
+  panels: Record<PanelId, PanelState>,
+  tabGroups: Record<string, TabGroupState>,
+  tabGroupOrder: string[],
+  viewportHeight: number
+) => {
+  let currentY = TOP_MARGIN
+  const positions: Record<PanelId, PanelPosition> = {
+    properties: { y: 0 },
+    style: { y: 0 },
+    modifiers: { y: 0 }
+  }
+  const calculatedHeights: Record<PanelId, number> = {
+    properties: 0,
+    style: 0,
+    modifiers: 0
+  }
+  const tabGroupPositions: Record<string, PanelPosition> = {}
+  const tabGroupCalculatedHeights: Record<string, number> = {}
+
+  // Get display order (individual panels + tab groups)
+  const displayItems: Array<{ type: 'panel' | 'tabGroup'; id: string }> = []
+
+  // Add individual panels (not in tab groups)
+  panelOrder.forEach(panelId => {
+    if (panels[panelId]?.isVisible && !panels[panelId]?.tabGroupId) {
+      displayItems.push({ type: 'panel', id: panelId })
+    }
+  })
+
+  // Add tab groups
+  tabGroupOrder.forEach(tabGroupId => {
+    displayItems.push({ type: 'tabGroup', id: tabGroupId })
+  })
+
+  // Calculate fixed heights and collect modifier items
+  const fixedHeights: Record<PanelId, number> = {
+    properties: panels.properties?.contentHeight || 213,
+    style: panels.style?.contentHeight || 164,
+    modifiers: 0 // Will be calculated based on remaining space
+  }
+
+  let modifierItems: Array<{ type: 'panel' | 'tabGroup'; id: string }> = []
+  let fixedItemsHeight = 0
+
+  displayItems.forEach(item => {
+    if (item.type === 'panel') {
+      const panelId = item.id as PanelId
+      const panel = panels[panelId]
+      if (panel) {
+        if (panelId === 'modifiers') {
+          modifierItems.push(item)
+        } else {
+          const height = panel.isCollapsed ? COLLAPSED_HEIGHT : fixedHeights[panelId] || 200
+          fixedItemsHeight += height + PANEL_GAP
+        }
+      }
+    } else if (item.type === 'tabGroup') {
+      const tabGroup = tabGroups[item.id]
+      if (tabGroup) {
+        // Check if tab group contains modifiers
+        if (tabGroup.panelIds.includes('modifiers')) {
+          modifierItems.push(item)
+        } else {
+          // Use the height from the tab group, or calculate from content
+          let tabGroupHeight = tabGroup.size.height
+          if (tabGroup.isCollapsed) {
+            tabGroupHeight = COLLAPSED_HEIGHT
+          }
+          fixedItemsHeight += tabGroupHeight + PANEL_GAP
+        }
+      }
+    }
+  })
+
+  // Calculate remaining height for modifier items
+  const availableHeight = viewportHeight - TOP_MARGIN - BOTTOM_MARGIN
+  const remainingHeight = Math.max(200, availableHeight - fixedItemsHeight)
+  const modifierItemHeight = modifierItems.length > 0 ? remainingHeight / modifierItems.length : 0
+
+  // Second pass: assign positions and final heights
+  displayItems.forEach(item => {
+    if (item.type === 'panel') {
+      const panelId = item.id as PanelId
+      const panel = panels[panelId]
+      if (panel) {
+        positions[panelId] = { y: currentY }
+
+        let panelHeight: number
+        if (panel.isCollapsed) {
+          panelHeight = COLLAPSED_HEIGHT
+        } else if (panelId === 'modifiers') {
+          panelHeight = modifierItemHeight
+        } else {
+          panelHeight = fixedHeights[panelId] || 200
+        }
+
+        calculatedHeights[panelId] = panelHeight
+        currentY += panelHeight + PANEL_GAP
+      }
+    } else if (item.type === 'tabGroup') {
+      const tabGroup = tabGroups[item.id]
+      if (tabGroup) {
+        tabGroupPositions[item.id] = { y: currentY }
+
+        let tabGroupHeight: number
+        if (tabGroup.isCollapsed) {
+          tabGroupHeight = COLLAPSED_HEIGHT
+        } else if (tabGroup.panelIds.includes('modifiers')) {
+          tabGroupHeight = modifierItemHeight
+        } else {
+          tabGroupHeight = tabGroup.size.height
+        }
+
+        tabGroupCalculatedHeights[item.id] = tabGroupHeight
+        currentY += tabGroupHeight + PANEL_GAP
+      }
+    }
+  })
+
+  return {
+    positions,
+    calculatedHeights,
+    tabGroupPositions,
+    tabGroupCalculatedHeights,
+    displayItems
+  }
+}
+
+// Function to calculate stacked panel positions and heights (legacy for individual panels)
 const calculateStackedLayout = (panelOrder: PanelId[], panels: Record<PanelId, PanelState>, viewportHeight: number) => {
   let currentY = TOP_MARGIN
   const positions: Record<PanelId, PanelPosition> = {
@@ -187,6 +350,8 @@ export const usePanelStore = create<PanelStoreState>()(
     panelOrder: ['properties', 'style', 'modifiers'],
     activePanelId: null,
     viewportHeight: typeof window !== 'undefined' ? window.innerHeight : 1080,
+    tabGroups: {},
+    tabGroupOrder: [],
 
     // Initialize panels with default configuration
     initializePanels: () => {
@@ -279,9 +444,21 @@ export const usePanelStore = create<PanelStoreState>()(
     // Calculate panel positions based on current order
     calculatePanelPositions: () => {
       set(state => {
-        const { positions, calculatedHeights } = calculateStackedLayout(state.panelOrder, state.panels, state.viewportHeight)
-        const updatedPanels = { ...state.panels }
+        const {
+          positions,
+          calculatedHeights,
+          tabGroupPositions,
+          tabGroupCalculatedHeights
+        } = calculateStackedLayoutWithTabGroups(
+          state.panelOrder,
+          state.panels,
+          state.tabGroups,
+          state.tabGroupOrder,
+          state.viewportHeight
+        )
 
+        // Update panel positions and heights
+        const updatedPanels = { ...state.panels }
         Object.keys(updatedPanels).forEach(id => {
           const panelId = id as PanelId
           if (positions[panelId]) {
@@ -296,9 +473,25 @@ export const usePanelStore = create<PanelStoreState>()(
           }
         })
 
+        // Update tab group positions and heights
+        const updatedTabGroups = { ...state.tabGroups }
+        Object.keys(updatedTabGroups).forEach(tabGroupId => {
+          if (tabGroupPositions[tabGroupId]) {
+            updatedTabGroups[tabGroupId] = {
+              ...updatedTabGroups[tabGroupId],
+              position: tabGroupPositions[tabGroupId],
+              size: {
+                ...updatedTabGroups[tabGroupId].size,
+                height: tabGroupCalculatedHeights[tabGroupId] || updatedTabGroups[tabGroupId].size.height
+              }
+            }
+          }
+        })
+
         return {
           ...state,
-          panels: updatedPanels
+          panels: updatedPanels,
+          tabGroups: updatedTabGroups
         }
       })
     },
@@ -478,6 +671,392 @@ export const usePanelStore = create<PanelStoreState>()(
           panelOrder: newOrder
         }
       })
+    },
+
+    // Tab group management methods
+    createTabGroup: (panelIds: PanelId[], position?: PanelPosition) => {
+      const tabGroupId = `tabgroup-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
+      set(state => {
+        // Create the tab group
+        const tabGroup: TabGroupState = {
+          id: tabGroupId,
+          panelIds: [...panelIds],
+          activeTabId: panelIds[0],
+          position: position || state.panels[panelIds[0]]?.position || { y: 0 },
+          size: state.panels[panelIds[0]]?.size || { width: 280, height: 200 },
+          isCollapsed: false,
+          order: Math.max(...Object.values(state.panels).map(p => p.order)) + 1
+        }
+
+        // Update panels to reference the tab group
+        const updatedPanels = { ...state.panels }
+        panelIds.forEach((panelId, index) => {
+          if (updatedPanels[panelId]) {
+            updatedPanels[panelId] = {
+              ...updatedPanels[panelId],
+              tabGroupId,
+              tabIndex: index,
+              isVisible: false // Hide individual panels when in tab group
+            }
+          }
+        })
+
+        // Remove panels from panel order
+        const newPanelOrder = state.panelOrder.filter(id => !panelIds.includes(id))
+
+        // Add tab group to order
+        const newTabGroupOrder = [...state.tabGroupOrder, tabGroupId]
+
+        return {
+          ...state,
+          panels: updatedPanels,
+          panelOrder: newPanelOrder,
+          tabGroups: {
+            ...state.tabGroups,
+            [tabGroupId]: tabGroup
+          },
+          tabGroupOrder: newTabGroupOrder
+        }
+      })
+
+      return tabGroupId
+    },
+
+    mergeIntoTabGroup: (targetPanelId: PanelId, draggedPanelId: PanelId) => {
+      set(state => {
+        const targetPanel = state.panels[targetPanelId]
+        const draggedPanel = state.panels[draggedPanelId]
+
+        if (!targetPanel || !draggedPanel) return state
+
+        // If target is already in a tab group, add dragged panel to it
+        if (targetPanel.tabGroupId) {
+          const tabGroup = state.tabGroups[targetPanel.tabGroupId]
+          if (!tabGroup) return state
+
+          const updatedPanels = {
+            ...state.panels,
+            [draggedPanelId]: {
+              ...draggedPanel,
+              tabGroupId: targetPanel.tabGroupId,
+              tabIndex: tabGroup.panelIds.length,
+              isVisible: false
+            }
+          }
+
+          const updatedTabGroup = {
+            ...tabGroup,
+            panelIds: [...tabGroup.panelIds, draggedPanelId]
+          }
+
+          // Remove dragged panel from panel order
+          const newPanelOrder = state.panelOrder.filter(id => id !== draggedPanelId)
+
+          return {
+            ...state,
+            panels: updatedPanels,
+            panelOrder: newPanelOrder,
+            tabGroups: {
+              ...state.tabGroups,
+              [targetPanel.tabGroupId]: updatedTabGroup
+            }
+          }
+        } else {
+          // Create new tab group with both panels
+          const tabGroupId = `tabgroup-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
+          const tabGroup: TabGroupState = {
+            id: tabGroupId,
+            panelIds: [targetPanelId, draggedPanelId],
+            activeTabId: targetPanelId,
+            position: targetPanel.position,
+            size: targetPanel.size,
+            isCollapsed: targetPanel.isCollapsed,
+            order: Math.max(targetPanel.order, draggedPanel.order)
+          }
+
+          const updatedPanels = {
+            ...state.panels,
+            [targetPanelId]: {
+              ...targetPanel,
+              tabGroupId,
+              tabIndex: 0,
+              isVisible: false
+            },
+            [draggedPanelId]: {
+              ...draggedPanel,
+              tabGroupId,
+              tabIndex: 1,
+              isVisible: false
+            }
+          }
+
+          // Remove both panels from panel order
+          const newPanelOrder = state.panelOrder.filter(id => id !== targetPanelId && id !== draggedPanelId)
+
+          // Add tab group to order
+          const newTabGroupOrder = [...state.tabGroupOrder, tabGroupId]
+
+          return {
+            ...state,
+            panels: updatedPanels,
+            panelOrder: newPanelOrder,
+            tabGroups: {
+              ...state.tabGroups,
+              [tabGroupId]: tabGroup
+            },
+            tabGroupOrder: newTabGroupOrder
+          }
+        }
+      })
+    },
+
+    splitPanelFromTabGroup: (panelId: PanelId) => {
+      set(state => {
+        const panel = state.panels[panelId]
+        if (!panel?.tabGroupId) return state
+
+        const tabGroup = state.tabGroups[panel.tabGroupId]
+        if (!tabGroup) return state
+
+        // Remove panel from tab group
+        const newPanelIds = tabGroup.panelIds.filter(id => id !== panelId)
+
+        // Update panel to be independent
+        const updatedPanels = {
+          ...state.panels,
+          [panelId]: {
+            ...panel,
+            tabGroupId: undefined,
+            tabIndex: undefined,
+            isVisible: true,
+            position: tabGroup.position,
+            size: tabGroup.size
+          }
+        }
+
+        // Update tab indexes for remaining panels
+        newPanelIds.forEach((id, index) => {
+          if (updatedPanels[id]) {
+            updatedPanels[id] = {
+              ...updatedPanels[id],
+              tabIndex: index
+            }
+          }
+        })
+
+        // Add panel back to panel order
+        const newPanelOrder = [...state.panelOrder, panelId]
+
+        // Update or remove tab group
+        let updatedTabGroups = { ...state.tabGroups }
+        let updatedTabGroupOrder = [...state.tabGroupOrder]
+
+        if (newPanelIds.length === 0) {
+          // Remove empty tab group
+          delete updatedTabGroups[panel.tabGroupId]
+          updatedTabGroupOrder = updatedTabGroupOrder.filter(id => id !== panel.tabGroupId)
+        } else if (newPanelIds.length === 1) {
+          // Convert single-panel tab group back to individual panel
+          const lastPanelId = newPanelIds[0]
+          updatedPanels[lastPanelId] = {
+            ...updatedPanels[lastPanelId],
+            tabGroupId: undefined,
+            tabIndex: undefined,
+            isVisible: true,
+            position: tabGroup.position,
+            size: tabGroup.size
+          }
+
+          // Add last panel back to panel order
+          newPanelOrder.push(lastPanelId)
+
+          // Remove tab group
+          delete updatedTabGroups[panel.tabGroupId]
+          updatedTabGroupOrder = updatedTabGroupOrder.filter(id => id !== panel.tabGroupId)
+        } else {
+          // Update tab group with remaining panels
+          updatedTabGroups[panel.tabGroupId] = {
+            ...tabGroup,
+            panelIds: newPanelIds,
+            activeTabId: tabGroup.activeTabId === panelId ? newPanelIds[0] : tabGroup.activeTabId
+          }
+        }
+
+        return {
+          ...state,
+          panels: updatedPanels,
+          panelOrder: newPanelOrder,
+          tabGroups: updatedTabGroups,
+          tabGroupOrder: updatedTabGroupOrder
+        }
+      })
+    },
+
+    setActiveTab: (tabGroupId: string, panelId: PanelId) => {
+      set(state => {
+        const tabGroup = state.tabGroups[tabGroupId]
+        if (!tabGroup || !tabGroup.panelIds.includes(panelId)) return state
+
+        return {
+          ...state,
+          tabGroups: {
+            ...state.tabGroups,
+            [tabGroupId]: {
+              ...tabGroup,
+              activeTabId: panelId
+            }
+          }
+        }
+      })
+    },
+
+    reorderTabsInGroup: (tabGroupId: string, fromIndex: number, toIndex: number) => {
+      set(state => {
+        const tabGroup = state.tabGroups[tabGroupId]
+        if (!tabGroup) return state
+
+        const newPanelIds = [...tabGroup.panelIds]
+        const [movedPanel] = newPanelIds.splice(fromIndex, 1)
+        newPanelIds.splice(toIndex, 0, movedPanel)
+
+        // Update tab indexes
+        const updatedPanels = { ...state.panels }
+        newPanelIds.forEach((panelId, index) => {
+          if (updatedPanels[panelId]) {
+            updatedPanels[panelId] = {
+              ...updatedPanels[panelId],
+              tabIndex: index
+            }
+          }
+        })
+
+        return {
+          ...state,
+          panels: updatedPanels,
+          tabGroups: {
+            ...state.tabGroups,
+            [tabGroupId]: {
+              ...tabGroup,
+              panelIds: newPanelIds
+            }
+          }
+        }
+      })
+    },
+
+    setTabGroupCollapsed: (tabGroupId: string, collapsed: boolean) => {
+      set(state => {
+        const tabGroup = state.tabGroups[tabGroupId]
+        if (!tabGroup) return state
+
+        return {
+          ...state,
+          tabGroups: {
+            ...state.tabGroups,
+            [tabGroupId]: {
+              ...tabGroup,
+              isCollapsed: collapsed
+            }
+          }
+        }
+      })
+    },
+
+    setTabGroupDragging: (tabGroupId: string, isDragging: boolean) => {
+      set(state => {
+        const tabGroup = state.tabGroups[tabGroupId]
+        if (!tabGroup) return state
+
+        return {
+          ...state,
+          tabGroups: {
+            ...state.tabGroups,
+            [tabGroupId]: {
+              ...tabGroup,
+              isDragging
+            }
+          }
+        }
+      })
+    },
+
+    setTabGroupStackState: (tabGroupId: string, stackState: PanelStackState) => {
+      set(state => {
+        const tabGroup = state.tabGroups[tabGroupId]
+        if (!tabGroup) return state
+
+        return {
+          ...state,
+          tabGroups: {
+            ...state.tabGroups,
+            [tabGroupId]: {
+              ...tabGroup,
+              stackState
+            }
+          }
+        }
+      })
+    },
+
+    clearTabGroupStackState: (tabGroupId: string) => {
+      set(state => {
+        const tabGroup = state.tabGroups[tabGroupId]
+        if (!tabGroup) return state
+
+        return {
+          ...state,
+          tabGroups: {
+            ...state.tabGroups,
+            [tabGroupId]: {
+              ...tabGroup,
+              stackState: {
+                isReordering: false
+              }
+            }
+          }
+        }
+      })
+    },
+
+    reorderTabGroups: (fromIndex: number, toIndex: number) => {
+      set(state => {
+        const newOrder = [...state.tabGroupOrder]
+        const [movedGroup] = newOrder.splice(fromIndex, 1)
+        newOrder.splice(toIndex, 0, movedGroup)
+
+        return {
+          ...state,
+          tabGroupOrder: newOrder
+        }
+      })
+    },
+
+    getDisplayOrder: () => {
+      const state = get()
+      const displayItems: Array<{ type: 'panel' | 'tabGroup'; id: string }> = []
+
+      // Add individual panels
+      state.panelOrder.forEach(panelId => {
+        if (state.panels[panelId]?.isVisible && !state.panels[panelId]?.tabGroupId) {
+          displayItems.push({ type: 'panel', id: panelId })
+        }
+      })
+
+      // Add tab groups
+      state.tabGroupOrder.forEach(tabGroupId => {
+        displayItems.push({ type: 'tabGroup', id: tabGroupId })
+      })
+
+      // Sort by order/position for consistent display
+      return displayItems
+    },
+
+    isTabGroupEmpty: (tabGroupId: string) => {
+      const state = get()
+      const tabGroup = state.tabGroups[tabGroupId]
+      return !tabGroup || tabGroup.panelIds.length === 0
     }
   }))
 )
