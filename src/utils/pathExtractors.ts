@@ -345,16 +345,30 @@ function extractGeoPath(_shape: TLShape, editor?: Editor): SvgPathData | null {
 // Path-to-shape converters
 function pathToPolygon(pathData: PathData, shape: PolygonShape): Partial<PolygonShape> | null {
   if (pathData.type !== 'points') return null
-  
+
   const points = pathData.data as VecLike[]
   if (points.length === 0) return null
-  
-  // For polygon, we need to maintain the sides count
-  // This is a simplified approach - could be enhanced to detect optimal sides
+
+  // Calculate bounds from the modified points
+  const bounds = pathData.bounds || calculatePathBounds(points)
+
   return {
     props: {
       ...shape.props,
-      sides: points.length
+      w: bounds.w,
+      h: bounds.h,
+      sides: points.length,
+      points: points, // Store the modified path points
+      renderAsPath: true // Flag to render as path
+    },
+    meta: {
+      ...shape.meta,
+      pathModified: true,
+      originalBounds: {
+        w: shape.props.w,
+        h: shape.props.h,
+        sides: shape.props.sides
+      }
     }
   }
 }
