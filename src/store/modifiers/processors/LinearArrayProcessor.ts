@@ -131,100 +131,70 @@ function processGroupArray(
   // Start with empty instances (we'll generate new ones)
   const newInstances: ShapeInstance[] = []
   
-  // Use group dimensions for percentage-based offsets
-  const pixelOffsetX = (offsetX / 100) * groupBounds.width
-  const pixelOffsetY = (offsetY / 100) * groupBounds.height
-  
-  
   // For each existing instance (which represents a shape in the group), create the array
   input.instances.forEach(inputInstance => {
-    
+
     for (let i = 0; i < count; i++) { // Start from i=0, include the original
-      
-      // Calculate incremental and uniform rotation for this clone
-      const incrementalRotationRadians = (rotationIncrement * i * Math.PI / 180) // Use i so first clone (i=0) has no rotation
+
+      // Use group dimensions for percentage-based offsets (same as individual shape logic)
+      const pixelOffsetX = (offsetX / 100) * groupBounds.width * i
+      const pixelOffsetY = (offsetY / 100) * groupBounds.height * i
+
+      // Calculate incremental and uniform rotation for this index (same as individual shape logic)
+      const incrementalRotationRadians = degreesToRadians(rotationIncrement * i)
       const uniformRotationRadians = degreesToRadians(rotateAll)
       const totalRotationRadians = incrementalRotationRadians + uniformRotationRadians
 
-      // Calculate the offset from the group's top-left corner
-      const offsetFromTopLeftX = pixelOffsetX * i // Use i so first clone (i=0) has no offset
-      const offsetFromTopLeftY = pixelOffsetY * i
-      
-      // Apply rotation to the offset around the group's top-left corner
-      const cos = Math.cos(incrementalRotationRadians)
-      const sin = Math.sin(incrementalRotationRadians)
-      const rotatedOffsetX = offsetFromTopLeftX * cos - offsetFromTopLeftY * sin
-      const rotatedOffsetY = offsetFromTopLeftX * sin + offsetFromTopLeftY * cos
-      
-      // Calculate the group's new top-left position
-      const newGroupTopLeftX = groupTopLeft.x + rotatedOffsetX
-      const newGroupTopLeftY = groupTopLeft.y + rotatedOffsetY
-      
-      // Calculate the relative position of this shape within the group (from top-left)
-      const shapeRelativeX = inputInstance.transform.x - groupTopLeft.x
-      const shapeRelativeY = inputInstance.transform.y - groupTopLeft.y
-      
-      // Calculate position using improved transform utilities
-      const relativePosition = calculateLinearPosition(
-        inputInstance.shape,
-        i, // Use i so first clone (i=0) has no offset
-        (offsetX / groupBounds.width) * 100, // Convert back to percentage based on shape
-        (offsetY / groupBounds.height) * 100,
-        rotationIncrement,
-        rotateAll,
-        scaleStep,
-        count,
-        undefined // No editor available in group context
-      )
-      
-      // Calculate the final position of this shape in the cloned group
-      let finalX = newGroupTopLeftX + shapeRelativeX
-      let finalY = newGroupTopLeftY + shapeRelativeY
-      let finalRotation = inputInstance.transform.rotation + totalRotationRadians
-      const finalScale = relativePosition.scaleX
-      
-      
-      // Apply the group's current transform to make clones move with the group
-      if (groupTransform) {
-        // Calculate the clone's offset from the source group's center
-        const sourceGroupCenterX = groupTopLeft.x + (groupBounds.width / 2)
-        const sourceGroupCenterY = groupTopLeft.y + (groupBounds.height / 2)
-        const cloneOffsetX = finalX - sourceGroupCenterX
-        const cloneOffsetY = finalY - sourceGroupCenterY
-        
-        // Apply the source group's transform to the clone's offset
-        // This makes the clone scale around the same origin as the source group
-        if (groupTransform.rotation !== 0) {
-          const cos = Math.cos(groupTransform.rotation)
-          const sin = Math.sin(groupTransform.rotation)
-          const rotatedOffsetX = cloneOffsetX * cos - cloneOffsetY * sin
-          const rotatedOffsetY = cloneOffsetX * sin + cloneOffsetY * cos
-          
-          // Apply the rotated offset to the source group's center
-          const currentSourceGroupCenterX = groupTransform.x + (groupBounds.width / 2)
-          const currentSourceGroupCenterY = groupTransform.y + (groupBounds.height / 2)
-          finalX = currentSourceGroupCenterX + rotatedOffsetX
-          finalY = currentSourceGroupCenterY + rotatedOffsetY
-        } else {
-          // No rotation, just apply position offset to the source group's center
-          const currentSourceGroupCenterX = groupTransform.x + (groupBounds.width / 2)
-          const currentSourceGroupCenterY = groupTransform.y + (groupBounds.height / 2)
-          finalX = currentSourceGroupCenterX + cloneOffsetX
-          finalY = currentSourceGroupCenterY + cloneOffsetY
-        }
-        
-        finalRotation += groupTransform.rotation
-        
+      // Calculate scaling (same as individual shape logic)
+      const progress = count > 1 ? i / (count - 1) : 0
+      const scaleStepDecimal = scaleStep / 100
+      const interpolatedScale = 1 + (scaleStepDecimal - 1) * progress
+
+      // Get the group center (same pattern as individual shape center calculation)
+      const groupCenterX = groupBounds.centerX
+      const groupCenterY = groupBounds.centerY
+
+      // Calculate base clone center position with linear offset from group center (same as individual shape logic)
+      let cloneCenterX = groupCenterX + pixelOffsetX
+      let cloneCenterY = groupCenterY + pixelOffsetY
+
+      // If group has rotation, apply orbital rotation around group center (same as individual shape logic)
+      const groupRotation = groupTransform?.rotation || 0
+      if (groupRotation !== 0) {
+        // Apply orbital rotation around group center
+        const offsetX = pixelOffsetX
+        const offsetY = pixelOffsetY
+
+        const cos = Math.cos(groupRotation)
+        const sin = Math.sin(groupRotation)
+
+        const rotatedOffsetX = offsetX * cos - offsetY * sin
+        const rotatedOffsetY = offsetX * sin + offsetY * cos
+
+        cloneCenterX = groupCenterX + rotatedOffsetX
+        cloneCenterY = groupCenterY + rotatedOffsetY
       }
-      
+
+      // Calculate the relative position of this shape within the group (from group center)
+      const shapeRelativeX = inputInstance.transform.x - groupCenterX
+      const shapeRelativeY = inputInstance.transform.y - groupCenterY
+
+      // Apply scaling to the relative position
+      const scaledRelativeX = shapeRelativeX * interpolatedScale
+      const scaledRelativeY = shapeRelativeY * interpolatedScale
+
+      // Calculate the final position of this shape in the cloned group
+      let finalX = cloneCenterX + scaledRelativeX
+      let finalY = cloneCenterY + scaledRelativeY
+      let finalRotation = inputInstance.transform.rotation + totalRotationRadians
       
       // Compose the transform
       const newTransform: Transform = {
         x: finalX,
         y: finalY,
         rotation: finalRotation,
-        scaleX: inputInstance.transform.scaleX * finalScale,
-        scaleY: inputInstance.transform.scaleY * finalScale
+        scaleX: inputInstance.transform.scaleX * interpolatedScale,
+        scaleY: inputInstance.transform.scaleY * interpolatedScale
       }
       
       const newInstance: ShapeInstance = {

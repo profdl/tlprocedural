@@ -114,55 +114,41 @@ function processGroupGridArray(
     // Create grid positions starting from (0,0), include the original
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < columns; col++) {
-        
-        // Calculate the offset from the group's top-left corner
-        const offsetFromTopLeftX = (offsetX || 0) + (col * spacingX)
-        const offsetFromTopLeftY = (offsetY || 0) + (row * spacingY)
-        
-        // Calculate the group's new top-left position
-        const newGroupTopLeftX = groupTopLeft.x + offsetFromTopLeftX
-        const newGroupTopLeftY = groupTopLeft.y + offsetFromTopLeftY
-        
-        // Calculate the relative position of this shape within the group (from top-left)
-        const shapeRelativeX = inputInstance.transform.x - groupTopLeft.x
-        const shapeRelativeY = inputInstance.transform.y - groupTopLeft.y
-        
-        // Calculate the final position of this shape in the cloned group
-        let finalX = newGroupTopLeftX + shapeRelativeX
-        let finalY = newGroupTopLeftY + shapeRelativeY
-        let finalRotation = inputInstance.transform.rotation
-        
-        // Apply the group's current transform to make clones move with the group
-        if (groupTransform) {
-          // Calculate the clone's offset from the source group's center
-          const sourceGroupCenterX = groupTopLeft.x + (groupBounds.width / 2)
-          const sourceGroupCenterY = groupTopLeft.y + (groupBounds.height / 2)
-          const cloneOffsetX = finalX - sourceGroupCenterX
-          const cloneOffsetY = finalY - sourceGroupCenterY
-          
-          // Apply group rotation to the clone offset around the source group center
-          if (groupTransform.rotation !== 0) {
-            const cos = Math.cos(groupTransform.rotation)
-            const sin = Math.sin(groupTransform.rotation)
-            const rotatedOffsetX = cloneOffsetX * cos - cloneOffsetY * sin
-            const rotatedOffsetY = cloneOffsetX * sin + cloneOffsetY * cos
-            
-            // Apply the rotated offset to the source group's center
-            const currentSourceGroupCenterX = groupTransform.x + (groupBounds.width / 2)
-            const currentSourceGroupCenterY = groupTransform.y + (groupBounds.height / 2)
-            finalX = currentSourceGroupCenterX + rotatedOffsetX
-            finalY = currentSourceGroupCenterY + rotatedOffsetY
-          } else {
-            // No rotation, just apply position offset to the source group's center
-            const currentSourceGroupCenterX = groupTransform.x + (groupBounds.width / 2)
-            const currentSourceGroupCenterY = groupTransform.y + (groupBounds.height / 2)
-            finalX = currentSourceGroupCenterX + cloneOffsetX
-            finalY = currentSourceGroupCenterY + cloneOffsetY
-          }
-          
-          finalRotation += groupTransform.rotation
-          
+
+        // Get the group center (same pattern as individual shape center calculation)
+        const groupCenterX = groupBounds.centerX
+        const groupCenterY = groupBounds.centerY
+
+        // Calculate grid offset from group center (same as individual shape logic)
+        const gridOffsetX = (offsetX || 0) + (col * spacingX)
+        const gridOffsetY = (offsetY || 0) + (row * spacingY)
+
+        // Calculate clone center position with grid offset from group center
+        let cloneCenterX = groupCenterX + gridOffsetX
+        let cloneCenterY = groupCenterY + gridOffsetY
+
+        // If group has rotation, apply orbital rotation around group center (same as individual shape logic)
+        const groupRotation = groupTransform?.rotation || 0
+        if (groupRotation !== 0) {
+          // Apply orbital rotation around group center
+          const cos = Math.cos(groupRotation)
+          const sin = Math.sin(groupRotation)
+
+          const rotatedOffsetX = gridOffsetX * cos - gridOffsetY * sin
+          const rotatedOffsetY = gridOffsetX * sin + gridOffsetY * cos
+
+          cloneCenterX = groupCenterX + rotatedOffsetX
+          cloneCenterY = groupCenterY + rotatedOffsetY
         }
+
+        // Calculate the relative position of this shape within the group (from group center)
+        const shapeRelativeX = inputInstance.transform.x - groupCenterX
+        const shapeRelativeY = inputInstance.transform.y - groupCenterY
+
+        // Calculate the final position of this shape in the cloned group
+        let finalX = cloneCenterX + shapeRelativeX
+        let finalY = cloneCenterY + shapeRelativeY
+        let finalRotation = inputInstance.transform.rotation
         
         
         const newTransform: Transform = {
