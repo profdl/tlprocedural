@@ -91,28 +91,50 @@ export function extractShapesFromState(state: ShapeState): TLShape[] {
 
 /**
  * Applies scaling to a shape based on scale factors
- * This is a simplified version - the full implementation is in shapeUtils.ts
+ * Handles different shape types including Bezier shapes with points
  */
 function applyShapeScaling(shape: TLShape, scaleX: number, scaleY: number): TLShape {
   // For shapes with w/h properties (most common)
   if ('w' in shape.props && 'h' in shape.props) {
     const originalW = shape.props.w as number
     const originalH = shape.props.h as number
-    
+
     // Ensure we don't create negative or zero dimensions
     const newW = Math.max(1, originalW * scaleX)
     const newH = Math.max(1, originalH * scaleY)
-    
+
+    const scaledProps = {
+      ...shape.props,
+      w: newW,
+      h: newH
+    }
+
+    // Special handling for Bezier shapes - scale the points array
+    if (shape.type === 'bezier' && 'points' in shape.props && Array.isArray(shape.props.points)) {
+      const points = shape.props.points as Array<{
+        x: number
+        y: number
+        cp1?: { x: number; y: number }
+        cp2?: { x: number; y: number }
+      }>
+
+      // Scale all points and control points using the same logic as BezierShape.onResize
+      const scaledPoints = points.map(p => ({
+        x: p.x * scaleX,
+        y: p.y * scaleY,
+        cp1: p.cp1 ? { x: p.cp1.x * scaleX, y: p.cp1.y * scaleY } : undefined,
+        cp2: p.cp2 ? { x: p.cp2.x * scaleX, y: p.cp2.y * scaleY } : undefined,
+      }))
+
+      ;(scaledProps as any).points = scaledPoints
+    }
+
     return {
       ...shape,
-      props: {
-        ...shape.props,
-        w: newW,
-        h: newH
-      }
+      props: scaledProps
     }
   }
-  
+
   // For other shape types, return as-is
   return shape
 }
