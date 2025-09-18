@@ -66,7 +66,7 @@ interface PanelStoreState {
 // Panel layout constants
 const PANEL_WIDTH = 280
 const TOP_MARGIN = 8
-const PANEL_GAP = 1
+const PANEL_GAP = 0
 const BOTTOM_MARGIN = 40
 const COLLAPSED_HEIGHT = 28
 

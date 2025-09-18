@@ -68,7 +68,7 @@ export function useStackedPanel({
         dropZones.push({ y: currentY + 4, index: index + 1 })
       }
 
-      currentY += 1 // PANEL_GAP
+      currentY += 0 // PANEL_GAP
     })
 
     // Add drop zone at the bottom
