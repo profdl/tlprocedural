@@ -10,7 +10,7 @@ import { getShapeDimensions, degreesToRadians } from '../../../components/modifi
 
 // Linear Array Processor implementation  
 export const LinearArrayProcessor: ModifierProcessor = {
-  process(input: ShapeState, settings: LinearArraySettings, groupContext?: GroupContext, editor?: import('tldraw').Editor): ShapeState {
+  process(input: ShapeState, settings: LinearArraySettings, groupContext?: GroupContext, _editor?: import('tldraw').Editor): ShapeState {
     const { count, offsetX, offsetY, rotationIncrement, rotateAll, scaleStep } = settings
     
     // If processing in group context, use group dimensions
@@ -42,25 +42,10 @@ export const LinearArrayProcessor: ModifierProcessor = {
         const scaleStepDecimal = scaleStep / 100
         const interpolatedScale = 1 + (scaleStepDecimal - 1) * progress
         
-        // Get the proper visual center of the source shape, accounting for rotation
-        let sourceCenterX = inputInstance.transform.x + shapeWidth / 2
-        let sourceCenterY = inputInstance.transform.y + shapeHeight / 2
-
-        // For rotated shapes, we need to use the actual visual center
-        // But only for original shapes, not instances from previous modifiers
+        // Always use geometric center of the source shape (consistent with rotateShapesBy behavior)
+        const sourceCenterX = inputInstance.transform.x + shapeWidth / 2
+        const sourceCenterY = inputInstance.transform.y + shapeHeight / 2
         const sourceRotation = inputInstance.transform.rotation || 0
-        const isFromPreviousModifier = inputInstance.metadata?.linearArrayIndex !== undefined ||
-                                      inputInstance.metadata?.circularArrayIndex !== undefined ||
-                                      inputInstance.metadata?.gridArrayIndex !== undefined ||
-                                      inputInstance.metadata?.sourceInstance !== undefined
-
-        if (editor && sourceRotation !== 0 && !isFromPreviousModifier) {
-          const bounds = editor.getShapePageBounds(inputInstance.shape.id)
-          if (bounds) {
-            sourceCenterX = bounds.x + bounds.width / 2
-            sourceCenterY = bounds.y + bounds.height / 2
-          }
-        }
 
         // Calculate base clone position with linear offset from source center
         let cloneCenterX = sourceCenterX + pixelOffsetX
