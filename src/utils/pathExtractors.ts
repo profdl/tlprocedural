@@ -146,15 +146,36 @@ function extractSineWavePath(shape: SineWaveShape): PointsPathData {
 }
 
 function extractTrianglePath(shape: TLShape): PointsPathData | null {
-  const w = (shape.props as { w?: number }).w || 100
-  const h = (shape.props as { h?: number }).h || 100
-  
+  const props = shape.props as {
+    w?: number;
+    h?: number;
+    points?: VecLike[];
+    renderAsPath?: boolean
+  }
+
+  // If triangle has been modified and has path points, use those
+  if (props.renderAsPath && props.points && props.points.length >= 3) {
+    console.log(`Using existing subdivided triangle points (${props.points.length} points)`)
+    return {
+      type: 'points',
+      data: [...props.points], // Clone the points
+      isClosed: true,
+      bounds: calculatePathBounds(props.points)
+    }
+  }
+
+  // Otherwise extract original triangle geometry
+  const w = props.w || 100
+  const h = props.h || 100
+
   const points: VecLike[] = [
     { x: w / 2, y: 0 },     // Top
     { x: 0, y: h },         // Bottom left
     { x: w, y: h }          // Bottom right
   ]
-  
+
+  console.log(`Extracting original triangle geometry (3 points)`)
+
   return {
     type: 'points',
     data: points,
@@ -164,24 +185,45 @@ function extractTrianglePath(shape: TLShape): PointsPathData | null {
 }
 
 function extractCirclePath(shape: TLShape): PointsPathData | null {
-  const w = (shape.props as { w?: number }).w || 100
-  const h = (shape.props as { h?: number }).h || 100
+  const props = shape.props as {
+    w?: number;
+    h?: number;
+    points?: VecLike[];
+    renderAsPath?: boolean
+  }
+
+  // If circle has been modified and has path points, use those
+  if (props.renderAsPath && props.points && props.points.length >= 3) {
+    console.log(`Using existing subdivided circle points (${props.points.length} points)`)
+    return {
+      type: 'points',
+      data: [...props.points], // Clone the points
+      isClosed: true,
+      bounds: calculatePathBounds(props.points)
+    }
+  }
+
+  // Otherwise extract original circle geometry
+  const w = props.w || 100
+  const h = props.h || 100
   const centerX = w / 2
   const centerY = h / 2
   const radiusX = w / 2
   const radiusY = h / 2
-  
+
   // Create circle as point array (approximation)
   const segments = 64 // Smooth circle
   const points: VecLike[] = []
-  
+
   for (let i = 0; i < segments; i++) {
     const angle = (i * 2 * Math.PI) / segments
     const x = centerX + radiusX * Math.cos(angle)
     const y = centerY + radiusY * Math.sin(angle)
     points.push({ x, y })
   }
-  
+
+  console.log(`Extracting original circle geometry (${segments} points)`)
+
   return {
     type: 'points',
     data: points,

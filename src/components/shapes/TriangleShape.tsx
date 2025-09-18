@@ -42,12 +42,12 @@ export class TriangleShapeUtil extends FlippableShapeUtil<TriangleShape> {
 
   override component(shape: TriangleShape) {
     const { w, h, color, strokeWidth, fill, points, renderAsPath } = shape.props
-    
+
     // Get flip transform from the FlippableShapeUtil
     const flipTransform = this.getFlipTransform(shape)
-    
+
     let pathData: string
-    
+
     if (renderAsPath && points && points.length >= 3) {
       // Render from modified path points
       pathData = this.pointsToPath(points)

@@ -86,9 +86,9 @@ export abstract class PathModifier<TSettings extends PathModifierSettings = Path
     try {
       // Apply the path modification
       const result = this.modifyPath(
-        pathData, 
-        settings, 
-        instance.index, 
+        pathData,
+        settings,
+        instance.index,
         editor
       )
 
