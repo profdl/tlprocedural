@@ -124,18 +124,23 @@ export function useCloneManager({
         })
 
         // Create shapes at their target positions with rotation set to 0
-        const shapesToCreate = currentProcessedShapes.map(s => ({
-          ...s,
-          rotation: 0,  // Always create with 0 rotation
-          props: {
-            ...s.props,
-            // Ensure clones never show edit handles by removing edit mode properties
-            editMode: false,
-            selectedPointIndices: [],
-            hoverPoint: undefined,
-            hoverSegmentIndex: undefined
+        const shapesToCreate = currentProcessedShapes.map(s => {
+          // Only set edit mode properties for shapes that support them (bezier and draw shapes)
+          const hasEditMode = s.type === 'bezier' || s.type === 'draw'
+
+          return {
+            ...s,
+            rotation: 0,  // Always create with 0 rotation
+            props: hasEditMode ? {
+              ...s.props,
+              // Ensure clones never show edit handles by removing edit mode properties
+              editMode: false,
+              selectedPointIndices: [],
+              hoverPoint: undefined,
+              hoverSegmentIndex: undefined
+            } : s.props
           }
-        }))
+        })
 
         editor.createShapes(shapesToCreate)
 
@@ -246,20 +251,23 @@ function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModif
 
 
     // Store the target rotation separately
+    // Only set edit mode properties for shapes that support them (bezier and draw shapes)
+    const hasEditMode = updatedShape.type === 'bezier' || updatedShape.type === 'draw'
+
     return {
       id: clone.id,
       type: updatedShape.type,
       x: updatedShape.x,
       y: updatedShape.y,
       targetRotation: updatedShape.rotation || 0,
-      props: {
+      props: hasEditMode ? {
         ...updatedShape.props,
         // Ensure clones never show edit handles by removing edit mode properties
         editMode: false,
         selectedPointIndices: [],
         hoverPoint: undefined,
         hoverSegmentIndex: undefined
-      }
+      } : updatedShape.props
     }
   }).filter(Boolean)
 
