@@ -18,12 +18,10 @@ export function useSelectionMonitor() {
 
   // Update panel visibility based on selection
   useEffect(() => {
-    const hasSelection = selectedShapes.length > 0
-
-    // Show/hide Style and Modifiers panels based on selection
-    setPanelVisible('style', hasSelection)
-    setPanelVisible('modifiers', hasSelection)
-  }, [selectedShapes.length, setPanelVisible])
+    // Keep Style and Modifiers panels always visible
+    setPanelVisible('style', true)
+    setPanelVisible('modifiers', true)
+  }, [setPanelVisible])
 
   return {
     hasSelection: selectedShapes.length > 0,
