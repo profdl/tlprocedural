@@ -138,19 +138,20 @@ export class TransformComposer {
         const newX = currentPos.x + (pixelOffsetX * (i + 1))
         const newY = currentPos.y + (pixelOffsetY * (i + 1))
 
-        // Calculate new rotation
+        // Calculate new rotation (will be applied via rotateShapesBy for center-based rotation)
         const incrementalRotation = (rotationIncrement * i * Math.PI) / 180
         const uniformRotation = (rotateAll * Math.PI) / 180
         const totalRotation = currentRotation + incrementalRotation + uniformRotation
+
 
         // Calculate scale
         const progress = count > 1 ? i / (count - 1) : 0
         const scale = 1 + ((scaleStep / 100) - 1) * progress
 
-        // Create new transform with calculated position and rotation
+        // Create transform with position and scale only
+        // Rotation will be stored separately and applied via rotateShapesBy
         const composedTransform = Mat.Compose(
           Mat.Translate(newX, newY),
-          Mat.Rotate(totalRotation),
           Mat.Scale(scale, scale)
         )
 
@@ -162,7 +163,8 @@ export class TransformComposer {
             index: newInstances.length,
             sourceIndex: instances.indexOf(instance),
             arrayIndex: i,
-            linearArrayIndex: i
+            linearArrayIndex: i,
+            targetRotation: totalRotation  // Store rotation separately for center-based application
           }
         })
       }
@@ -392,24 +394,26 @@ export class TransformComposer {
       instance.metadata.modifierType !== 'original'
     )
 
-    return cloneInstances.map((instance, index) => {
-      // Extract position and rotation from matrix
+    return cloneInstances.map((instance) => {
+      // Extract position from matrix
       const { x, y } = instance.transform.point()
-      const rotation = instance.transform.rotation()
+      // Store targetRotation from metadata for later center-based application
+      const targetRotation = instance.metadata.targetRotation ?? instance.transform.rotation()
 
       // Create shape with composed transform and unique index
+      // ALWAYS set rotation to 0 here - rotation will be applied via rotateShapesBy
       return {
         ...originalShape,
         id: createId(),
-        index: undefined, // Let TLDraw auto-assign unique index
         x,
         y,
-        rotation,
+        rotation: 0, // Always 0 - rotation applied via center-based method
         meta: {
           ...originalShape.meta,
           ...instance.metadata,
           stackProcessed: true,
-          originalShapeId: originalShape.id
+          originalShapeId: originalShape.id,
+          targetRotation: targetRotation as number // Store for center-based application
         }
       } as TLShape
     })
@@ -439,7 +443,8 @@ export class TransformComposer {
     cloneInstances.forEach((instance, index) => {
       const existing = existingShapes.get(index)
       const { x, y } = instance.transform.point()
-      const rotation = instance.transform.rotation()
+      // Store targetRotation from metadata for later center-based application
+      const targetRotation = instance.metadata.targetRotation ?? instance.transform.rotation()
 
       if (existing) {
         // Update existing shape
@@ -449,12 +454,13 @@ export class TransformComposer {
           type: existing.type,
           x,
           y,
-          rotation,
+          rotation: 0, // Always 0 - rotation applied via center-based method
           meta: {
             ...originalShape.meta,
             ...instance.metadata,
             stackProcessed: true,
-            originalShapeId: originalShape.id
+            originalShapeId: originalShape.id,
+            targetRotation: targetRotation as number // Store for center-based application
           }
         })
       } else {
@@ -462,15 +468,15 @@ export class TransformComposer {
         create.push({
           ...originalShape,
           id: createId(),
-          index: undefined, // Let TLDraw auto-assign unique index
           x,
           y,
-          rotation,
+          rotation: 0, // Always 0 - rotation applied via center-based method
           meta: {
             ...originalShape.meta,
             ...instance.metadata,
             stackProcessed: true,
-            originalShapeId: originalShape.id
+            originalShapeId: originalShape.id,
+            targetRotation: targetRotation as number // Store for center-based application
           }
         } as TLShape)
       }

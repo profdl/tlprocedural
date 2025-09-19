@@ -70,12 +70,12 @@ export function getTopLeftFromCenter(shape: TLShape, centerX: number, centerY: n
 /**
  * Apply rotation to shapes using TLDraw's center-based rotation method
  * This ensures consistent rotation behavior matching the UI
+ * NOTE: This function should be called from within an editor.run() context
  */
 export function applyRotationToShapes(editor: Editor, shapeIds: string[], rotation: number): void {
   if (rotation !== 0 && shapeIds.length > 0) {
-    editor.run(() => {
-      editor.rotateShapesBy(shapeIds as import('tldraw').TLShapeId[], rotation)
-    }, { ignoreShapeLock: true, history: 'ignore' })
+    // Don't wrap in editor.run() - should be called from within a run context
+    editor.rotateShapesBy(shapeIds as import('tldraw').TLShapeId[], rotation)
   }
 }
 

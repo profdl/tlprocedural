@@ -147,9 +147,11 @@ export function useCloneManager({
 
         // Apply rotation using shared utility for center-based rotation
         currentProcessedShapes.forEach((processedShape, index) => {
-          if (processedShape.rotation && processedShape.rotation !== 0) {
+          // Check both rotation property and targetRotation in metadata
+          const targetRotation = (processedShape.meta?.targetRotation as number) || processedShape.rotation
+          if (targetRotation && targetRotation !== 0) {
             const shapeId = shapesToCreate[index].id
-            applyRotationToShapes(editor, [shapeId], processedShape.rotation)
+            applyRotationToShapes(editor, [shapeId], targetRotation)
           }
         })
       }
@@ -257,7 +259,7 @@ function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModif
       type: updatedShape.type,
       x: updatedShape.x,
       y: updatedShape.y,
-      targetRotation: updatedShape.rotation || 0,
+      targetRotation: (updatedShape.meta?.targetRotation as number) || updatedShape.rotation || 0,
       props: hasEditMode ? {
         ...updatedShape.props,
         // Ensure clones never show edit handles by removing edit mode properties
@@ -286,7 +288,7 @@ function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModif
 
         // Calculate rotation delta for batch application
         const currentRotation = currentShape.rotation || 0
-        const rotationDelta = targetRotation - currentRotation
+        const rotationDelta = (targetRotation as number) - currentRotation
 
         if (Math.abs(rotationDelta) > 0.001) { // Only rotate if there's a meaningful difference
           rotationsToApply.push({ id: update.id, delta: rotationDelta })
@@ -295,7 +297,7 @@ function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModif
 
       // Batch apply all rotations using shared utility
       rotationsToApply.forEach(({ id, delta }) => {
-        applyRotationToShapes(editor, [id], delta)
+        editor.rotateShapesBy([id] as import('tldraw').TLShapeId[], delta)
       })
     }, { ignoreShapeLock: true, history: 'ignore' })
 
