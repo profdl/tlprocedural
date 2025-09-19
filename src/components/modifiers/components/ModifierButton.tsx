@@ -52,7 +52,6 @@ export function ModifierButton({
       type="button"
       className={buttonClass}
       onClick={handleClick}
-      onPointerDown={handleClick}
       disabled={disabled}
       title={title}
     >

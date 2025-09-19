@@ -43,7 +43,8 @@ export function useCloneManager({
     const currentShape = shapeRef.current
     const clonesToCleanup = editor.getCurrentPageShapes().filter((s: TLShape) => {
       const originalId = getOriginalShapeId(s)
-      return originalId === currentShape.id && s.meta?.stackProcessed
+      // Only cleanup preview clones, not permanent shapes applied from modifiers
+      return originalId === currentShape.id && s.meta?.stackProcessed && !s.meta?.appliedFromModifier
     })
 
     if (clonesToCleanup.length > 0) {
@@ -187,7 +188,8 @@ export function useCloneManager({
 function cleanupExistingClones(editor: Editor, shape: TLShape) {
   const existingClones = editor.getCurrentPageShapes().filter((s: TLShape) => {
     const originalId = getOriginalShapeId(s)
-    return originalId === shape.id && s.meta?.stackProcessed
+    // Only cleanup preview clones, not permanent shapes applied from modifiers
+    return originalId === shape.id && s.meta?.stackProcessed && !s.meta?.appliedFromModifier
   })
 
   logShapeOperation('useCloneManager Cleanup', shape.id, {
@@ -213,7 +215,8 @@ function cleanupGroupClones(editor: Editor, shape: TLShape) {
   
   const groupClones = editor.getCurrentPageShapes().filter((s: TLShape) => {
     const originalId = getOriginalShapeId(s)
-    return groupShapes.some(groupShape => groupShape.id === originalId) && s.meta?.stackProcessed
+    // Only cleanup preview clones, not permanent shapes applied from modifiers
+    return groupShapes.some(groupShape => groupShape.id === originalId) && s.meta?.stackProcessed && !s.meta?.appliedFromModifier
   })
 
   if (groupClones.length > 0) {

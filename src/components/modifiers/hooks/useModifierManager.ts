@@ -77,13 +77,24 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
 
   const applyModifiers = useCallback(() => {
     if (!selectedShape || !editor) return
-    
+
     // Use original shape ID for clones/processed shapes
     const originalShapeId = getOriginalShapeId(selectedShape) || selectedShape.id
-    
+
     // Get all enabled modifiers for this shape
     const enabledModifiers = store.getEnabledModifiersForShape(originalShapeId as import('tldraw').TLShapeId)
-    if (enabledModifiers.length === 0) return
+
+    console.log('🔧 Apply All started:', {
+      selectedShapeId: selectedShape.id,
+      originalShapeId,
+      enabledModifiersCount: enabledModifiers.length,
+      enabledModifiers: enabledModifiers.map(m => ({ id: m.id, type: m.type, enabled: m.enabled }))
+    })
+
+    if (enabledModifiers.length === 0) {
+      console.log('❌ No enabled modifiers found, returning early')
+      return
+    }
 
     try {
       // Get the actual original shape for processing
@@ -215,9 +226,17 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
         }
       } else if (arrayModifiers.length > 0) {
         // Handle array modifiers: create new shapes (existing behavior)
+        console.log('🔄 Processing array modifiers:', arrayModifiers.map(m => ({ id: m.id, type: m.type })))
+
         const result = ModifierStack.processModifiers(actualOriginalShape, arrayModifiers, editor)
         const transformedShapes = extractShapesFromState(result)
-        
+
+        console.log('📐 Transform results:', {
+          totalShapes: transformedShapes.length,
+          originalShape: transformedShapes[0]?.id,
+          clonesToCreate: transformedShapes.length - 1
+        })
+
         // Create actual shapes from the transformed results (skip the first one as it's the original)
         const shapesToCreate = transformedShapes.slice(1).map(transformedShape => {
           const newId = createShapeId()
@@ -230,11 +249,16 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
             props: transformedShape.props,
             parentId: actualOriginalShape.parentId,
             meta: {
-              ...transformedShape.meta,
+              // Don't include stackProcessed or other preview-related metadata
               appliedFromModifier: true,
               originalShapeId: actualOriginalShape.id
             }
           }
+        })
+
+        console.log('🏗️ Shapes to create:', {
+          count: shapesToCreate.length,
+          shapes: shapesToCreate.map(s => ({ id: s.id, type: s.type, x: s.x, y: s.y }))
         })
 
         if (shapesToCreate.length > 0) {
@@ -256,8 +280,14 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
               opacity: 1
             })
 
+            console.log('✨ About to create permanent shapes:', {
+              count: shapesToCreate.length,
+              firstShape: shapesToCreate[0]
+            })
+
             // Create the permanent shapes
             editor.createShapes(shapesToCreate)
+            console.log('✅ Shapes created successfully!')
 
             // Apply rotation using shared utility for center-based rotation (same as preview)
             transformedShapes.slice(1).forEach((transformedShape, index) => {
@@ -268,6 +298,7 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
             })
           }, { history: 'record' })
 
+          console.log('🗑️ Removing applied modifiers:', arrayModifiers.map(m => m.id))
           // Remove the applied modifiers
           arrayModifiers.forEach(modifier => {
             store.deleteModifier(modifier.id)
@@ -419,7 +450,7 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
             props: transformedShape.props,
             parentId: actualOriginalShape.parentId,
             meta: {
-              ...transformedShape.meta,
+              // Don't include stackProcessed or other preview-related metadata
               appliedFromModifier: true,
               originalShapeId: actualOriginalShape.id
             }
