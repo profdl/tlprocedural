@@ -1,11 +1,4 @@
-import type { BaseRecord, TLShapeId, RecordId, TLShape, Editor } from 'tldraw'
-import type { 
-  PathData, 
-  SubdivideSettings, 
-  NoiseOffsetSettings, 
-  SmoothSettings, 
-  SimplifySettings 
-} from './pathTypes'
+import type { BaseRecord, TLShapeId, RecordId, TLShape } from 'tldraw'
 
 // Modifier ID type
 export type TLModifierId = RecordId<TLModifierRecord>
@@ -26,21 +19,6 @@ export interface Transform {
   scaleY: number
 }
 
-// NEW: Individual shape instance in a modifier stack
-export interface ShapeInstance {
-  shape: TLShape
-  transform: Transform
-  index: number
-  metadata?: Record<string, unknown>
-}
-
-// NEW: State object passed between modifiers in the stack
-export interface ShapeState {
-  originalShape: TLShape
-  instances: ShapeInstance[]
-  pathData?: PathData // Optional path data for path-based modifiers
-  metadata?: Record<string, unknown>
-}
 
 // Group context for modifier processing
 export interface GroupContext {
@@ -56,10 +34,6 @@ export interface GroupContext {
   }
 }
 
-// NEW: Interface that all modifiers must implement for stacking
-export interface ModifierProcessor<T = LinearArraySettings | CircularArraySettings | GridArraySettings | MirrorSettings | LSystemSettings | SubdivideSettings | NoiseOffsetSettings | SmoothSettings | SimplifySettings> {
-  process(input: ShapeState, settings: T, groupContext?: GroupContext, editor?: Editor): ShapeState
-}
 
 // Linear Array Modifier Settings
 export interface LinearArraySettings {
@@ -101,32 +75,13 @@ export interface MirrorSettings {
   mergeThreshold: number
 }
 
-// L-System Modifier Settings
-export interface LSystemSettings {
-  axiom: string
-  rules: Record<string, string>
-  iterations: number
-  angle: number // degrees
-  stepPercent: number // percent of shape size used as base step
-  scalePerIteration?: number // multiplicative scale applied to the shape each level (0..1)
-  branches?: readonly number[] // explicit branch angles in degrees, relative to heading
-  angleJitter?: number // degrees, applied per branch
-  branchProbability?: number // 0..1 probability per branch
-  continueTrunk?: boolean // add a 0° branch to continue trunk
-  seed?: number
-}
 
 // Union of all modifier types
-export type TLModifier = 
+export type TLModifier =
   | TLLinearArrayModifier
   | TLCircularArrayModifier
   | TLGridArrayModifier
   | TLMirrorModifier
-  | TLLSystemModifier
-  | TLSubdivideModifier
-  | TLNoiseOffsetModifier
-  | TLSmoothModifier
-  | TLSimplifyModifier
 
 // Specific modifier types
 export interface TLLinearArrayModifier extends TLModifierRecord {
@@ -149,31 +104,6 @@ export interface TLMirrorModifier extends TLModifierRecord {
   props: MirrorSettings
 }
 
-export interface TLLSystemModifier extends TLModifierRecord {
-  type: 'lsystem'
-  props: LSystemSettings
-}
-
-// Path modifier types
-export interface TLSubdivideModifier extends TLModifierRecord {
-  type: 'subdivide'
-  props: SubdivideSettings
-}
-
-export interface TLNoiseOffsetModifier extends TLModifierRecord {
-  type: 'noise-offset'
-  props: NoiseOffsetSettings
-}
-
-export interface TLSmoothModifier extends TLModifierRecord {
-  type: 'smooth'
-  props: SmoothSettings
-}
-
-export interface TLSimplifyModifier extends TLModifierRecord {
-  type: 'simplify'
-  props: SimplifySettings
-}
 
 // Utility types
 export type ModifierType = TLModifier['type']

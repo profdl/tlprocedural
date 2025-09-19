@@ -1,26 +1,20 @@
 import { useCallback, useMemo } from 'react'
 import { useModifierStore } from '../../../store/modifierStore'
-import { ModifierStack, extractShapesFromState } from '../../../store/modifiers'
-import { getOriginalShapeId } from '../utils'
-import { isPathModifierType } from '../../../store/modifiers/core/PathModifier'
+import { TransformComposer, extractShapesFromState } from '../../../store/modifiers'
+import { getOriginalShapeId, findTopLevelGroup, getGroupPageBounds, getGroupChildShapes } from '../utils'
 import { applyRotationToShapes } from '../utils/transformUtils'
 import { useEditor, createShapeId } from 'tldraw'
 import type { TLShape } from 'tldraw'
-import type { TLModifier, TLModifierId } from '../../../types/modifiers'
+import type { TLModifier, TLModifierId, GroupContext } from '../../../types/modifiers'
 
-type ModifierType = 'linear' | 'circular' | 'grid' | 'mirror' | 'lsystem' | 'subdivide' | 'noise-offset' | 'smooth' | 'simplify'
+type ModifierType = 'linear' | 'circular' | 'grid' | 'mirror'
 
 // Optimized mapping from UI type names to internal store type names
-const UI_TO_STORE_TYPE_MAP: Record<ModifierType, 'linear-array' | 'circular-array' | 'grid-array' | 'mirror' | 'lsystem' | 'subdivide' | 'noise-offset' | 'smooth' | 'simplify'> = {
+const UI_TO_STORE_TYPE_MAP: Record<ModifierType, 'linear-array' | 'circular-array' | 'grid-array' | 'mirror'> = {
   linear: 'linear-array',
   circular: 'circular-array',
   grid: 'grid-array',
-  mirror: 'mirror',
-  lsystem: 'lsystem',
-  subdivide: 'subdivide',
-  'noise-offset': 'noise-offset',
-  smooth: 'smooth',
-  simplify: 'simplify'
+  mirror: 'mirror'
 } as const
 
 interface UseModifierManagerProps {
@@ -101,134 +95,41 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
       const actualOriginalShape = originalShapeId !== selectedShape.id
         ? editor.getShape(originalShapeId as import('tldraw').TLShapeId) || selectedShape
         : selectedShape
-      
-      // Categorize modifiers
-      const pathModifiers = enabledModifiers.filter(m => isPathModifierType(m.type))
-      const arrayModifiers = enabledModifiers.filter(m => !isPathModifierType(m.type))
-      
-      if (pathModifiers.length > 0) {
-        // Handle path modifiers: update the original shape with modified path data
-        const result = ModifierStack.processModifiers(actualOriginalShape, enabledModifiers, editor)
-        const transformedShapes = extractShapesFromState(result)
-        
-        if (transformedShapes.length > 0) {
-          const modifiedShape = transformedShapes[0] // For path modifiers, we want the modified original
-          
-          // Update the original shape with the modified data
-          editor.run(() => {
-            // Create update object preserving all properties
-            // CRITICAL: Use modifiedShape.type to handle shape conversions (e.g., polygon → bezier)
-            // When shape type changes, use only the new props to avoid invalid property mixing
-            const isTypeChange = actualOriginalShape.type !== modifiedShape.type
 
-            const updateData = {
-              id: actualOriginalShape.id,
-              type: modifiedShape.type,
-              props: isTypeChange
-                ? modifiedShape.props  // Type change: use only new props (prevents polygon+isClosed errors)
-                : {  // Same type: merge props for updates
-                    ...actualOriginalShape.props,
-                    ...modifiedShape.props
-                  }
-            }
+      // All remaining modifiers are array modifiers
+      console.log('🔄 Processing array modifiers:', enabledModifiers.map(m => ({ id: m.id, type: m.type })))
 
-            // Include metadata if the shape was path-modified
-            if (modifiedShape.meta?.pathModified) {
-              const updateDataWithMeta = {
-                ...updateData,
-                meta: {
-                  ...actualOriginalShape.meta,
-                  ...modifiedShape.meta
-                }
-              }
-              console.log('🔧 Applying path modifier - updating shape with meta:', {
-                id: updateDataWithMeta.id,
-                originalType: actualOriginalShape.type,
-                newType: updateDataWithMeta.type,
-                isTypeChange,
-                editMode: (updateDataWithMeta.props as any)?.editMode,
-                pathModified: updateDataWithMeta.meta?.pathModified
-              })
+      // Create group context if needed
+      const parentGroup = findTopLevelGroup(actualOriginalShape, editor)
+      let groupContext: GroupContext | undefined = undefined
 
-              if (isTypeChange) {
-                // TLDraw can't change shape type via updateShape - must delete and recreate
-                console.log('🔄 Type change detected: deleting and recreating shape')
+      if (parentGroup) {
+        const childShapes = getGroupChildShapes(parentGroup, editor)
+        const groupBounds = getGroupPageBounds(parentGroup, editor)
 
-                // Preserve position and transform properties from original shape
-                const shapeToCreate = {
-                  ...updateDataWithMeta,
-                  x: actualOriginalShape.x,
-                  y: actualOriginalShape.y,
-                  rotation: actualOriginalShape.rotation,
-                  opacity: actualOriginalShape.opacity,
-                  parentId: actualOriginalShape.parentId,
-                  index: actualOriginalShape.index
-                }
-
-                editor.deleteShapes([actualOriginalShape.id])
-                editor.createShapes([shapeToCreate])
-              } else {
-                editor.updateShape(updateDataWithMeta)
-              }
-            } else {
-              console.log('🔧 Applying path modifier - updating shape:', {
-                id: updateData.id,
-                originalType: actualOriginalShape.type,
-                newType: updateData.type,
-                isTypeChange,
-                editMode: (updateData.props as any)?.editMode
-              })
-
-              if (isTypeChange) {
-                // TLDraw can't change shape type via updateShape - must delete and recreate
-                console.log('🔄 Type change detected: deleting and recreating shape')
-
-                // Preserve position and transform properties from original shape
-                const shapeToCreate = {
-                  ...updateData,
-                  x: actualOriginalShape.x,
-                  y: actualOriginalShape.y,
-                  rotation: actualOriginalShape.rotation,
-                  opacity: actualOriginalShape.opacity,
-                  parentId: actualOriginalShape.parentId,
-                  index: actualOriginalShape.index
-                }
-
-                editor.deleteShapes([actualOriginalShape.id])
-                editor.createShapes([shapeToCreate])
-              } else {
-                editor.updateShape(updateData)
-              }
-            }
-            
-            // Clean up any existing clones from the modifier system
-            const existingClones = editor.getCurrentPageShapes().filter((s: TLShape) => {
-              const originalId = getOriginalShapeId(s)
-              return originalId === actualOriginalShape.id && s.meta?.stackProcessed
-            })
-            
-            if (existingClones.length > 0) {
-              editor.deleteShapes(existingClones.map((s: TLShape) => s.id))
-            }
-            
-            // Restore original shape visibility
-            editor.updateShape({
-              id: actualOriginalShape.id,
-              type: actualOriginalShape.type,
-              opacity: 1
-            })
-          }, { history: 'record' })
-          
-          // Remove applied path modifiers
-          pathModifiers.forEach(modifier => {
-            store.deleteModifier(modifier.id)
-          })
+        groupContext = {
+          groupCenter: { x: groupBounds.centerX, y: groupBounds.centerY },
+          groupTopLeft: { x: groupBounds.minX, y: groupBounds.minY },
+          groupShapes: childShapes,
+          groupBounds: {
+            minX: groupBounds.minX,
+            maxX: groupBounds.maxX,
+            minY: groupBounds.minY,
+            maxY: groupBounds.maxY,
+            width: groupBounds.width,
+            height: groupBounds.height,
+            centerX: groupBounds.centerX,
+            centerY: groupBounds.centerY
+          },
+          groupTransform: {
+            x: parentGroup.x,
+            y: parentGroup.y,
+            rotation: parentGroup.rotation || 0
+          }
         }
-      } else if (arrayModifiers.length > 0) {
-        // Handle array modifiers: create new shapes (existing behavior)
-        console.log('🔄 Processing array modifiers:', arrayModifiers.map(m => ({ id: m.id, type: m.type })))
+      }
 
-        const result = ModifierStack.processModifiers(actualOriginalShape, arrayModifiers, editor)
+      const result = TransformComposer.processModifiers(actualOriginalShape, enabledModifiers, groupContext)
         const transformedShapes = extractShapesFromState(result)
 
         console.log('📐 Transform results:', {
@@ -298,13 +199,12 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
             })
           }, { history: 'record' })
 
-          console.log('🗑️ Removing applied modifiers:', arrayModifiers.map(m => m.id))
+          console.log('🗑️ Removing applied modifiers:', enabledModifiers.map(m => m.id))
           // Remove the applied modifiers
-          arrayModifiers.forEach(modifier => {
+          enabledModifiers.forEach(modifier => {
             store.deleteModifier(modifier.id)
           })
         }
-      }
     } catch (error) {
       console.error('Failed to apply modifiers:', error)
     }
@@ -336,106 +236,40 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
         ? editor.getShape(originalShapeId as import('tldraw').TLShapeId) || selectedShape
         : selectedShape
 
-      // Process only this specific modifier
+      // Process only this specific modifier (all remaining modifiers are array modifiers)
       const modifiersToProcess = [modifier]
 
-      // Categorize the modifier
-      const isPathModifier = isPathModifierType(modifier.type)
+      // Create group context if needed
+      const parentGroup = findTopLevelGroup(actualOriginalShape, editor)
+      let groupContext: GroupContext | undefined = undefined
 
-      if (isPathModifier) {
-        // Handle path modifiers: update the original shape with modified path data
-        const result = ModifierStack.processModifiers(actualOriginalShape, modifiersToProcess, editor)
-        const transformedShapes = extractShapesFromState(result)
+      if (parentGroup) {
+        const childShapes = getGroupChildShapes(parentGroup, editor)
+        const groupBounds = getGroupPageBounds(parentGroup, editor)
 
-        if (transformedShapes.length > 0) {
-          const modifiedShape = transformedShapes[0]
-
-          // Update the original shape with the modified data
-          editor.run(() => {
-            // Check if shape type is changing to handle prop merging correctly
-            const isTypeChange = actualOriginalShape.type !== modifiedShape.type
-
-            const updateData = {
-              id: actualOriginalShape.id,
-              type: modifiedShape.type, // CRITICAL: Use modifiedShape.type for shape conversions
-              props: isTypeChange
-                ? modifiedShape.props  // Type change: use only new props
-                : {  // Same type: merge props for updates
-                    ...actualOriginalShape.props,
-                    ...modifiedShape.props
-                  }
-            }
-
-            if (modifiedShape.meta?.pathModified) {
-              const updateDataWithMeta = {
-                ...updateData,
-                meta: {
-                  ...actualOriginalShape.meta,
-                  ...modifiedShape.meta
-                }
-              }
-
-              if (isTypeChange) {
-                // TLDraw can't change shape type via updateShape - must delete and recreate
-                const shapeToCreate = {
-                  ...updateDataWithMeta,
-                  x: actualOriginalShape.x,
-                  y: actualOriginalShape.y,
-                  rotation: actualOriginalShape.rotation,
-                  opacity: actualOriginalShape.opacity,
-                  parentId: actualOriginalShape.parentId,
-                  index: actualOriginalShape.index
-                }
-
-                editor.deleteShapes([actualOriginalShape.id])
-                editor.createShapes([shapeToCreate])
-              } else {
-                editor.updateShape(updateDataWithMeta)
-              }
-            } else {
-              if (isTypeChange) {
-                // TLDraw can't change shape type via updateShape - must delete and recreate
-                const shapeToCreate = {
-                  ...updateData,
-                  x: actualOriginalShape.x,
-                  y: actualOriginalShape.y,
-                  rotation: actualOriginalShape.rotation,
-                  opacity: actualOriginalShape.opacity,
-                  parentId: actualOriginalShape.parentId,
-                  index: actualOriginalShape.index
-                }
-
-                editor.deleteShapes([actualOriginalShape.id])
-                editor.createShapes([shapeToCreate])
-              } else {
-                editor.updateShape(updateData)
-              }
-            }
-
-            // Clean up any existing clones from the modifier system
-            const existingClones = editor.getCurrentPageShapes().filter((s: TLShape) => {
-              const originalId = getOriginalShapeId(s)
-              return originalId === actualOriginalShape.id && s.meta?.stackProcessed
-            })
-
-            if (existingClones.length > 0) {
-              editor.deleteShapes(existingClones.map((s: TLShape) => s.id))
-            }
-
-            // Restore original shape visibility
-            editor.updateShape({
-              id: actualOriginalShape.id,
-              type: actualOriginalShape.type,
-              opacity: 1
-            })
-          }, { history: 'record' })
-
-          // Remove the applied modifier
-          store.deleteModifier(modifier.id)
+        groupContext = {
+          groupCenter: { x: groupBounds.centerX, y: groupBounds.centerY },
+          groupTopLeft: { x: groupBounds.minX, y: groupBounds.minY },
+          groupShapes: childShapes,
+          groupBounds: {
+            minX: groupBounds.minX,
+            maxX: groupBounds.maxX,
+            minY: groupBounds.minY,
+            maxY: groupBounds.maxY,
+            width: groupBounds.width,
+            height: groupBounds.height,
+            centerX: groupBounds.centerX,
+            centerY: groupBounds.centerY
+          },
+          groupTransform: {
+            x: parentGroup.x,
+            y: parentGroup.y,
+            rotation: parentGroup.rotation || 0
+          }
         }
-      } else {
-        // Handle array modifiers: create new shapes
-        const result = ModifierStack.processModifiers(actualOriginalShape, modifiersToProcess, editor)
+      }
+      // Handle array modifiers: create new shapes
+      const result = TransformComposer.processModifiers(actualOriginalShape, modifiersToProcess, groupContext)
         const transformedShapes = extractShapesFromState(result)
 
         // Create actual shapes from the transformed results (skip the first one as it's the original)
@@ -491,7 +325,6 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
           // Remove the applied modifier
           store.deleteModifier(modifier.id)
         }
-      }
     } catch (error) {
       console.error('Failed to apply modifier:', error)
     }

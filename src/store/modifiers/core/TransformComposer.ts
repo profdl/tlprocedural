@@ -9,6 +9,32 @@ import type {
 } from '../../../types/modifiers'
 
 /**
+ * Calculate orbital rotation around a center point
+ * Used when source shape rotation should cause clones to orbit around the source center
+ */
+function calculateOrbitalPosition(
+  originalPosition: { x: number; y: number },
+  centerPoint: { x: number; y: number },
+  sourceRotation: number
+): { x: number; y: number } {
+  // Calculate offset from center
+  const offsetX = originalPosition.x - centerPoint.x
+  const offsetY = originalPosition.y - centerPoint.y
+
+  // Apply rotation transform around center
+  const cos = Math.cos(sourceRotation)
+  const sin = Math.sin(sourceRotation)
+
+  const rotatedOffsetX = offsetX * cos - offsetY * sin
+  const rotatedOffsetY = offsetX * sin + offsetY * cos
+
+  return {
+    x: centerPoint.x + rotatedOffsetX,
+    y: centerPoint.y + rotatedOffsetY
+  }
+}
+
+/**
  * Virtual instance represents a transform without creating actual TLShape
  * This lightweight structure dramatically reduces memory usage
  */
@@ -104,9 +130,6 @@ export class TransformComposer {
         return this.applyGridArray(instances, modifier.props as GridArraySettings, originalShape)
       case 'mirror':
         return this.applyMirror(instances, modifier.props as MirrorSettings, originalShape)
-      default:
-        console.warn(`Matrix composer not yet implemented for: ${modifier.type}`)
-        return instances
     }
   }
 
@@ -127,6 +150,15 @@ export class TransformComposer {
     const pixelOffsetX = (offsetX / 100) * shapeBounds.width
     const pixelOffsetY = (offsetY / 100) * shapeBounds.height
 
+    // Get original shape center for orbital rotation calculations
+    const originalShapeCenter = {
+      x: originalShape.x + shapeBounds.width / 2,
+      y: originalShape.y + shapeBounds.height / 2
+    }
+
+    // Get source rotation from the original shape
+    const sourceRotation = originalShape.rotation || 0
+
     for (const instance of instances) {
       for (let i = 0; i < count; i++) {
         // Get the current position from the instance transform
@@ -135,8 +167,19 @@ export class TransformComposer {
 
         // Calculate new position by adding offsets
         // Start from offset position (i+1) so first clone is offset from original
-        const newX = currentPos.x + (pixelOffsetX * (i + 1))
-        const newY = currentPos.y + (pixelOffsetY * (i + 1))
+        let newX = currentPos.x + (pixelOffsetX * (i + 1))
+        let newY = currentPos.y + (pixelOffsetY * (i + 1))
+
+        // If source shape is rotated, apply orbital rotation around source center
+        if (sourceRotation !== 0) {
+          const orbitalPosition = calculateOrbitalPosition(
+            { x: newX, y: newY },
+            originalShapeCenter,
+            sourceRotation
+          )
+          newX = orbitalPosition.x
+          newY = orbitalPosition.y
+        }
 
         // Calculate new rotation (will be applied via rotateShapesBy for center-based rotation)
         const incrementalRotation = (rotationIncrement * i * Math.PI) / 180

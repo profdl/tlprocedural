@@ -1,5 +1,4 @@
 // Core functionality - New efficient matrix-based system
-export { ModifierStack } from './core/ModifierStack'
 export { TransformComposer } from './core/TransformComposer'
 export type { VirtualInstance, VirtualModifierState } from './core/TransformComposer'
 export {
@@ -8,7 +7,6 @@ export {
   extractShapesWithCache,
   validateVirtualState
 } from './core/ShapeStateManager'
-export { PathModifier, isPathModifierType } from './core/PathModifier'
 
 // Types
 export type {

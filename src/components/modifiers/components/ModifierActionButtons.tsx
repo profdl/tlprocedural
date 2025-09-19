@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { AddButton, type AddButtonOption } from './AddButton'
 import { ModifierButton } from './ModifierButton'
 
-type ModifierType = 'linear' | 'circular' | 'grid' | 'mirror' | 'lsystem' | 'subdivide' | 'noise-offset' | 'smooth' | 'simplify'
+type ModifierType = 'linear' | 'circular' | 'grid' | 'mirror'
 
 interface ModifierActionButtonsProps {
   selectedShape: boolean
@@ -26,12 +26,7 @@ export function ModifierActionButtons({
       'linear': 'linear',
       'circular': 'circular',
       'grid': 'grid',
-      'mirror': 'mirror',
-      'lsystem': 'lsystem',
-      'subdivide': 'subdivide',
-      'noise-offset': 'noise-offset',
-      'smooth': 'smooth',
-      'simplify': 'simplify'
+      'mirror': 'mirror'
     }
     const type = typeMap[optionId]
     if (type) {
@@ -61,32 +56,6 @@ export function ModifierActionButtons({
       id: 'mirror',
       label: 'Mirror',
       icon: 'mirror'
-    },
-    {
-      id: 'lsystem',
-      label: 'L-System',
-      icon: 'code'
-    },
-    // Path Modifiers
-    {
-      id: 'subdivide',
-      label: 'Subdivide',
-      icon: 'edit'
-    },
-    {
-      id: 'noise-offset',
-      label: 'Noise Offset',
-      icon: 'tool'
-    },
-    {
-      id: 'smooth',
-      label: 'Smooth',
-      icon: 'curve'
-    },
-    {
-      id: 'simplify',
-      label: 'Simplify',
-      icon: 'minimize'
     }
   ]
 

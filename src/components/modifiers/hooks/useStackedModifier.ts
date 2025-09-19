@@ -1,11 +1,12 @@
 import { useMemo, useRef } from 'react'
 import { useEditor, type TLShape, type TLShapePartial, createShapeId, type TLShapeId } from 'tldraw'
-import { ModifierStack } from '../../../store/modifiers'
-import { extractShapesFromState } from '../../../store/modifiers/core/ShapeStateManager'
-import { isPathModifierType } from '../../../store/modifiers/core/PathModifier'
-import type { TLModifier } from '../../../types/modifiers'
+import { TransformComposer, extractShapesFromState } from '../../../store/modifiers'
+import type { TLModifier, GroupContext } from '../../../types/modifiers'
 import {
-  logShapeOperation
+  logShapeOperation,
+  findTopLevelGroup,
+  getGroupPageBounds,
+  getGroupChildShapes
 } from '../utils'
 
 interface UseStackedModifierProps {
@@ -64,7 +65,37 @@ export function useStackedModifier({ shape, modifiers }: UseStackedModifierProps
         return []
       }
 
-      const result = ModifierStack.processModifiers(shape, modifiers, editor)
+      // Create group context if needed
+      const parentGroup = findTopLevelGroup(shape, editor)
+      let groupContext: GroupContext | undefined = undefined
+
+      if (parentGroup) {
+        const childShapes = getGroupChildShapes(parentGroup, editor)
+        const groupBounds = getGroupPageBounds(parentGroup, editor)
+
+        groupContext = {
+          groupCenter: { x: groupBounds.centerX, y: groupBounds.centerY },
+          groupTopLeft: { x: groupBounds.minX, y: groupBounds.minY },
+          groupShapes: childShapes,
+          groupBounds: {
+            minX: groupBounds.minX,
+            maxX: groupBounds.maxX,
+            minY: groupBounds.minY,
+            maxY: groupBounds.maxY,
+            width: groupBounds.width,
+            height: groupBounds.height,
+            centerX: groupBounds.centerX,
+            centerY: groupBounds.centerY
+          },
+          groupTransform: {
+            x: parentGroup.x,
+            y: parentGroup.y,
+            rotation: parentGroup.rotation || 0
+          }
+        }
+      }
+
+      const result = TransformComposer.processModifiers(shape, modifiers, groupContext)
       const shapes = extractShapesFromState(result)
 
       if (!result || !shapes) {
@@ -126,9 +157,7 @@ function createRegularShape(
   modifiers: TLModifier[],
   originalShapeId: string
 ): TLShapePartial {
-  // Check if this is from path modifiers - they should not be locked
-  const hasPathModifiers = modifiers.some(m => m.enabled && isPathModifierType(m.type))
-  const hasOnlyPathModifiers = modifiers.every(m => !m.enabled || isPathModifierType(m.type))
+  // All remaining modifiers are array modifiers (no path modifiers left)
   
   const cloneShape: TLShapePartial = {
     id: cloneId,
@@ -136,16 +165,15 @@ function createRegularShape(
     x: processedShape.x,
     y: processedShape.y,
     rotation: processedShape.rotation,
-    // Path modifiers with single output should not be locked, array modifiers should be
-    isLocked: hasOnlyPathModifiers ? false : true,
-    // Path modifiers show full opacity, array modifiers are semi-transparent
-    opacity: hasOnlyPathModifiers ? (processedShape.opacity || 1) : 
-             (processedShape.meta?.isFirstClone ? 0 : (processedShape.opacity || 1) * 0.75),
+    // Array modifiers should be locked
+    isLocked: true,
+    // Array modifiers are semi-transparent
+    opacity: processedShape.meta?.isFirstClone ? 0 : (processedShape.opacity || 1) * 0.75,
     props: { ...processedShape.props }, // Use processed shape props instead of original
     meta: {
       ...processedShape.meta,
-      isArrayClone: !hasOnlyPathModifiers, // Path-only modifiers are not array clones
-      isPathModified: hasPathModifiers,
+      isArrayClone: true, // All remaining modifiers are array modifiers
+      isPathModified: false,
       originalShapeId: originalShapeId,
       arrayIndex: index,
       stackProcessed: true,

@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useCallback } from 'react'
 import { useEditor, type TLShape, type TLShapePartial, type Editor } from 'tldraw'
-import { ModifierStack, extractShapesFromState } from '../../../store/modifiers'
-import type { TLModifier } from '../../../types/modifiers'
-import { isPathModifierType } from '../../../store/modifiers/core/PathModifier'
+import { TransformComposer, extractShapesFromState } from '../../../store/modifiers'
+import type { TLModifier, GroupContext } from '../../../types/modifiers'
 import {
   getOriginalShapeId,
-  logShapeOperation
+  logShapeOperation,
+  findTopLevelGroup,
+  getGroupPageBounds,
+  getGroupChildShapes
 } from '../utils'
 import { applyRotationToShapes } from '../utils/transformUtils'
 
@@ -31,10 +33,8 @@ export function useCloneManager({
   // Memoize processedShapes count to avoid dependency issues
   const processedShapesCount = useMemo(() => processedShapes.length, [processedShapes.length])
 
-  // Memoize modifier state for stable dependencies
-  const hasPathModifiers = useMemo(() => {
-    return modifiers.some(m => m.enabled && isPathModifierType(m.type))
-  }, [modifiers])
+  // All remaining modifiers are array modifiers (no path modifiers left)
+  const hasPathModifiers = false
 
   // Create stable cleanup function
   const cleanupFunction = useCallback(() => {
@@ -53,16 +53,7 @@ export function useCloneManager({
       }, { ignoreShapeLock: true, history: 'ignore' })
     }
 
-    // Restore original shape opacity when cleaning up
-    if (hasPathModifiers) {
-      editor.run(() => {
-        editor.updateShape({
-          id: currentShape.id,
-          type: currentShape.type,
-          opacity: 1 // Restore full opacity
-        })
-      }, { history: 'ignore' })
-    }
+    // No path modifiers to restore opacity for
 
     // For group modifiers, also clean up clones of all shapes in the group during cleanup
     if (currentShape.type === 'group') {
@@ -101,16 +92,8 @@ export function useCloneManager({
 
     // Batch all shape operations together for better performance
     editor.run(() => {
-      // Handle original shape opacity based on modifier types
-      if (hasPathModifiers && processedShapesCount > 0) {
-        // Hide the original shape by setting opacity to 0
-        editor.updateShape({
-          id: currentShape.id,
-          type: currentShape.type,
-          opacity: 0
-        })
-      } else if (!hasPathModifiers) {
-        // Restore original opacity for non-path modifiers
+      // Restore original opacity for array modifiers
+      if (processedShapesCount > 0) {
         editor.updateShape({
           id: currentShape.id,
           type: currentShape.type,
@@ -240,7 +223,37 @@ function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModif
   // Debug: Log when this function is called
 
   // Recalculate positions based on current shape state
-  const result = ModifierStack.processModifiers(shape, modifiers, editor)
+  // Create group context if needed
+  const parentGroup = findTopLevelGroup(shape, editor)
+  let groupContext: GroupContext | undefined = undefined
+
+  if (parentGroup) {
+    const childShapes = getGroupChildShapes(parentGroup, editor)
+    const groupBounds = getGroupPageBounds(parentGroup, editor)
+
+    groupContext = {
+      groupCenter: { x: groupBounds.centerX, y: groupBounds.centerY },
+      groupTopLeft: { x: groupBounds.minX, y: groupBounds.minY },
+      groupShapes: childShapes,
+      groupBounds: {
+        minX: groupBounds.minX,
+        maxX: groupBounds.maxX,
+        minY: groupBounds.minY,
+        maxY: groupBounds.maxY,
+        width: groupBounds.width,
+        height: groupBounds.height,
+        centerX: groupBounds.centerX,
+        centerY: groupBounds.centerY
+      },
+      groupTransform: {
+        x: parentGroup.x,
+        y: parentGroup.y,
+        rotation: parentGroup.rotation || 0
+      }
+    }
+  }
+
+  const result = TransformComposer.processModifiers(shape, modifiers, groupContext)
   const updatedShapes = extractShapesFromState(result)
 
   // Update existing clones with new positions

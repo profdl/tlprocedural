@@ -25,22 +25,23 @@ This is a **TLDraw-based procedural shape manipulation app** built with React + 
 - `useModifierStore` - Central store for all modifier data and operations
 - Store includes CRUD operations, reordering, import/export functionality
 
-**Modifier System**: Advanced shape transformation pipeline
+**Modifier System**: High-performance matrix-based transformation pipeline
 
-- **ModifierStack** - Processes multiple modifiers in sequence on shapes
-- **Processors** - Individual modifier implementations (LinearArray, CircularArray, GridArray, Mirror, LSystem)
-- **ShapeState** - Immutable state passed between processors containing shape instances and transforms
+- **TransformComposer** - Efficient O(n) matrix-based modifier processing using virtual instances
+- **VirtualInstance** - Lightweight transform representation (no TLShape creation until materialization)
+- **ModifierFactory** - Factory pattern for clean, maintainable modifier creation
+- **PathModifier** - Base class for path-based modifiers (subdivide, smooth, noise-offset, simplify)
 - **GroupContext** - Special processing context for grouped shapes
 
 **Shape Processing Flow**:
 
-1. Original shape → ShapeState (with single instance)
-2. Each enabled modifier processes ShapeState sequentially, treating all instances from previous modifier as a collective entity
-3. Each processor creates new instances from ALL existing instances (e.g., if input has 3 instances, LinearArray with count=4 creates 12 total instances)
-4. Modifiers compound multiplicatively - LinearArray (count=3) + CircularArray (count=4) = 12 total clones
-5. Final ShapeState contains all transformed instances for rendering
+1. Original shape → VirtualModifierState (single virtual instance)
+2. TransformComposer processes modifiers sequentially using matrix composition
+3. Each modifier creates new virtual instances mathematically (no intermediate TLShapes)
+4. Modifiers compound multiplicatively - LinearArray (count=3) + CircularArray (count=4) = 12 total virtual instances
+5. Virtual instances materialized to TLShapes only when needed (dramatic performance improvement)
 6. useCloneManager hides original shape (opacity=0) and creates visible clones
-7. Clones are created with rotation=0, then rotated using `editor.rotateShapesBy()`
+7. Clones created with rotation=0, then rotated using `editor.rotateShapesBy()`
 
 ### Key Files
 
@@ -51,9 +52,11 @@ This is a **TLDraw-based procedural shape manipulation app** built with React + 
 
 **Core Processing**:
 
-- `src/store/modifiers/core/ModifierStack.ts` - Main processing orchestrator
-- `src/store/modifiers/processors/` - Individual modifier processors
-- `src/store/modifiers/core/ShapeStateManager.ts` - Shape state utilities
+- `src/store/modifiers/core/TransformComposer.ts` - Matrix-based modifier processing with virtual instances
+- `src/store/modifiers/core/PathModifier.ts` - Base class for path-based modifiers
+- `src/store/modifiers/processors/` - Path-based modifier implementations (subdivide, smooth, etc.)
+- `src/factories/ModifierFactory.ts` - Factory pattern for modifier creation
+- `src/store/modifiers/core/ShapeStateManager.ts` - Virtual state management utilities
 
 **UI Components**:
 
@@ -66,11 +69,18 @@ This is a **TLDraw-based procedural shape manipulation app** built with React + 
 
 ### Modifier Types
 
+**Array Modifiers** (matrix-based, high performance):
 1. **Linear Array** - Creates copies in a straight line with offset/rotation/scaling
 2. **Circular Array** - Arranges copies in circular patterns with radius/angle controls
 3. **Grid Array** - Creates rectangular grids with row/column spacing
 4. **Mirror** - Creates mirrored copies along axes
 5. **L-System** - Fractal generation using L-system rules
+
+**Path Modifiers** (path-based, shape geometry modification):
+6. **Subdivide** - Adds points to paths for smoother curves
+7. **Noise Offset** - Adds procedural noise displacement to paths
+8. **Smooth** - Smooths path corners and jagged edges
+9. **Simplify** - Reduces path complexity by removing redundant points
 
 ### Group Processing
 
@@ -83,10 +93,13 @@ The system has special handling for grouped shapes:
 
 ### Important Implementation Notes
 
-- **Shape Processing**: Modifiers process **ShapeState** objects (not raw TLDraw shapes) sequentially, with each treating previous outputs as collective entities
-- **Compounding Behavior**: Multiple modifiers multiply their effects - LinearArray (3) + CircularArray (4) = 12 total clones
+- **Matrix-Based Processing**: TransformComposer uses matrix composition for O(n) performance instead of O(n²) shape multiplication
+- **Virtual Instances**: Lightweight VirtualInstance objects defer TLShape creation until materialization (major performance gain)
+- **Factory Pattern**: ModifierFactory provides clean, maintainable modifier creation with type safety
+- **Path vs Array Modifiers**: Path modifiers modify shape geometry, array modifiers create spatial arrangements
+- **Compounding Behavior**: Multiple modifiers multiply their effects - LinearArray (3) + CircularArray (4) = 12 total virtual instances
 - **Group Processing**: Group modifiers process all shapes in a group simultaneously using shared `GroupContext`
-- **Coordinate System**: Uses coordinate transforms rather than direct shape manipulation for consistent positioning
+- **Transform Composition**: Uses mathematical matrix composition rather than iterative shape manipulation
 - **Stateless Design**: All processors are stateless and functional for predictable behavior
 - **Clone Management**: `useCloneManager` handles original shape hiding (opacity=0) and visible clone creation/cleanup
 - **Rotation System**: All rotations use `editor.rotateShapesBy()` for center-based rotation (details in TLDraw section below)
@@ -143,35 +156,43 @@ For TLDraw-specific development, reference these included documentation files:
 
 ### Current State
 
-- **Modifier System**: Core architecture is functional but has stability issues
+- **Modifier System**: Recently rebuilt with matrix-based architecture for significant performance improvements
+- **Array Modifiers**: High-performance virtual instance system for linear, circular, grid, mirror, and L-system modifiers
+- **Path Modifiers**: New path-based modifier system for shape geometry modification (subdivide, smooth, noise, simplify)
+- **Factory Pattern**: Clean modifier creation system with type safety and maintainability
 - **Custom Shapes**: Several custom shape tools are implemented but may not work reliably
 - **Group Processing**: Group modifier support is partially implemented with edge cases
 - **UI/UX**: Modifier controls UI is functional but needs refinement
-- **Performance**: Complex modifier stacks may cause performance issues
+- **Performance**: Major performance improvements from virtual instance system
 
 ### Known Issue Areas
 
-- **Shape State Synchronization**: Modifiers may not always sync correctly with TLDraw's store
+- **Path Modifier Integration**: Path-based modifiers are new and may have edge cases with complex shapes
 - **Group Bounds Calculation**: Group processing sometimes calculates incorrect bounds
 - **Modifier Ordering**: Reordering modifiers can cause unexpected results
 - **Memory Leaks**: Store subscriptions may not always clean up properly
-- **Type Safety**: Some modifier type definitions may be incomplete
-- **Error Handling**: Limited error handling in modifier processing pipeline
+- **Type Safety**: Path modifier type definitions may need refinement
+- **Error Handling**: Limited error handling in path modification pipeline
+- **Custom Shape Support**: Path modifiers may not work with all custom shape types
 
-### Recent Fixes
+### Recent Major Changes
 
-- **Linear Array Extra Clone**: Fixed issue where LinearArrayProcessor created extra untransformed clones by properly hiding original shape when modifiers are active
-- **Clone Rotation**: Ensured all clones use `editor.rotateShapesBy()` for proper center-based rotation
-- **Rotated Shape Positioning**: Fixed clone positioning when original shape is rotated by calculating from visual center using `editor.getShapePageBounds()` instead of top-left corner
+- **Complete Architecture Rebuild**: Replaced individual processor system with matrix-based TransformComposer for O(n) performance
+- **Virtual Instance System**: Introduced VirtualInstance for lightweight transform representation (no TLShape creation until needed)
+- **Factory Pattern**: Implemented ModifierFactory for clean, type-safe modifier creation
+- **Path Modifier System**: Added new PathModifier base class and path-based modifiers (subdivide, smooth, noise-offset, simplify)
+- **Performance Optimization**: Eliminated O(n²) shape multiplication in favor of mathematical matrix composition
+- **Memory Efficiency**: Virtual instances dramatically reduce memory usage for complex modifier stacks
 
 ### Development Priorities
 
-1. **Stabilize Core Modifier System** - Fix shape state synchronization issues
+1. **Path Modifier Refinement** - Stabilize path-based modifiers and expand shape type support
 2. **Improve Group Processing** - Resolve group bounds and context issues
-3. **Enhanced Error Handling** - Add comprehensive error boundaries and logging
-4. **Performance Optimization** - Optimize modifier processing for complex stacks
+3. **Enhanced Error Handling** - Add comprehensive error boundaries and logging for path modifications
+4. **Custom Shape Integration** - Ensure path modifiers work with all custom shape types
 5. **UI Polish** - Improve modifier controls and user experience
-6. **Documentation** - Add inline documentation for complex modifier logic
+6. **Performance Monitoring** - Add metrics to validate performance improvements from virtual instance system
+7. **Documentation** - Update documentation for new architecture and path modifier system
 
 **When working on this codebase**: Expect to encounter bugs, incomplete features, and areas needing significant refactoring. Always test modifier combinations thoroughly and be prepared to debug complex state synchronization issues.
 
@@ -322,13 +343,15 @@ const x = originalShape.x + offset; // This moves when shape rotates!
 
 ### Modifier System Implications
 
-**Critical for modifier processors**:
+**Critical for modifier system**:
 
-1. **Coordinate Consistency**: Modifiers must maintain correct coordinate spaces
-2. **Transform Composition**: Multiple modifiers create compound transforms
-3. **Group Bounds**: Group shapes have special bounds calculation rules
-4. **Performance**: Avoid unnecessary coordinate space conversions
-5. **Rotated Shape Handling**: Always calculate from visual center for rotated shapes
+1. **Matrix Composition**: TransformComposer uses mathematical matrix operations for efficiency
+2. **Virtual Instance Management**: Defer TLShape materialization until absolutely necessary
+3. **Path vs Array Processing**: Path modifiers modify geometry, array modifiers create spatial arrangements
+4. **Transform Composition**: Multiple modifiers create compound transforms via matrix multiplication
+5. **Group Bounds**: Group shapes have special bounds calculation rules
+6. **Performance**: Virtual instances provide O(n) complexity instead of O(n²)
+7. **Rotated Shape Handling**: Always calculate from visual center for rotated shapes
 
 **Common Pitfalls**:
 
@@ -339,6 +362,9 @@ const x = originalShape.x + offset; // This moves when shape rotates!
 
 **Best Practices for Modifier Development**:
 
+- **Array Modifiers**: Use TransformComposer and VirtualInstance system for performance
+- **Path Modifiers**: Extend PathModifier base class for shape geometry modifications
+- **Factory Pattern**: Use ModifierFactory for creating new modifier types
 - Always work in consistent coordinate space (preferably page space)
 - Use TLDraw's transform methods rather than manual coordinate calculations
 - **For rotation**: ALWAYS use `editor.rotateShapesBy()` for center-based rotation
@@ -346,4 +372,5 @@ const x = originalShape.x + offset; // This moves when shape rotates!
 - Test with rotated shapes and nested groups
 - Account for different shape types having different origin behaviors
 - Prefer TLDraw's built-in APIs (`getShapePageBounds`, `getShapePageTransform`) over manual calculations
-- All position calculation functions in `transformUtils.ts` must handle rotated shapes correctly
+- Leverage matrix composition for transform calculations rather than iterative shape manipulation
+- Consider path vs array modifier type when planning new modifiers

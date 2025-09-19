@@ -6,20 +6,9 @@ import {
   type TLCircularArrayModifier,
   type TLGridArrayModifier,
   type TLMirrorModifier,
-  type TLLSystemModifier,
-  type TLSubdivideModifier,
-  type TLNoiseOffsetModifier,
-  type TLSmoothModifier,
-  type TLSimplifyModifier,
   type ModifierType,
   createModifierId
 } from '../types/modifiers'
-import {
-  type SubdivideSettings,
-  type NoiseOffsetSettings,
-  type SmoothSettings,
-  type SimplifySettings
-} from '../types/pathTypes'
 
 /**
  * Factory interface for creating specific modifier types
@@ -165,126 +154,6 @@ export class MirrorModifierFactory extends BaseModifierFactory<TLMirrorModifier>
   }
 }
 
-/**
- * L-System Modifier Factory
- */
-export class LSystemModifierFactory extends BaseModifierFactory<TLLSystemModifier> {
-  createModifier(
-    id: TLModifierId,
-    targetShapeId: TLShapeId,
-    order: number,
-    settings: Partial<TLLSystemModifier['props']> = {}
-  ): TLLSystemModifier {
-    return {
-      ...this.createBaseModifier(id, 'lsystem', targetShapeId, order),
-      type: 'lsystem',
-      props: {
-        axiom: 'F',
-        rules: { F: 'F+F−F−F+F' },
-        iterations: 6,
-        angle: 20,
-        stepPercent: 100,
-        scalePerIteration: 1.0,
-        ...settings
-      }
-    }
-  }
-}
-
-/**
- * Subdivide Modifier Factory
- */
-export class SubdivideModifierFactory extends BaseModifierFactory<TLSubdivideModifier> {
-  createModifier(
-    id: TLModifierId,
-    targetShapeId: TLShapeId,
-    order: number,
-    settings: Partial<SubdivideSettings> = {}
-  ): TLSubdivideModifier {
-    return {
-      ...this.createBaseModifier(id, 'subdivide', targetShapeId, order),
-      type: 'subdivide',
-      props: {
-        iterations: 1,
-        factor: 0.5,
-        smooth: false,
-        ...settings
-      }
-    }
-  }
-}
-
-/**
- * Noise Offset Modifier Factory
- */
-export class NoiseOffsetModifierFactory extends BaseModifierFactory<TLNoiseOffsetModifier> {
-  createModifier(
-    id: TLModifierId,
-    targetShapeId: TLShapeId,
-    order: number,
-    settings: Partial<NoiseOffsetSettings> = {}
-  ): TLNoiseOffsetModifier {
-    return {
-      ...this.createBaseModifier(id, 'noise-offset', targetShapeId, order),
-      type: 'noise-offset',
-      props: {
-        amplitude: 10,
-        frequency: 0.1,
-        octaves: 3,
-        seed: 123,
-        direction: 'both',
-        ...settings
-      }
-    }
-  }
-}
-
-/**
- * Smooth Modifier Factory
- */
-export class SmoothModifierFactory extends BaseModifierFactory<TLSmoothModifier> {
-  createModifier(
-    id: TLModifierId,
-    targetShapeId: TLShapeId,
-    order: number,
-    settings: Partial<SmoothSettings> = {}
-  ): TLSmoothModifier {
-    return {
-      ...this.createBaseModifier(id, 'smooth', targetShapeId, order),
-      type: 'smooth',
-      props: {
-        iterations: 1,
-        factor: 0.5,
-        preserveCorners: true,
-        cornerThreshold: 90,
-        ...settings
-      }
-    }
-  }
-}
-
-/**
- * Simplify Modifier Factory
- */
-export class SimplifyModifierFactory extends BaseModifierFactory<TLSimplifyModifier> {
-  createModifier(
-    id: TLModifierId,
-    targetShapeId: TLShapeId,
-    order: number,
-    settings: Partial<SimplifySettings> = {}
-  ): TLSimplifyModifier {
-    return {
-      ...this.createBaseModifier(id, 'simplify', targetShapeId, order),
-      type: 'simplify',
-      props: {
-        tolerance: 5,
-        preserveCorners: true,
-        minPoints: 3,
-        ...settings
-      }
-    }
-  }
-}
 
 /**
  * Main Modifier Factory Registry
@@ -295,12 +164,7 @@ export class ModifierFactory {
     'linear-array': new LinearArrayModifierFactory(),
     'circular-array': new CircularArrayModifierFactory(),
     'grid-array': new GridArrayModifierFactory(),
-    'mirror': new MirrorModifierFactory(),
-    'lsystem': new LSystemModifierFactory(),
-    'subdivide': new SubdivideModifierFactory(),
-    'noise-offset': new NoiseOffsetModifierFactory(),
-    'smooth': new SmoothModifierFactory(),
-    'simplify': new SimplifyModifierFactory()
+    'mirror': new MirrorModifierFactory()
   }
 
   /**
