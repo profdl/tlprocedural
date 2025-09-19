@@ -1,8 +1,12 @@
+export { ModifierStack } from './ModifierStack'
+export { TransformComposer } from './TransformComposer'
+export type { VirtualInstance, VirtualModifierState } from './TransformComposer'
 export {
-  createInitialShapeState,
+  createInitialVirtualState,
   extractShapesFromState,
-  validateShapeState,
-  cloneShapeState
+  extractShapesWithCache,
+  validateVirtualState
 } from './ShapeStateManager'
+export { PathModifier, isPathModifierType } from './PathModifier'
 
-export type { ShapeState, ShapeInstance, Transform } from '../../../types/modifiers' 
+export type { Transform } from '../../../types/modifiers' 

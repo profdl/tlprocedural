@@ -1,201 +1,70 @@
-import type { TLShape, JsonValue } from 'tldraw'
-import type { 
-  ShapeState, 
-  ShapeInstance, 
-  Transform
-} from '../../../types/modifiers'
+import { createShapeId, type TLShape, type TLShapeId } from 'tldraw'
+import { TransformComposer, type VirtualModifierState, type VirtualInstance } from './TransformComposer'
 
 /**
- * Creates initial ShapeState from a TLShape
- * This is the starting point for modifier processing
+ * Creates initial VirtualModifierState from a TLShape
+ * Uses the new efficient virtual instance system
  */
-export function createInitialShapeState(shape: TLShape): ShapeState {
-  const transform: Transform = {
-    x: shape.x,
-    y: shape.y,
-    rotation: shape.rotation || 0,
-    scaleX: 1,
-    scaleY: 1
-  }
-
-  const instance: ShapeInstance = {
-    shape,
-    transform,
-    index: 0,
-    metadata: { isOriginal: true }
-  }
-
-  return {
-    originalShape: shape,
-    instances: [instance],
-    metadata: {}
-  }
+export function createInitialVirtualState(shape: TLShape): VirtualModifierState {
+  return TransformComposer.processModifiers(shape, [])
 }
 
 /**
- * Converts ShapeState back to TLShape array for rendering
- * This is the final step in modifier processing
+ * Converts VirtualModifierState to TLShape array for rendering
+ * This materializes the virtual instances into actual shapes
  */
-export function extractShapesFromState(state: ShapeState): TLShape[] {
-  return state.instances.map((instance: ShapeInstance, index: number) => {
-    
-    // Use targetRotation from metadata if available (for special rotation handling like mirror)
-    // Otherwise use the transform rotation
-    const finalRotation = (instance.metadata as { targetRotation?: number })?.targetRotation ?? instance.transform.rotation
+export function extractShapesFromState(state: VirtualModifierState): TLShape[] {
+  // Generate unique IDs for each shape
+  let idCounter = 0
+  const createId = (): TLShapeId => createShapeId(`clone-${state.originalShape.id}-${idCounter++}`)
 
-    const baseShape = {
-      ...instance.shape,
-      x: instance.transform.x,
-      y: instance.transform.y,
-      rotation: finalRotation
-    }
-    
-    
-    // Apply scaling to all shapes first (both mirrored and non-mirrored)
-    if (instance.transform.scaleX !== 1 || instance.transform.scaleY !== 1) {
-      // Only apply scaling if both values are positive (to avoid negative dimensions)
-      if (instance.transform.scaleX > 0 && instance.transform.scaleY > 0) {
-        const scaledShape = applyShapeScaling(instance.shape, instance.transform.scaleX, instance.transform.scaleY)
-        baseShape.props = scaledShape.props
-        
-      } else {
-        console.warn(`Skipping negative scaling for instance ${index}:`, {
-          scaleX: instance.transform.scaleX,
-          scaleY: instance.transform.scaleY
-        })
-        // Fall back to original props if scaling can't be applied
-        baseShape.props = instance.shape.props
-      }
-    } else {
-      // No scaling needed, use original props
-      baseShape.props = instance.shape.props
-    }
-
-    // Transfer instance metadata to shape meta, excluding internal processing metadata
-    const metadata = { ...(instance.metadata || {}) }
-    // Remove internal processing values that shouldn't be serialized to shape meta
-    delete metadata.targetRotation
-    delete metadata.positionCorrected
-
-    const updatedBaseShape: TLShape = {
-      ...baseShape,
-      meta: {
-        ...baseShape.meta,
-        ...(metadata as Record<string, JsonValue>)
-      }
-    }
-
-    return updatedBaseShape
-  })
+  return TransformComposer.materializeInstances(state, createId)
 }
 
 /**
- * Applies scaling to a shape based on scale factors
- * Handles different shape types including Bezier shapes with points
+ * Helper to extract shapes with caching for better performance
+ * Uses the optimized materialization with cache from TransformComposer
  */
-function applyShapeScaling(shape: TLShape, scaleX: number, scaleY: number): TLShape {
-  // For shapes with w/h properties (most common)
-  if ('w' in shape.props && 'h' in shape.props) {
-    const originalW = shape.props.w as number
-    const originalH = shape.props.h as number
+export function extractShapesWithCache(
+  state: VirtualModifierState,
+  existingShapes: Map<number, TLShape>
+): { create: TLShape[], update: Partial<TLShape>[], delete: TLShapeId[] } {
+  // Generate unique IDs for new shapes
+  let idCounter = existingShapes.size
+  const createId = (): TLShapeId => createShapeId(`clone-${state.originalShape.id}-${idCounter++}`)
 
-    // Ensure we don't create negative or zero dimensions
-    const newW = Math.max(1, originalW * scaleX)
-    const newH = Math.max(1, originalH * scaleY)
-
-    const scaledProps = {
-      ...shape.props,
-      w: newW,
-      h: newH
-    }
-
-    // Special handling for Bezier shapes - scale the points array
-    if (shape.type === 'bezier' && 'points' in shape.props && Array.isArray(shape.props.points)) {
-      const points = shape.props.points as Array<{
-        x: number
-        y: number
-        cp1?: { x: number; y: number }
-        cp2?: { x: number; y: number }
-      }>
-
-      // Scale all points and control points using the same logic as BezierShape.onResize
-      const scaledPoints = points.map(p => ({
-        x: p.x * scaleX,
-        y: p.y * scaleY,
-        cp1: p.cp1 ? { x: p.cp1.x * scaleX, y: p.cp1.y * scaleY } : undefined,
-        cp2: p.cp2 ? { x: p.cp2.x * scaleX, y: p.cp2.y * scaleY } : undefined,
-      }))
-
-      ;(scaledProps as any).points = scaledPoints
-    }
-
-    return {
-      ...shape,
-      props: scaledProps
-    }
-  }
-
-  // For other shape types, return as-is
-  return shape
+  return TransformComposer.materializeWithCache(state, existingShapes, createId)
 }
 
 /**
- * Validates a ShapeState object
- * Throws an error if the state is invalid
+ * Validates a VirtualModifierState object
+ * Ensures the state is valid for processing
  */
-export function validateShapeState(state: ShapeState): void {
+export function validateVirtualState(state: VirtualModifierState): void {
   if (!state.originalShape) {
-    throw new Error('ShapeState must have an originalShape')
+    throw new Error('VirtualModifierState must have an originalShape')
   }
-  
-  if (!Array.isArray(state.instances)) {
-    throw new Error('ShapeState instances must be an array')
+
+  if (!Array.isArray(state.virtualInstances)) {
+    throw new Error('VirtualModifierState instances must be an array')
   }
-  
-  if (state.instances.length === 0) {
-    throw new Error('ShapeState must have at least one instance')
+
+  if (state.virtualInstances.length === 0) {
+    throw new Error('VirtualModifierState must have at least one instance')
   }
-  
-  // Validate each instance
-  state.instances.forEach((instance: ShapeInstance, index: number) => {
-    if (!instance.shape) {
-      throw new Error(`Instance ${index} must have a shape`)
+
+  // Validate each virtual instance
+  state.virtualInstances.forEach((instance: VirtualInstance, index: number) => {
+    if (!instance.sourceShapeId) {
+      throw new Error(`Virtual instance ${index} must have a sourceShapeId`)
     }
-    
+
     if (!instance.transform) {
-      throw new Error(`Instance ${index} must have a transform`)
+      throw new Error(`Virtual instance ${index} must have a transform matrix`)
     }
-    
-    // Validate transform properties
-    const { x, y, rotation, scaleX, scaleY } = instance.transform
-    
-    if (typeof x !== 'number' || typeof y !== 'number') {
-      throw new Error(`Instance ${index} transform must have numeric x, y coordinates`)
-    }
-    
-    if (typeof rotation !== 'number') {
-      throw new Error(`Instance ${index} transform must have numeric rotation`)
-    }
-    
-    if (typeof scaleX !== 'number' || typeof scaleY !== 'number') {
-      throw new Error(`Instance ${index} transform must have numeric scale values`)
+
+    if (!instance.metadata) {
+      throw new Error(`Virtual instance ${index} must have metadata`)
     }
   })
-}
-
-/**
- * Creates a deep copy of a ShapeState
- * Useful for creating immutable updates
- */
-export function cloneShapeState(state: ShapeState): ShapeState {
-  return {
-    originalShape: { ...state.originalShape },
-    instances: state.instances.map((instance: ShapeInstance) => ({
-      ...instance,
-      shape: { ...instance.shape },
-      transform: { ...instance.transform },
-      metadata: { ...instance.metadata }
-    })),
-    metadata: { ...state.metadata }
-  }
 } 

@@ -1,25 +1,20 @@
-// Core functionality
+// Core functionality - New efficient matrix-based system
 export { ModifierStack } from './core/ModifierStack'
+export { TransformComposer } from './core/TransformComposer'
+export type { VirtualInstance, VirtualModifierState } from './core/TransformComposer'
 export {
-  createInitialShapeState,
+  createInitialVirtualState,
   extractShapesFromState,
-  validateShapeState,
-  cloneShapeState
+  extractShapesWithCache,
+  validateVirtualState
 } from './core/ShapeStateManager'
-
-// Processors
-export {
-  LinearArrayProcessor,
-  CircularArrayProcessor,
-  GridArrayProcessor,
-  MirrorProcessor
-} from './processors'
+export { PathModifier, isPathModifierType } from './core/PathModifier'
 
 // Types
-export type { 
-  ShapeState, 
-  ShapeInstance, 
+export type {
   Transform,
-  ModifierProcessor,
   GroupContext
-} from '../../types/modifiers' 
+} from '../../types/modifiers'
+
+// Note: Legacy processor exports removed
+// All processing is now handled by TransformComposer for O(n) performance 

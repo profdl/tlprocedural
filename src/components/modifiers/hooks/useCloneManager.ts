@@ -233,22 +233,17 @@ function cleanupGroupClones(editor: Editor, shape: TLShape) {
  */
 function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModifier[], existingClones: TLShape[]) {
   // Debug: Log when this function is called
-  
+
   // Recalculate positions based on current shape state
   const result = ModifierStack.processModifiers(shape, modifiers, editor)
   const updatedShapes = extractShapesFromState(result)
-  
-  
-  
 
   // Update existing clones with new positions
   const updatedClones = existingClones.map((clone: TLShape) => {
     const cloneIndex = clone.meta?.arrayIndex as number
     const updatedShape = updatedShapes.find(s => s.meta?.arrayIndex === cloneIndex)
-    
-    
-    if (!updatedShape) return null
 
+    if (!updatedShape) return null
 
     // Store the target rotation separately
     // Only set edit mode properties for shapes that support them (bezier and draw shapes)
