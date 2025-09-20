@@ -7,6 +7,7 @@ import {
   type TLShapePartial
 } from '@tldraw/editor'
 import { type BezierShape, type BezierPoint } from '../../BezierShape'
+import { DEFAULT_SHAPE_PROPS } from '../../constants/defaultShapeProps'
 
 export class DrawCreating extends StateNode {
   static override id = 'creating'
@@ -117,10 +118,8 @@ export class DrawCreating extends StateNode {
         w,
         h,
         points: normalizedPoints,
-        color: '#000000',
-        strokeWidth: 1,
-        fill: false,
         isClosed: false,
+        ...DEFAULT_SHAPE_PROPS,
       },
     }
 

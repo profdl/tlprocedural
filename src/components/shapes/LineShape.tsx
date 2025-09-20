@@ -1,5 +1,6 @@
 import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, type IndexKey, type VecLike } from 'tldraw'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
+import { DEFAULT_STROKE_ONLY_PROPS } from './constants/defaultShapeProps'
 
 export type LineShape = TLBaseShape<
   'custom-line',
@@ -42,13 +43,12 @@ export class LineShapeUtil extends FlippableShapeUtil<LineShape> {
     return {
       w: 100,
       h: 100,
-      color: '#000000',
-      strokeWidth: 1,
       dash: 'solid',
       startX: 0,
       startY: 0,
       endX: 100,
       endY: 100,
+      ...DEFAULT_STROKE_ONLY_PROPS,
     }
   }
 

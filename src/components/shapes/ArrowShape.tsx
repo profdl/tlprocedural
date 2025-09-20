@@ -31,10 +31,8 @@ export class CustomArrowShapeUtil extends FlippableShapeUtil<CustomArrowShape> {
     return {
       w: 150,
       h: 80,
-      color: '#000000',
-      fillColor: '#000000',
-      strokeWidth: 2,
-      fill: true,
+      strokeWidth: 2, // Arrow uses thicker stroke by default
+      ...this.getCommonDefaultProps(),
     }
   }
 

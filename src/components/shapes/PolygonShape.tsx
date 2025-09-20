@@ -39,10 +39,7 @@ export class PolygonShapeUtil extends FlippableShapeUtil<PolygonShape> {
       w: 120,
       h: 120,
       sides: 6,
-      color: '#000000',
-      fillColor: '#000000',
-      strokeWidth: 1,
-      fill: false,
+      ...this.getCommonDefaultProps(),
     }
   }
 

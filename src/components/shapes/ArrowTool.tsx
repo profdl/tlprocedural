@@ -1,5 +1,6 @@
 import { StateNode, type TLEventHandlers, createShapeId } from 'tldraw'
 import type { CustomArrowShape } from './ArrowShape'
+import { DEFAULT_SHAPE_PROPS } from './constants/defaultShapeProps'
 
 export class CustomArrowTool extends StateNode {
   static override id = 'custom-arrow'
@@ -35,10 +36,8 @@ export class CustomArrowTool extends StateNode {
         props: {
           w: 150,
           h: 80,
-          color: '#000000',
-          fillColor: '#000000',
-          strokeWidth: 2,
-          fill: true,
+          strokeWidth: 2, // Arrow uses thicker stroke by default
+          ...DEFAULT_SHAPE_PROPS,
         },
         meta: {},
         opacity: 1,

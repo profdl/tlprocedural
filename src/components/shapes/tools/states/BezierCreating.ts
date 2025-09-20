@@ -8,6 +8,7 @@ import {
 } from '@tldraw/editor'
 import { type BezierShape, type BezierPoint } from '../../BezierShape'
 import { BEZIER_THRESHOLDS, BEZIER_HANDLES } from '../../utils/bezierConstants'
+import { DEFAULT_SHAPE_PROPS } from '../../constants/defaultShapeProps'
 
 export class BezierCreating extends StateNode {
   static override id = 'creating'
@@ -394,11 +395,9 @@ export class BezierCreating extends StateNode {
           w,
           h,
           points: normalizedPoints,
-          color: '#000000', // Default color
-          strokeWidth: 1,
-          fill: false,
           isClosed: isClosed,
           editMode: forceEditMode !== undefined ? forceEditMode : !isClosed,
+          ...DEFAULT_SHAPE_PROPS,
         },
       }
 
@@ -456,11 +455,9 @@ export class BezierCreating extends StateNode {
         w,
         h,
         points: normalizedPoints,
-        color: '#000000', // Default color
-        strokeWidth: 1,
-        fill: false,
         isClosed: isClosed,
         editMode: forceEditMode !== undefined ? forceEditMode : !isClosed,
+        ...DEFAULT_SHAPE_PROPS,
       },
     }
 

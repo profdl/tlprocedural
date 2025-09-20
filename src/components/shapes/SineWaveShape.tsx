@@ -1,4 +1,5 @@
 import { BaseBoxShapeUtil, HTMLContainer, T, type TLBaseShape, type RecordProps, type TLResizeInfo } from 'tldraw'
+import { DEFAULT_STROKE_ONLY_PROPS } from './constants/defaultShapeProps'
 
 export type SineWaveShape = TLBaseShape<
   'sine-wave',
@@ -36,8 +37,7 @@ export class SineWaveShapeUtil extends BaseBoxShapeUtil<SineWaveShape> {
       amplitude: 40,
       frequency: 1,
       phase: 0,
-      strokeWidth: 1,
-      color: '#000000',
+      ...DEFAULT_STROKE_ONLY_PROPS,
     }
   }
 

@@ -1,4 +1,5 @@
 import { BaseBoxShapeUtil, type TLResizeInfo, type TLBaseShape } from 'tldraw'
+import { DEFAULT_SHAPE_PROPS, type CommonShapeProps } from '../constants/defaultShapeProps'
 
 /**
  * A mixin utility that adds flipping support to any BaseBoxShapeUtil-based shape
@@ -127,11 +128,19 @@ export abstract class FlippableShapeUtil<T extends TLBaseShape<string, { w: numb
    * Called when a flip operation occurs via flipShapes or during resize
    */
   protected onFlipCustom?(
-    shape: T, 
+    shape: T,
     direction: 'horizontal' | 'vertical',
-    isFlippedX: boolean, 
+    isFlippedX: boolean,
     isFlippedY: boolean
   ): T
+
+  /**
+   * Helper method to get common default props for all shapes
+   * Shapes can merge these with their specific defaults
+   */
+  protected getCommonDefaultProps(): CommonShapeProps {
+    return DEFAULT_SHAPE_PROPS
+  }
 }
 
 /**

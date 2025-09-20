@@ -45,12 +45,10 @@ export class DrawShapeUtil extends FlippableShapeUtil<DrawShape> {
     return {
       w: 1,
       h: 1,
-      color: '#000000',
-      fillColor: '#000000',
-      strokeWidth: 1,
       segments: [],
       isClosed: false,
       smoothing: 0.5,
+      ...this.getCommonDefaultProps(),
     }
   }
 
