@@ -5,8 +5,11 @@ import type {
   CircularArraySettings,
   GridArraySettings,
   MirrorSettings,
+  BooleanSettings,
   GroupContext
 } from '../../../types/modifiers'
+import { GeometryConverter } from '../utils/GeometryConverter'
+import type { BezierShape } from '../../../components/shapes/BezierShape'
 
 /**
  * Calculate orbital rotation around a center point
@@ -46,6 +49,18 @@ export interface VirtualInstance {
     index: number
     sourceIndex?: number
     arrayIndex?: number
+    // Boolean operation metadata for deferred execution
+    virtualId?: string  // Unique identifier for this virtual instance
+    booleanGroupId?: string  // Groups instances for boolean operation
+    booleanRole?: 'source' | 'operand' | 'result'
+    booleanPending?: boolean  // Marks instances waiting for boolean operation
+    deferredBoolean?: {
+      inputInstanceIds: string[]  // References to virtual instances
+      operation: 'union' | 'subtract' | 'intersect' | 'exclude'
+      computeOnMaterialize: boolean
+      cacheKey?: string  // For optimization
+      storageKey?: string  // Key to retrieve stored instances from static storage
+    }
     [key: string]: unknown
   }
 }
@@ -65,6 +80,11 @@ export interface VirtualModifierState {
  * Composes transforms mathematically instead of creating intermediate shapes
  */
 export class TransformComposer {
+  // Cache for boolean operation results
+  private static booleanCache = new Map<string, import('../utils/GeometryConverter').PolygonCoordinates>()
+
+  // Temporary storage for virtual instances that need to be processed for boolean operations
+  private static virtualInstanceStorage = new Map<string, VirtualInstance[]>()
   /**
    * Process modifiers using matrix composition for O(n) complexity
    * instead of O(n²) instance multiplication
@@ -119,7 +139,7 @@ export class TransformComposer {
     instances: VirtualInstance[],
     modifier: TLModifier,
     originalShape: TLShape,
-    _groupContext?: GroupContext
+    _groupContext?: GroupContext  // eslint-disable-line @typescript-eslint/no-unused-vars
   ): VirtualInstance[] {
     switch (modifier.type) {
       case 'linear-array':
@@ -130,6 +150,8 @@ export class TransformComposer {
         return this.applyGridArray(instances, modifier.props as GridArraySettings, originalShape)
       case 'mirror':
         return this.applyMirror(instances, modifier.props as MirrorSettings, originalShape)
+      case 'boolean':
+        return this.applyBoolean(instances, modifier.props as BooleanSettings, originalShape)
     }
   }
 
@@ -222,7 +244,7 @@ export class TransformComposer {
   private static applyCircularArray(
     instances: VirtualInstance[],
     settings: CircularArraySettings,
-    _originalShape: TLShape
+    _originalShape: TLShape  // eslint-disable-line @typescript-eslint/no-unused-vars
   ): VirtualInstance[] {
     const { count, radius, startAngle, endAngle, centerX, centerY, rotateAll, rotateEach, alignToTangent } = settings
     const newInstances: VirtualInstance[] = []
@@ -283,7 +305,7 @@ export class TransformComposer {
   private static applyGridArray(
     instances: VirtualInstance[],
     settings: GridArraySettings,
-    _originalShape: TLShape
+    _originalShape: TLShape  // eslint-disable-line @typescript-eslint/no-unused-vars
   ): VirtualInstance[] {
     const { rows, columns, spacingX, spacingY, offsetX, offsetY } = settings
     const newInstances: VirtualInstance[] = []
@@ -327,7 +349,7 @@ export class TransformComposer {
   private static applyMirror(
     instances: VirtualInstance[],
     settings: MirrorSettings,
-    _originalShape: TLShape
+    _originalShape: TLShape  // eslint-disable-line @typescript-eslint/no-unused-vars
   ): VirtualInstance[] {
     const { axis, offset } = settings
 
@@ -405,6 +427,90 @@ export class TransformComposer {
     return newInstances
   }
 
+  /**
+   * Boolean modifier using deferred execution for optimal performance
+   * Stores boolean intent without computing geometry until materialization
+   */
+  private static applyBoolean(
+    instances: VirtualInstance[],
+    settings: BooleanSettings,
+    originalShape: TLShape
+  ): VirtualInstance[] {
+    const booleanGroupId = this.generateBooleanGroupId()
+    const storageKey = `${booleanGroupId}-instances`
+
+    // Mark all input instances with boolean metadata for deferred processing
+    const markedInstances = instances.map((instance) => ({
+      ...instance,
+      metadata: {
+        ...instance.metadata,
+        virtualId: instance.metadata.virtualId || `${instance.sourceShapeId}-${instance.metadata.index}`,
+        booleanGroupId,
+        booleanRole: 'source' as const,
+        booleanPending: true
+      }
+    }))
+
+    // Store instances in static storage for later retrieval
+    this.virtualInstanceStorage.set(storageKey, markedInstances)
+
+    // Create single virtual "result" instance with deferred computation
+    const resultInstance: VirtualInstance = {
+      sourceShapeId: originalShape.id,
+      transform: Mat.Identity(), // Position computed during materialization
+      metadata: {
+        modifierType: 'boolean-result',
+        index: 0,
+        virtualId: `${originalShape.id}-boolean-result-${booleanGroupId}`,
+        booleanGroupId,
+        booleanRole: 'result',
+        deferredBoolean: {
+          inputInstanceIds: markedInstances.map(i => i.metadata.virtualId!),
+          operation: settings.operation,
+          computeOnMaterialize: true,
+          cacheKey: this.computeBooleanCacheKey(markedInstances, settings.operation),
+          storageKey: storageKey
+        }
+      }
+    }
+
+    console.log('🔧 Boolean modifier applied:', {
+      operation: settings.operation,
+      inputInstancesCount: instances.length,
+      markedInstancesCount: markedInstances.length,
+      booleanGroupId,
+      storageKey,
+      instancePositions: markedInstances.map(i => ({
+        index: i.metadata.index,
+        position: i.transform.point(),
+        modifierType: i.metadata.modifierType
+      }))
+    })
+
+    // Return only the result instance - original instances are preserved in static storage
+    // This maintains the virtual instance performance optimization
+    return [resultInstance]
+  }
+
+  /**
+   * Generate unique boolean group ID
+   */
+  private static generateBooleanGroupId(): string {
+    return `boolean-group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  }
+
+  /**
+   * Compute cache key for boolean operations
+   */
+  private static computeBooleanCacheKey(
+    instances: VirtualInstance[],
+    operation: string
+  ): string {
+    const transformHashes = instances.map(instance =>
+      `${instance.transform.toString()}-${instance.sourceShapeId}`
+    ).join('|')
+    return `${operation}:${transformHashes}`
+  }
 
   /**
    * Helper to get shape bounds for percentage calculations
@@ -472,6 +578,29 @@ export class TransformComposer {
     createId: () => TLShapeId
   ): { create: TLShape[], update: Partial<TLShape>[], delete: TLShapeId[] } {
     const { originalShape, virtualInstances } = virtualState
+
+    // Check for deferred boolean operations
+    const booleanResults = virtualInstances.filter(
+      inst => inst.metadata.deferredBoolean
+    )
+
+    if (booleanResults.length > 0) {
+      console.log('🔍 Found boolean result in materializeWithCache:', {
+        booleanResultsCount: booleanResults.length,
+        operation: booleanResults[0]?.metadata.deferredBoolean?.operation,
+        storageKey: booleanResults[0]?.metadata.deferredBoolean?.storageKey
+      })
+
+      // Only materialize the boolean result, not the source instances
+      return this.materializeBooleanDeferred(
+        booleanResults[0],
+        virtualState,
+        existingShapes,
+        createId
+      )
+    }
+
+    // Regular materialization for non-boolean modifiers
     const used = new Set<TLShapeId>()
     const create: TLShape[] = []
     const update: Partial<TLShape>[] = []
@@ -533,5 +662,205 @@ export class TransformComposer {
     // console.log(`[TransformComposer.materializeWithCache] Returning: create=${create.length}, update=${update.length}, delete=${deleteIds.length}`)
 
     return { create, update, delete: deleteIds }
+  }
+
+  /**
+   * Materialize boolean operations with deferred execution
+   * Only computes boolean geometry when absolutely necessary
+   */
+  private static materializeBooleanDeferred(
+    resultInstance: VirtualInstance,
+    virtualState: VirtualModifierState,
+    existingShapes: Map<number, TLShape>,
+    createId: () => TLShapeId
+  ): { create: TLShape[], update: Partial<TLShape>[], delete: TLShapeId[] } {
+    const { deferredBoolean } = resultInstance.metadata
+
+    if (!deferredBoolean) {
+      throw new Error('materializeBooleanDeferred called without deferred boolean metadata')
+    }
+
+    console.log('🔧 Starting boolean materialization:', {
+      operation: deferredBoolean.operation,
+      inputInstanceIds: deferredBoolean.inputInstanceIds,
+      hasStorageKey: !!deferredBoolean.storageKey
+    })
+
+    // Check cache first
+    const cacheKey = deferredBoolean.cacheKey!
+    let mergedPolygon = this.booleanCache.get(cacheKey)
+
+    if (!mergedPolygon) {
+      // Get the source virtual instances that need to be processed
+      const sourceInstances = this.getSourceInstancesFromMetadata(virtualState, deferredBoolean.inputInstanceIds)
+
+      console.log('💫 Source instances retrieved:', {
+        count: sourceInstances.length,
+        positions: sourceInstances.map(i => i.transform.point())
+      })
+
+      if (sourceInstances.length === 0) {
+        console.error('❌ No source instances found for boolean operation')
+        return { create: [], update: [], delete: [] }
+      }
+
+      // Temporarily materialize shapes for geometry extraction (in memory only)
+      const tempShapes = this.materializeInstancesForGeometry(sourceInstances, virtualState.originalShape)
+
+      console.log('🏗️ Temporary shapes for geometry:', {
+        count: tempShapes.length,
+        shapes: tempShapes.map(s => ({ x: s.x, y: s.y, rotation: s.rotation }))
+      })
+
+      // Perform boolean operation
+      mergedPolygon = GeometryConverter.performBooleanOperation(
+        tempShapes,
+        deferredBoolean.operation
+      )
+
+      console.log('🔗 Boolean operation result:', {
+        operation: deferredBoolean.operation,
+        resultPolygonLength: mergedPolygon.length
+      })
+
+      // Cache the result for future use
+      this.booleanCache.set(cacheKey, mergedPolygon)
+    } else {
+      console.log('♻️ Using cached boolean result')
+    }
+
+    // Convert polygon to bezier shape for proper rendering of merged geometry
+    const bezierShapeData = GeometryConverter.polygonToBezierShape(mergedPolygon, virtualState.originalShape)
+
+    console.log('📐 Bezier shape data:', bezierShapeData)
+
+    // Create the final boolean result shape as a bezier shape
+    const booleanResultShape: BezierShape = {
+      id: createId(),
+      type: 'bezier',
+      x: bezierShapeData.x,
+      y: bezierShapeData.y,
+      rotation: 0,
+      isLocked: false,
+      opacity: 1,
+      props: bezierShapeData.props,
+      meta: {
+        ...virtualState.originalShape.meta,
+        isBooleanResult: true,
+        booleanOperation: deferredBoolean.operation,
+        stackProcessed: true,
+        originalShapeId: virtualState.originalShape.id
+      },
+      parentId: virtualState.originalShape.parentId,
+      index: virtualState.originalShape.index,
+      typeName: 'shape' as const
+    }
+
+    console.log('✨ Final boolean result shape:', {
+      id: booleanResultShape.id,
+      type: booleanResultShape.type,
+      x: booleanResultShape.x,
+      y: booleanResultShape.y,
+      w: (booleanResultShape.props as any).w,
+      h: (booleanResultShape.props as any).h,
+      operation: deferredBoolean.operation,
+      bezierPointsCount: (booleanResultShape.props as any).points?.length,
+      isClosed: (booleanResultShape.props as any).isClosed,
+      fill: (booleanResultShape.props as any).fill
+    })
+
+    // Delete all existing shapes and replace with the boolean result
+    const deleteIds = Array.from(existingShapes.values()).map(s => s.id)
+
+    return {
+      create: [booleanResultShape as TLShape],
+      update: [],
+      delete: deleteIds
+    }
+  }
+
+  /**
+   * Reconstruct source instances from metadata for boolean processing
+   */
+  private static getSourceInstancesFromMetadata(
+    virtualState: VirtualModifierState,
+    inputInstanceIds: string[]
+  ): VirtualInstance[] {
+    // First, try to get stored instances from the static storage
+    const booleanResult = virtualState.virtualInstances.find(
+      inst => inst.metadata.deferredBoolean
+    )
+
+    if (booleanResult?.metadata.deferredBoolean?.storageKey) {
+      const storageKey = booleanResult.metadata.deferredBoolean.storageKey
+      const storedInstances = this.virtualInstanceStorage.get(storageKey)
+
+      if (storedInstances) {
+        console.log('📦 Using stored instances from static storage:', {
+          storageKey,
+          storedCount: storedInstances.length,
+          inputInstanceIds
+        })
+        return storedInstances
+      }
+    }
+
+    // Fallback: filter from existing virtual instances
+    console.log('⚠️ Fallback: Filtering from existing virtual instances')
+    const sourceInstances = virtualState.virtualInstances.filter(instance =>
+      instance.metadata.modifierType !== 'boolean-result' &&
+      instance.metadata.modifierType !== 'original' &&
+      (inputInstanceIds.length === 0 || inputInstanceIds.includes(instance.metadata.virtualId || ''))
+    )
+
+    console.log('🔍 Source instances found:', {
+      sourceCount: sourceInstances.length,
+      instances: sourceInstances.map(i => ({
+        modifierType: i.metadata.modifierType,
+        index: i.metadata.index,
+        position: i.transform.point()
+      }))
+    })
+
+    return sourceInstances
+  }
+
+  /**
+   * Materialize virtual instances temporarily for geometry extraction
+   */
+  private static materializeInstancesForGeometry(
+    instances: VirtualInstance[],
+    originalShape: TLShape
+  ): TLShape[] {
+    return instances.map((instance, index) => {
+      const { x, y } = instance.transform.point()
+      const rotation = instance.metadata.targetRotation ?? instance.transform.rotation()
+
+      return {
+        ...originalShape,
+        id: `temp-${index}` as TLShapeId,
+        x,
+        y,
+        rotation: typeof rotation === 'number' ? rotation : 0,
+        meta: {
+          ...originalShape.meta,
+          isTemporary: true
+        }
+      } as TLShape
+    })
+  }
+
+  /**
+   * Clear boolean cache for memory management
+   */
+  static clearBooleanCache(): void {
+    this.booleanCache.clear()
+  }
+
+  /**
+   * Clear virtual instance storage for memory management
+   */
+  static clearVirtualInstanceStorage(): void {
+    this.virtualInstanceStorage.clear()
   }
 }

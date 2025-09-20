@@ -2,9 +2,10 @@ import type {
   LinearArraySettings,
   CircularArraySettings,
   GridArraySettings,
-  MirrorSettings
+  MirrorSettings,
+  BooleanSettings
 } from '../../../types/modifiers'
-import { INPUT_CONSTRAINTS, MIRROR_AXIS_OPTIONS } from '../constants'
+import { INPUT_CONSTRAINTS, MIRROR_AXIS_OPTIONS, BOOLEAN_OPERATION_OPTIONS } from '../constants'
 
 // Input configuration types
 export interface NumberInputConfig {
@@ -48,6 +49,7 @@ export interface ModifierSchemas {
   'circular-array': ModifierSchema<CircularArraySettings>
   'grid-array': ModifierSchema<GridArraySettings>
   'mirror': ModifierSchema<MirrorSettings>
+  'boolean': ModifierSchema<BooleanSettings>
 }
 
 // Modifier UI schemas configuration
@@ -307,7 +309,21 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
       }
     ]
   },
-  
+
+  'boolean': {
+    inputs: [
+      {
+        type: 'select',
+        label: 'Operation',
+        field: 'operation',
+        options: BOOLEAN_OPERATION_OPTIONS.map(option => ({
+          value: option.value,
+          label: option.label
+        })),
+        fullWidth: true
+      }
+    ]
+  }
 }
 
 // Helper function to get schema for a modifier type

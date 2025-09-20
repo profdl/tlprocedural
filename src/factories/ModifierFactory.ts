@@ -6,6 +6,7 @@ import {
   type TLCircularArrayModifier,
   type TLGridArrayModifier,
   type TLMirrorModifier,
+  type TLBooleanModifier,
   type ModifierType,
   createModifierId
 } from '../types/modifiers'
@@ -154,6 +155,27 @@ export class MirrorModifierFactory extends BaseModifierFactory<TLMirrorModifier>
   }
 }
 
+/**
+ * Boolean Modifier Factory
+ */
+export class BooleanModifierFactory extends BaseModifierFactory<TLBooleanModifier> {
+  createModifier(
+    id: TLModifierId,
+    targetShapeId: TLShapeId,
+    order: number,
+    settings: Partial<TLBooleanModifier['props']> = {}
+  ): TLBooleanModifier {
+    return {
+      ...this.createBaseModifier(id, 'boolean', targetShapeId, order),
+      type: 'boolean',
+      props: {
+        operation: 'union',
+        ...settings
+      }
+    }
+  }
+}
+
 
 /**
  * Main Modifier Factory Registry
@@ -164,7 +186,8 @@ export class ModifierFactory {
     'linear-array': new LinearArrayModifierFactory(),
     'circular-array': new CircularArrayModifierFactory(),
     'grid-array': new GridArrayModifierFactory(),
-    'mirror': new MirrorModifierFactory()
+    'mirror': new MirrorModifierFactory(),
+    'boolean': new BooleanModifierFactory()
   }
 
   /**
@@ -178,7 +201,7 @@ export class ModifierFactory {
   ): TLModifier {
     const factory = this.factories[type]
     if (!factory) {
-      throw new Error(`Unknown modifier type: ${type}`)
+      throw new Error(`Unknown modifier type: ${type}. Available types: ${Object.keys(this.factories).join(', ')}`)
     }
 
     const id = createModifierId()

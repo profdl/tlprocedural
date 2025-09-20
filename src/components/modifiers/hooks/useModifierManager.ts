@@ -5,17 +5,10 @@ import { getOriginalShapeId, findTopLevelGroup, getGroupPageBounds, getGroupChil
 import { applyRotationToShapes } from '../utils/transformUtils'
 import { useEditor, createShapeId } from 'tldraw'
 import type { TLShape } from 'tldraw'
-import type { TLModifier, TLModifierId, GroupContext } from '../../../types/modifiers'
+import type { TLModifier, TLModifierId, GroupContext, ModifierType } from '../../../types/modifiers'
 
-type ModifierType = 'linear' | 'circular' | 'grid' | 'mirror'
-
-// Optimized mapping from UI type names to internal store type names
-const UI_TO_STORE_TYPE_MAP: Record<ModifierType, 'linear-array' | 'circular-array' | 'grid-array' | 'mirror'> = {
-  linear: 'linear-array',
-  circular: 'circular-array',
-  grid: 'grid-array',
-  mirror: 'mirror'
-} as const
+// Since ModifierActionButtons now sends the correct internal types,
+// we don't need a mapping - just pass through the type directly
 
 interface UseModifierManagerProps {
   selectedShapes: TLShape[]
@@ -62,11 +55,9 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
     // Use original shape ID for clones/processed shapes
     const originalShapeId = getOriginalShapeId(selectedShape) || selectedShape.id
 
-    // Map UI type to internal type using the optimized constant
-    const storeType = UI_TO_STORE_TYPE_MAP[type]
-
-    // Create modifier using existing store method (simpler approach)
-    store.createModifier(originalShapeId as import('tldraw').TLShapeId, storeType, {})
+    // Create modifier using existing store method
+    // ModifierActionButtons already provides the correct internal type
+    store.createModifier(originalShapeId as import('tldraw').TLShapeId, type, {})
   }, [selectedShape, store])
 
   const applyModifiers = useCallback(() => {
@@ -96,8 +87,17 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
         ? editor.getShape(originalShapeId as import('tldraw').TLShapeId) || selectedShape
         : selectedShape
 
-      // All remaining modifiers are array modifiers
-      console.log('🔄 Processing array modifiers:', enabledModifiers.map(m => ({ id: m.id, type: m.type })))
+      // Check if we have boolean modifiers (they need special handling)
+      const hasBooleanModifiers = enabledModifiers.some(m => m.type === 'boolean')
+      const arrayModifiers = enabledModifiers.filter(m => m.type !== 'boolean')
+      const booleanModifiers = enabledModifiers.filter(m => m.type === 'boolean')
+
+      console.log('🔄 Processing modifiers:', {
+        total: enabledModifiers.length,
+        boolean: booleanModifiers.length,
+        array: arrayModifiers.length,
+        modifiers: enabledModifiers.map(m => ({ id: m.id, type: m.type }))
+      })
 
       // Create group context if needed
       const parentGroup = findTopLevelGroup(actualOriginalShape, editor)
@@ -130,57 +130,100 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
       }
 
       const result = TransformComposer.processModifiers(actualOriginalShape, enabledModifiers, groupContext)
-        const transformedShapes = extractShapesFromState(result)
+      const transformedShapes = extractShapesFromState(result)
 
-        console.log('📐 Transform results:', {
-          totalShapes: transformedShapes.length,
-          originalShape: transformedShapes[0]?.id,
-          clonesToCreate: transformedShapes.length - 1
+      console.log('📐 Transform results:', {
+        totalShapes: transformedShapes.length,
+        originalShape: transformedShapes[0]?.id,
+        hasBooleanModifiers,
+        shapeTypes: transformedShapes.map(s => s.type)
+      })
+
+      editor.run(() => {
+        // Clean up existing preview clones before creating permanent shapes
+        const existingClones = editor.getCurrentPageShapes().filter((s: TLShape) => {
+          const originalId = getOriginalShapeId(s)
+          return originalId === actualOriginalShape.id && s.meta?.stackProcessed
         })
 
-        // Create actual shapes from the transformed results (skip the first one as it's the original)
-        const shapesToCreate = transformedShapes.slice(1).map(transformedShape => {
-          const newId = createShapeId()
-          return {
-            id: newId,
-            type: transformedShape.type,
-            x: transformedShape.x,
-            y: transformedShape.y,
-            rotation: 0, // Always create with 0 rotation, then apply rotation separately
-            props: transformedShape.props,
-            parentId: actualOriginalShape.parentId,
-            meta: {
-              // Don't include stackProcessed or other preview-related metadata
-              appliedFromModifier: true,
-              originalShapeId: actualOriginalShape.id
+        if (existingClones.length > 0) {
+          editor.deleteShapes(existingClones.map((s: TLShape) => s.id))
+        }
+
+        if (hasBooleanModifiers) {
+          // Boolean operations: Replace the original shape with the boolean result
+          console.log('🔧 Handling boolean modifiers - replacing original shape')
+
+          // Find the boolean result shape (should be a bezier shape)
+          const booleanResult = transformedShapes.find(s => s.type === 'bezier')
+
+          if (booleanResult) {
+            console.log('✨ Creating boolean result shape:', {
+              type: booleanResult.type,
+              x: booleanResult.x,
+              y: booleanResult.y
+            })
+
+            // Delete the original shape
+            editor.deleteShapes([actualOriginalShape.id])
+
+            // Create the boolean result shape
+            const newId = createShapeId()
+            const resultShape = {
+              id: newId,
+              type: booleanResult.type,
+              x: booleanResult.x,
+              y: booleanResult.y,
+              rotation: 0,
+              props: booleanResult.props,
+              parentId: actualOriginalShape.parentId,
+              meta: {
+                appliedFromBoolean: true,
+                originalShapeId: actualOriginalShape.id
+              }
             }
+
+            editor.createShapes([resultShape])
+            console.log('✅ Boolean result shape created successfully!')
+          } else {
+            console.error('❌ No boolean result shape found in transform results')
           }
-        })
+        } else {
+          // Array modifiers: Create clones alongside the original
+          console.log('🏗️ Handling array modifiers - creating clones')
 
-        console.log('🏗️ Shapes to create:', {
-          count: shapesToCreate.length,
-          shapes: shapesToCreate.map(s => ({ id: s.id, type: s.type, x: s.x, y: s.y }))
-        })
-
-        if (shapesToCreate.length > 0) {
-          editor.run(() => {
-            // Clean up existing preview clones before creating permanent shapes
-            const existingClones = editor.getCurrentPageShapes().filter((s: TLShape) => {
-              const originalId = getOriginalShapeId(s)
-              return originalId === actualOriginalShape.id && s.meta?.stackProcessed
-            })
-
-            if (existingClones.length > 0) {
-              editor.deleteShapes(existingClones.map((s: TLShape) => s.id))
+          // Create actual shapes from the transformed results (skip the first one as it's the original)
+          const shapesToCreate = transformedShapes.slice(1).map(transformedShape => {
+            const newId = createShapeId()
+            return {
+              id: newId,
+              type: transformedShape.type,
+              x: transformedShape.x,
+              y: transformedShape.y,
+              rotation: 0, // Always create with 0 rotation, then apply rotation separately
+              props: transformedShape.props,
+              parentId: actualOriginalShape.parentId,
+              meta: {
+                // Don't include stackProcessed or other preview-related metadata
+                appliedFromModifier: true,
+                originalShapeId: actualOriginalShape.id
+              }
             }
+          })
 
-            // Restore original shape visibility
-            editor.updateShape({
-              id: actualOriginalShape.id,
-              type: actualOriginalShape.type,
-              opacity: 1
-            })
+          console.log('🏗️ Shapes to create:', {
+            count: shapesToCreate.length,
+            shapes: shapesToCreate.map(s => ({ id: s.id, type: s.type, x: s.x, y: s.y }))
+          })
 
+          // Restore original shape visibility
+          editor.updateShape({
+            id: actualOriginalShape.id,
+            type: actualOriginalShape.type,
+            opacity: 1
+          })
+
+          if (shapesToCreate.length > 0) {
             console.log('✨ About to create permanent shapes:', {
               count: shapesToCreate.length,
               firstShape: shapesToCreate[0]
@@ -197,14 +240,15 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
                 applyRotationToShapes(editor, [shapeId], transformedShape.rotation)
               }
             })
-          }, { history: 'record' })
-
-          console.log('🗑️ Removing applied modifiers:', enabledModifiers.map(m => m.id))
-          // Remove the applied modifiers
-          enabledModifiers.forEach(modifier => {
-            store.deleteModifier(modifier.id)
-          })
+          }
         }
+      }, { history: 'record' })
+
+      console.log('🗑️ Removing applied modifiers:', enabledModifiers.map(m => m.id))
+      // Remove the applied modifiers
+      enabledModifiers.forEach(modifier => {
+        store.deleteModifier(modifier.id)
+      })
     } catch (error) {
       console.error('Failed to apply modifiers:', error)
     }

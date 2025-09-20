@@ -14,6 +14,21 @@ export function createInitialVirtualState(shape: TLShape): VirtualModifierState 
  * This materializes the virtual instances into actual shapes
  */
 export function extractShapesFromState(state: VirtualModifierState): TLShape[] {
+  // Check if we have boolean operations that need special handling
+  const hasBooleanOperations = state.virtualInstances.some(
+    inst => inst.metadata.deferredBoolean
+  )
+
+  if (hasBooleanOperations) {
+    console.log('🔍 Boolean operations detected in extractShapesFromState, using materializeWithCache')
+    // For boolean operations, use the cache-aware materialization
+    let idCounter = 0
+    const createId = (): TLShapeId => createShapeId(`clone-${state.originalShape.id}-${idCounter++}`)
+
+    const result = TransformComposer.materializeWithCache(state, new Map(), createId)
+    return result.create // Return only the created shapes
+  }
+
   // Generate unique IDs for each shape
   let idCounter = 0
   const createId = (): TLShapeId => createShapeId(`clone-${state.originalShape.id}-${idCounter++}`)

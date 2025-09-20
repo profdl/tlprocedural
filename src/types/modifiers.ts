@@ -75,6 +75,12 @@ export interface MirrorSettings {
   mergeThreshold: number
 }
 
+// Boolean Modifier Settings
+export interface BooleanSettings {
+  operation: 'union' | 'subtract' | 'intersect' | 'exclude'
+  targetShapeId?: TLShapeId // Optional: for operations with another shape
+}
+
 
 // Union of all modifier types
 export type TLModifier =
@@ -82,6 +88,7 @@ export type TLModifier =
   | TLCircularArrayModifier
   | TLGridArrayModifier
   | TLMirrorModifier
+  | TLBooleanModifier
 
 // Specific modifier types
 export interface TLLinearArrayModifier extends TLModifierRecord {
@@ -102,6 +109,11 @@ export interface TLGridArrayModifier extends TLModifierRecord {
 export interface TLMirrorModifier extends TLModifierRecord {
   type: 'mirror'
   props: MirrorSettings
+}
+
+export interface TLBooleanModifier extends TLModifierRecord {
+  type: 'boolean'
+  props: BooleanSettings
 }
 
 

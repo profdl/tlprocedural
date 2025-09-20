@@ -16,7 +16,8 @@
       "Bash(mcp__ide__getDiagnostics:*)",
       "Bash(tsc -b --noEmit)",
       "WebSearch",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,8 +1,7 @@
 import { useCallback } from 'react'
 import { AddButton, type AddButtonOption } from './AddButton'
 import { ModifierButton } from './ModifierButton'
-
-type ModifierType = 'linear' | 'circular' | 'grid' | 'mirror'
+import type { ModifierType } from '../../../types/modifiers'
 
 interface ModifierActionButtonsProps {
   selectedShape: boolean
@@ -23,10 +22,11 @@ export function ModifierActionButtons({
 }: ModifierActionButtonsProps) {
   const handleAddModifier = useCallback((optionId: string) => {
     const typeMap: Record<string, ModifierType> = {
-      'linear': 'linear',
-      'circular': 'circular',
-      'grid': 'grid',
-      'mirror': 'mirror'
+      'linear': 'linear-array',
+      'circular': 'circular-array',
+      'grid': 'grid-array',
+      'mirror': 'mirror',
+      'boolean': 'boolean'
     }
     const type = typeMap[optionId]
     if (type) {
@@ -56,6 +56,12 @@ export function ModifierActionButtons({
       id: 'mirror',
       label: 'Mirror',
       icon: 'mirror'
+    },
+    // Boolean Modifiers
+    {
+      id: 'boolean',
+      label: 'Boolean',
+      icon: 'union'
     }
   ]
 

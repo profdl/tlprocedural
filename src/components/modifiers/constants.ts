@@ -4,14 +4,10 @@ export const MODIFIER_TYPES = {
   CIRCULAR_ARRAY: 'circular-array',
   GRID_ARRAY: 'grid-array',
   MIRROR: 'mirror',
-  L_SYSTEM: 'lsystem',
-  SUBDIVIDE: 'subdivide',
-  NOISE_OFFSET: 'noise-offset',
-  SMOOTH: 'smooth',
-  SIMPLIFY: 'simplify'
+  BOOLEAN: 'boolean'
 } as const
 
-export type ModifierType = typeof MODIFIER_TYPES[keyof typeof MODIFIER_TYPES]
+// ModifierType is defined in ../../../types/modifiers.ts
 
 // Default settings for each modifier type
 export const DEFAULT_SETTINGS = {
@@ -46,37 +42,8 @@ export const DEFAULT_SETTINGS = {
     offset: 0,
     mergeThreshold: 10
   },
-  [MODIFIER_TYPES.L_SYSTEM]: {
-    axiom: 'F',
-    rules: { 'F': 'F+F−F−F+F' },
-    iterations: 6,
-    angle: 20,
-    stepPercent: 100,
-    lengthDecay: 1.0,
-    scalePerIteration: 1.0
-  },
-  [MODIFIER_TYPES.SUBDIVIDE]: {
-    iterations: 1,
-    factor: 0.5,
-    smooth: false
-  },
-  [MODIFIER_TYPES.NOISE_OFFSET]: {
-    amplitude: 10,
-    frequency: 0.1,
-    octaves: 3,
-    seed: 123,
-    direction: 'both' as const
-  },
-  [MODIFIER_TYPES.SMOOTH]: {
-    iterations: 1,
-    factor: 0.5,
-    preserveCorners: true,
-    cornerThreshold: 90
-  },
-  [MODIFIER_TYPES.SIMPLIFY]: {
-    tolerance: 5,
-    preserveCorners: true,
-    minPoints: 3
+  [MODIFIER_TYPES.BOOLEAN]: {
+    operation: 'union' as const
   }
 } as const
 
@@ -109,105 +76,20 @@ export const MODIFIER_DISPLAY_NAMES = {
   [MODIFIER_TYPES.CIRCULAR_ARRAY]: 'Circular Array',
   [MODIFIER_TYPES.GRID_ARRAY]: 'Grid Array',
   [MODIFIER_TYPES.MIRROR]: 'Mirror',
-  [MODIFIER_TYPES.L_SYSTEM]: 'L-System',
-  [MODIFIER_TYPES.SUBDIVIDE]: 'Subdivide',
-  [MODIFIER_TYPES.NOISE_OFFSET]: 'Noise Offset',
-  [MODIFIER_TYPES.SMOOTH]: 'Smooth',
-  [MODIFIER_TYPES.SIMPLIFY]: 'Simplify'
+  [MODIFIER_TYPES.BOOLEAN]: 'Boolean'
 } as const
-
-// L-System presets (examples)
-export const L_SYSTEM_PRESETS = [
-  {
-    id: 'binary-tree',
-    label: 'Binary Tree',
-    settings: {
-      axiom: 'F',
-      rules: { F: 'F[+F]F[-F]F' },
-      iterations: 6,
-      angle: 25,
-      stepPercent: 100,
-      lengthDecay: 0.75,
-      scalePerIteration: 1.0,
-    }
-  },
-  {
-    id: 'bushy-tree',
-    label: 'Bushy Tree',
-    settings: {
-      axiom: 'F',
-      rules: { F: 'FF-[-F+F+F]+[+F-F-F]' },
-      iterations: 4,
-      angle: 22.5,
-      stepPercent: 100,
-      lengthDecay: 0.7,
-      scalePerIteration: 1.0,
-      branches: [-35, -10, 10, 35],
-      angleJitter: 5,
-      lengthJitter: 0.15,
-      branchProbability: 0.9,
-      continueTrunk: true,
-    }
-  },
-  {
-    id: 'wide-canopy',
-    label: 'Wide Canopy',
-    settings: {
-      axiom: 'F',
-      rules: { F: 'F[+F]F[+F]F' },
-      iterations: 5,
-      angle: 35,
-      stepPercent: 100,
-      lengthDecay: 0.8,
-      scalePerIteration: 1.0,
-      branches: [-45, -20, 0, 20, 45],
-      angleJitter: 8,
-      lengthJitter: 0.2,
-      branchProbability: 0.85,
-      continueTrunk: false,
-    }
-  },
-  {
-    id: 'symmetric-20deg',
-    label: 'Symmetric 20°',
-    settings: {
-      axiom: 'F',
-      rules: { F: 'F[+F]F[-F]F' },
-      iterations: 6,
-      angle: 20,
-      stepPercent: 100,
-      lengthDecay: 1.0,
-      scalePerIteration: 1.0,
-      branches: [-20, 0, 20],
-      angleJitter: 0,
-      lengthJitter: 0,
-      branchProbability: 1,
-      continueTrunk: true,
-    }
-  },
-  {
-    id: 'natural-sparse',
-    label: 'Natural Sparse',
-    settings: {
-      axiom: 'F',
-      rules: { F: 'F[+F]F[-F]F' },
-      iterations: 7,
-      angle: 18,
-      stepPercent: 100,
-      lengthDecay: 0.85,
-      scalePerIteration: 0.95,
-      branches: [-30, -12, 5, 22, 40],
-      angleJitter: 10,
-      lengthJitter: 0.25,
-      branchProbability: 0.7,
-      continueTrunk: true,
-    }
-  },
-] as const
 
 // Mirror axis options
 export const MIRROR_AXIS_OPTIONS = [
   { value: 'x', label: 'Horizontal (X)' },
   { value: 'y', label: 'Vertical (Y)' },
   { value: 'diagonal', label: 'Diagonal' }
+] as const
+
+// Boolean operation options
+export const BOOLEAN_OPERATION_OPTIONS = [
+  { value: 'union', label: 'Union (Merge)' },
+  { value: 'subtract', label: 'Subtract (Cut)' },
+  { value: 'intersect', label: 'Intersect (Common)' },
+  { value: 'exclude', label: 'Exclude (XOR)' }
 ] as const 
