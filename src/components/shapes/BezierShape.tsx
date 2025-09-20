@@ -26,6 +26,7 @@ export type BezierShape = TLBaseShape<
     w: number
     h: number
     color: string
+    fillColor: string
     strokeWidth: number
     fill: boolean
     points: BezierPoint[]
@@ -45,6 +46,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     w: T.number,
     h: T.number,
     color: T.string,
+    fillColor: T.string,
     strokeWidth: T.number,
     fill: T.boolean,
     points: T.arrayOf(T.object({
@@ -82,6 +84,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
       w: 1,
       h: 1,
       color: '#000000',
+      fillColor: '#000000',
       strokeWidth: 1,
       fill: false,
       points: [],
@@ -90,7 +93,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   }
 
   override component(shape: BezierShape) {
-    const { points, color, strokeWidth, fill, isClosed, editMode, selectedPointIndices = [], hoverPoint } = shape.props
+    const { points, color, fillColor, strokeWidth, fill, isClosed, editMode, selectedPointIndices = [], hoverPoint } = shape.props
 
     // Note: This is a class component following TLDraw's ShapeUtil pattern
     // FUTURE CONSIDERATION: Could potentially refactor to functional component if more hook usage is needed
@@ -121,6 +124,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
           <BezierPath
             pathData={pathData}
             color={color}
+            fillColor={fillColor}
             strokeWidth={strokeWidth}
             fill={fill}
             isClosed={isClosed}

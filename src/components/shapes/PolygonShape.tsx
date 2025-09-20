@@ -8,6 +8,7 @@ export type PolygonShape = TLBaseShape<
     h: number
     sides: number
     color: string
+    fillColor: string
     strokeWidth: number
     fill: boolean
     points?: VecLike[] // Optional path data for modified polygons
@@ -23,6 +24,7 @@ export class PolygonShapeUtil extends FlippableShapeUtil<PolygonShape> {
     h: T.number,
     sides: T.number,
     color: T.string,
+    fillColor: T.string,
     strokeWidth: T.number,
     fill: T.boolean,
     points: T.optional(T.arrayOf(T.object({
@@ -38,13 +40,14 @@ export class PolygonShapeUtil extends FlippableShapeUtil<PolygonShape> {
       h: 120,
       sides: 6,
       color: '#000000',
+      fillColor: '#000000',
       strokeWidth: 1,
       fill: false,
     }
   }
 
   override component(shape: PolygonShape) {
-    const { w, h, color, strokeWidth, fill, points, renderAsPath } = shape.props
+    const { w, h, color, fillColor, strokeWidth, fill, points, renderAsPath } = shape.props
 
     // Get flip transform from the FlippableShapeUtil
     const flipTransform = this.getFlipTransform(shape)
@@ -73,7 +76,7 @@ export class PolygonShapeUtil extends FlippableShapeUtil<PolygonShape> {
         >
           <path 
             d={pathData} 
-            fill={fill ? color : 'none'} 
+            fill={fill ? fillColor : 'none'} 
             stroke={color} 
             strokeWidth={strokeWidth}
             strokeLinecap="round"

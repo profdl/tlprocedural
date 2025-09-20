@@ -137,19 +137,12 @@ export function StyleControls({ selectedShapes }: StyleControlsProps) {
               </div>
               <div className="modifier-input">
                 <label className="style-controls__label">Color</label>
-                <div className="style-controls__color-input-container">
+                <div className="color-input-compact__container">
                   <input
                     type="color"
                     value={styles.color}
                     onChange={(e) => updateShapeStyles({ color: e.target.value })}
-                    className="style-controls__color-input"
-                  />
-                  <input
-                    type="text"
-                    value={styles.color}
-                    onChange={(e) => updateShapeStyles({ color: e.target.value })}
-                    className="style-controls__color-text"
-                    placeholder="#000000"
+                    className="color-input-compact__input"
                   />
                 </div>
               </div>
@@ -161,36 +154,27 @@ export function StyleControls({ selectedShapes }: StyleControlsProps) {
             <div className="modifier-controls__section-header">Fill</div>
             <div className="modifier-controls__grid">
               <div className="modifier-input">
-                <div className="style-controls__checkbox-wrapper">
+                <div className="fill-color-checkbox">
                   <input
                     type="checkbox"
                     checked={styles.fill}
                     onChange={(e) => updateShapeStyles({ fill: e.target.checked })}
                     className="style-controls__checkbox"
                   />
-                  <span className="style-controls__checkbox-text">Fill Shape</span>
                 </div>
               </div>
-              {styles.fill && (
-                <div className="modifier-input">
-                  <label className="style-controls__label">Color</label>
-                  <div className="style-controls__color-input-container">
-                    <input
-                      type="color"
-                      value={styles.color}
-                      onChange={(e) => updateShapeStyles({ color: e.target.value })}
-                      className="style-controls__color-input"
-                    />
-                    <input
-                      type="text"
-                      value={styles.color}
-                      onChange={(e) => updateShapeStyles({ color: e.target.value })}
-                      className="style-controls__color-text"
-                      placeholder="#000000"
-                    />
-                  </div>
+              <div className="modifier-input">
+                <label className="style-controls__label">Color</label>
+                <div className="color-input-compact__container">
+                  <input
+                    type="color"
+                    value={styles.color}
+                    onChange={(e) => updateShapeStyles({ color: e.target.value })}
+                    className="color-input-compact__input"
+                    disabled={!styles.fill}
+                  />
                 </div>
-              )}
+              </div>
             </div>
           </div>
 

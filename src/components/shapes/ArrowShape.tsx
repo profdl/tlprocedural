@@ -7,6 +7,7 @@ export type CustomArrowShape = TLBaseShape<
     w: number
     h: number
     color: string
+    fillColor: string
     strokeWidth: number
     fill: boolean
     points?: VecLike[] // Optional path data for modified arrows
@@ -21,6 +22,7 @@ export class CustomArrowShapeUtil extends FlippableShapeUtil<CustomArrowShape> {
     w: T.number,
     h: T.number,
     color: T.string,
+    fillColor: T.string,
     strokeWidth: T.number,
     fill: T.boolean,
   }
@@ -30,13 +32,14 @@ export class CustomArrowShapeUtil extends FlippableShapeUtil<CustomArrowShape> {
       w: 150,
       h: 80,
       color: '#000000',
+      fillColor: '#000000',
       strokeWidth: 2,
       fill: true,
     }
   }
 
   override component(shape: CustomArrowShape) {
-    const { w, h, color, strokeWidth, fill } = shape.props
+    const { w, h, color, fillColor, strokeWidth, fill } = shape.props
     
     // Get flip transform from the FlippableShapeUtil
     const flipTransform = this.getFlipTransform(shape)
@@ -69,7 +72,7 @@ export class CustomArrowShapeUtil extends FlippableShapeUtil<CustomArrowShape> {
         >
           <path 
             d={pathData} 
-            fill={fill ? color : 'none'} 
+            fill={fill ? fillColor : 'none'} 
             stroke={color} 
             strokeWidth={strokeWidth}
             strokeLinecap="round"
@@ -81,7 +84,7 @@ export class CustomArrowShapeUtil extends FlippableShapeUtil<CustomArrowShape> {
             cx={w * 0.3}
             cy={h * 0.2}
             r={3}
-            fill={color}
+            fill={fillColor}
             opacity={0.7}
           />
           
@@ -90,7 +93,7 @@ export class CustomArrowShapeUtil extends FlippableShapeUtil<CustomArrowShape> {
             x={w * 0.25}
             y={h * 0.5}
             fontSize="12"
-            fill={color}
+            fill={fillColor}
             textAnchor="middle"
             dominantBaseline="middle"
             opacity={0.8}

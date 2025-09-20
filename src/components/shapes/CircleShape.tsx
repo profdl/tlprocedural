@@ -7,6 +7,7 @@ export type CircleShape = TLBaseShape<
     w: number
     h: number
     color: string
+    fillColor: string
     strokeWidth: number
     fill: boolean
     points?: VecLike[] // Optional path data for modified circles
@@ -21,6 +22,7 @@ export class CircleShapeUtil extends FlippableShapeUtil<CircleShape> {
     w: T.number,
     h: T.number,
     color: T.string,
+    fillColor: T.string,
     strokeWidth: T.number,
     fill: T.boolean,
     points: T.optional(T.arrayOf(T.object({
@@ -35,13 +37,14 @@ export class CircleShapeUtil extends FlippableShapeUtil<CircleShape> {
       w: 100,
       h: 100,
       color: '#000000',
+      fillColor: '#000000',
       strokeWidth: 1,
       fill: false,
     }
   }
 
   override component(shape: CircleShape) {
-    const { w, h, color, strokeWidth, fill, points, renderAsPath } = shape.props
+    const { w, h, color, fillColor, strokeWidth, fill, points, renderAsPath } = shape.props
     
     // Get flip transform from the FlippableShapeUtil
     const flipTransform = this.getFlipTransform(shape)
@@ -62,7 +65,7 @@ export class CircleShapeUtil extends FlippableShapeUtil<CircleShape> {
           >
             <path 
               d={pathData} 
-              fill={fill ? color : 'none'} 
+              fill={fill ? fillColor : 'none'} 
               stroke={color} 
               strokeWidth={strokeWidth}
               strokeLinecap="round"
@@ -93,7 +96,7 @@ export class CircleShapeUtil extends FlippableShapeUtil<CircleShape> {
               cy={cy}
               rx={rx}
               ry={ry}
-              fill={fill ? color : 'none'} 
+              fill={fill ? fillColor : 'none'} 
               stroke={color} 
               strokeWidth={strokeWidth}
             />

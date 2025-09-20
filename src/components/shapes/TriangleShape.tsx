@@ -7,6 +7,7 @@ export type TriangleShape = TLBaseShape<
     w: number
     h: number
     color: string
+    fillColor: string
     strokeWidth: number
     fill: boolean
     points?: VecLike[] // Optional path data for modified triangles
@@ -21,6 +22,7 @@ export class TriangleShapeUtil extends FlippableShapeUtil<TriangleShape> {
     w: T.number,
     h: T.number,
     color: T.string,
+    fillColor: T.string,
     strokeWidth: T.number,
     fill: T.boolean,
     points: T.optional(T.arrayOf(T.object({
@@ -35,13 +37,14 @@ export class TriangleShapeUtil extends FlippableShapeUtil<TriangleShape> {
       w: 120,
       h: 100,
       color: '#000000',
+      fillColor: '#000000',
       strokeWidth: 1,
       fill: false,
     }
   }
 
   override component(shape: TriangleShape) {
-    const { w, h, color, strokeWidth, fill, points, renderAsPath } = shape.props
+    const { w, h, color, fillColor, strokeWidth, fill, points, renderAsPath } = shape.props
 
     // Get flip transform from the FlippableShapeUtil
     const flipTransform = this.getFlipTransform(shape)
@@ -66,10 +69,10 @@ export class TriangleShapeUtil extends FlippableShapeUtil<TriangleShape> {
             ...flipTransform
           }}
         >
-          <path 
-            d={pathData} 
-            fill={fill ? color : 'none'} 
-            stroke={color} 
+          <path
+            d={pathData}
+            fill={fill ? fillColor : 'none'}
+            stroke={color}
             strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeLinejoin="round"

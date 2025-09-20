@@ -36,6 +36,7 @@ export class CustomArrowTool extends StateNode {
           w: 150,
           h: 80,
           color: '#000000',
+          fillColor: '#000000',
           strokeWidth: 2,
           fill: true,
         },

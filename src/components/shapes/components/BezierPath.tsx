@@ -4,6 +4,7 @@ import { BEZIER_STYLES } from '../utils/bezierConstants'
 interface BezierPathProps {
   pathData: string
   color: string
+  fillColor: string
   strokeWidth: number
   fill: boolean
   isClosed: boolean
@@ -17,6 +18,7 @@ interface BezierPathProps {
 export const BezierPath: React.FC<BezierPathProps> = ({
   pathData,
   color,
+  fillColor,
   strokeWidth,
   fill,
   isClosed,
@@ -28,7 +30,7 @@ export const BezierPath: React.FC<BezierPathProps> = ({
   return (
     <path
       d={pathData}
-      fill={isClosed && fill ? color : 'none'}
+      fill={isClosed && fill ? fillColor : 'none'}
       stroke={color}
       strokeWidth={strokeWidth}
       strokeLinecap="round"

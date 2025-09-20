@@ -7,6 +7,7 @@ export type DrawShape = TLBaseShape<
     w: number
     h: number
     color: string
+    fillColor: string
     strokeWidth: number
     segments: Array<{
       type: 'move' | 'line'
@@ -28,6 +29,7 @@ export class DrawShapeUtil extends FlippableShapeUtil<DrawShape> {
     w: T.number,
     h: T.number,
     color: T.string,
+    fillColor: T.string,
     strokeWidth: T.number,
     segments: T.arrayOf(T.object({
       type: T.literalEnum('move', 'line'),
@@ -44,6 +46,7 @@ export class DrawShapeUtil extends FlippableShapeUtil<DrawShape> {
       w: 1,
       h: 1,
       color: '#000000',
+      fillColor: '#000000',
       strokeWidth: 1,
       segments: [],
       isClosed: false,
@@ -52,7 +55,7 @@ export class DrawShapeUtil extends FlippableShapeUtil<DrawShape> {
   }
 
   override component(shape: DrawShape) {
-    const { segments, color, strokeWidth, smoothing, isClosed, editMode } = shape.props
+    const { segments, color, fillColor, strokeWidth, smoothing, isClosed, editMode } = shape.props
     
     if (segments.length < 2) {
       return <HTMLContainer><svg width={shape.props.w} height={shape.props.h}></svg></HTMLContainer>
@@ -70,7 +73,7 @@ export class DrawShapeUtil extends FlippableShapeUtil<DrawShape> {
         >
           <path
             d={pathData}
-            fill={isClosed ? color : 'none'}
+            fill={isClosed ? fillColor : 'none'}
             stroke={color}
             strokeWidth={strokeWidth}
             strokeLinecap="round"

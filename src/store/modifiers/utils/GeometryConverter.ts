@@ -105,6 +105,7 @@ export class GeometryConverter {
       w: number
       h: number
       color: string
+      fillColor: string
       strokeWidth: number
       fill: boolean
       points: BezierPoint[]
@@ -131,6 +132,7 @@ export class GeometryConverter {
           w: 100,
           h: 100,
           color: extractedProps.color,
+          fillColor: extractedProps.color,
           strokeWidth: extractedProps.strokeWidth,
           fill: true,
           points: [],
@@ -194,6 +196,7 @@ export class GeometryConverter {
         w: maxX - minX,
         h: maxY - minY,
         color: extractedProps.color,
+        fillColor: extractedProps.color,
         strokeWidth: extractedProps.strokeWidth,
         fill: true,
         points: bezierPoints,
