@@ -32,10 +32,11 @@ export const DEFAULT_SETTINGS = {
   [MODIFIER_TYPES.GRID_ARRAY]: {
     rows: 3,
     columns: 3,
-    spacingX: 100,
-    spacingY: 100,
-    offsetX: 0,
-    offsetY: 0
+    spacingX: 120, // 120% = 1.2x shape width spacing
+    spacingY: 120, // 120% = 1.2x shape height spacing
+    rotateEach: 0,
+    rotateAll: 0,
+    scaleStep: 100 // 100% = no scaling by default
   },
   [MODIFIER_TYPES.MIRROR]: {
     axis: 'x' as const,
@@ -64,8 +65,8 @@ export const INPUT_CONSTRAINTS = {
   rotateAll: { min: -180, max: 180, step: 1 },
   rows: { min: 1, max: 20, step: 1 },
   columns: { min: 1, max: 20, step: 1 },
-  spacingX: { min: 10, max: 500, step: 1 },
-  spacingY: { min: 10, max: 500, step: 1 },
+  spacingX: { min: 50, max: 500, step: 10 },
+  spacingY: { min: 50, max: 500, step: 10 },
   offset: { min: -200, max: 200, step: 1 },
   mergeThreshold: { min: 0, max: 50, step: 1 }
 } as const

@@ -240,7 +240,7 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         max: INPUT_CONSTRAINTS.spacingX.max,
         step: INPUT_CONSTRAINTS.spacingX.step,
         precision: 0,
-        unit: 'px'
+        unit: '%'
       },
       {
         type: 'number',
@@ -250,27 +250,37 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         max: INPUT_CONSTRAINTS.spacingY.max,
         step: INPUT_CONSTRAINTS.spacingY.step,
         precision: 0,
-        unit: 'px'
+        unit: '%'
       },
       {
         type: 'number',
-        label: 'Offset X',
-        field: 'offsetX',
-        min: INPUT_CONSTRAINTS.offsetX.min,
-        max: INPUT_CONSTRAINTS.offsetX.max,
-        step: INPUT_CONSTRAINTS.offsetX.step,
+        label: 'Rotate Each',
+        field: 'rotateEach',
+        min: INPUT_CONSTRAINTS.rotateEach.min,
+        max: INPUT_CONSTRAINTS.rotateEach.max,
+        step: INPUT_CONSTRAINTS.rotateEach.step,
         precision: 0,
-        unit: 'px'
+        unit: '°'
       },
       {
         type: 'number',
-        label: 'Offset Y',
-        field: 'offsetY',
-        min: INPUT_CONSTRAINTS.offsetY.min,
-        max: INPUT_CONSTRAINTS.offsetY.max,
-        step: INPUT_CONSTRAINTS.offsetY.step,
+        label: 'Rotate All',
+        field: 'rotateAll',
+        min: INPUT_CONSTRAINTS.rotateAll.min,
+        max: INPUT_CONSTRAINTS.rotateAll.max,
+        step: INPUT_CONSTRAINTS.rotateAll.step,
         precision: 0,
-        unit: 'px'
+        unit: '°'
+      },
+      {
+        type: 'number',
+        label: 'Scale Step',
+        field: 'scaleStep',
+        min: INPUT_CONSTRAINTS.scaleStep.min,
+        max: INPUT_CONSTRAINTS.scaleStep.max,
+        step: INPUT_CONSTRAINTS.scaleStep.step,
+        precision: 0,
+        unit: '%'
       }
     ]
   },

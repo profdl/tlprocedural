@@ -11,31 +11,7 @@ import type {
 import { GeometryConverter } from '../utils/GeometryConverter'
 import type { BezierShape } from '../../../components/shapes/BezierShape'
 
-/**
- * Calculate orbital rotation around a center point
- * Used when source shape rotation should cause clones to orbit around the source center
- */
-function calculateOrbitalPosition(
-  originalPosition: { x: number; y: number },
-  centerPoint: { x: number; y: number },
-  sourceRotation: number
-): { x: number; y: number } {
-  // Calculate offset from center
-  const offsetX = originalPosition.x - centerPoint.x
-  const offsetY = originalPosition.y - centerPoint.y
-
-  // Apply rotation transform around center
-  const cos = Math.cos(sourceRotation)
-  const sin = Math.sin(sourceRotation)
-
-  const rotatedOffsetX = offsetX * cos - offsetY * sin
-  const rotatedOffsetY = offsetX * sin + offsetY * cos
-
-  return {
-    x: centerPoint.x + rotatedOffsetX,
-    y: centerPoint.y + rotatedOffsetY
-  }
-}
+// Removed calculateOrbitalPosition - functionality now inline in array processors
 
 /**
  * Virtual instance represents a transform without creating actual TLShape
@@ -148,9 +124,9 @@ export class TransformComposer {
       case 'linear-array':
         return this.applyLinearArray(instances, modifier.props as LinearArraySettings, originalShape, editor)
       case 'circular-array':
-        return this.applyCircularArray(instances, modifier.props as CircularArraySettings, originalShape)
+        return this.applyCircularArray(instances, modifier.props as CircularArraySettings, originalShape, editor)
       case 'grid-array':
-        return this.applyGridArray(instances, modifier.props as GridArraySettings, originalShape)
+        return this.applyGridArray(instances, modifier.props as GridArraySettings, originalShape, editor)
       case 'mirror':
         return this.applyMirror(instances, modifier.props as MirrorSettings, originalShape)
       case 'boolean':
@@ -178,7 +154,6 @@ export class TransformComposer {
 
     // Get original shape center for orbital rotation calculations
     let originalShapeCenter
-    let unrotatedShapePosition
 
     // Always use visual bounds when editor is available for consistent center
     if (editor) {
@@ -188,20 +163,11 @@ export class TransformComposer {
           x: visualBounds.x + visualBounds.width / 2,
           y: visualBounds.y + visualBounds.height / 2
         }
-        // Calculate where the shape's top-left would be if unrotated
-        unrotatedShapePosition = {
-          x: originalShapeCenter.x - shapeBounds.width / 2,
-          y: originalShapeCenter.y - shapeBounds.height / 2
-        }
       } else {
         // Fallback if visual bounds not available
         originalShapeCenter = {
           x: originalShape.x + shapeBounds.width / 2,
           y: originalShape.y + shapeBounds.height / 2
-        }
-        unrotatedShapePosition = {
-          x: originalShape.x,
-          y: originalShape.y
         }
       }
     } else {
@@ -209,10 +175,6 @@ export class TransformComposer {
       originalShapeCenter = {
         x: originalShape.x + shapeBounds.width / 2,
         y: originalShape.y + shapeBounds.height / 2
-      }
-      unrotatedShapePosition = {
-        x: originalShape.x,
-        y: originalShape.y
       }
     }
 
@@ -280,51 +242,101 @@ export class TransformComposer {
   }
 
   /**
-   * Circular array using matrix composition
+   * Circular array using matrix composition (following Linear Array pattern)
    */
   private static applyCircularArray(
     instances: VirtualInstance[],
     settings: CircularArraySettings,
-    _originalShape: TLShape  // eslint-disable-line @typescript-eslint/no-unused-vars
+    originalShape: TLShape,
+    editor?: Editor
   ): VirtualInstance[] {
     const { count, radius, startAngle, endAngle, centerX, centerY, rotateAll, rotateEach, alignToTangent } = settings
     const newInstances: VirtualInstance[] = []
 
+    // Get shape dimensions for reference
+    const shapeBounds = this.getShapeBounds(originalShape)
+
+    // Get original shape center for orbital rotation calculations
+    let originalShapeCenter
+
+    // Always use visual bounds when editor is available for consistent center
+    if (editor) {
+      const visualBounds = editor.getShapePageBounds(originalShape.id)
+      if (visualBounds) {
+        originalShapeCenter = {
+          x: visualBounds.x + visualBounds.width / 2,
+          y: visualBounds.y + visualBounds.height / 2
+        }
+      } else {
+        // Fallback if visual bounds not available
+        originalShapeCenter = {
+          x: originalShape.x + shapeBounds.width / 2,
+          y: originalShape.y + shapeBounds.height / 2
+        }
+      }
+    } else {
+      // Fallback when editor not available
+      originalShapeCenter = {
+        x: originalShape.x + shapeBounds.width / 2,
+        y: originalShape.y + shapeBounds.height / 2
+      }
+    }
+
+    // Get source rotation from the original shape
+    const sourceRotation = originalShape.rotation || 0
+
+    // Calculate circle center (offset from shape center)
+    const circleCenter = {
+      x: originalShapeCenter.x + (centerX || 0),
+      y: originalShapeCenter.y + (centerY || 0)
+    }
+
     for (const instance of instances) {
       for (let i = 0; i < count; i++) {
+        // Get the current rotation from the instance transform
+        const currentRotation = instance.transform.rotation()
+
         // Calculate angle for this position
         const totalAngle = endAngle - startAngle
         const isFullCircle = Math.abs(totalAngle) >= 360
         const angleStep = count > 1 ? (isFullCircle ? totalAngle / count : totalAngle / (count - 1)) : 0
         const angle = (startAngle + angleStep * i) * Math.PI / 180
 
-        // Get the current position from the instance transform (relative to source shape)
-        const currentPos = instance.transform.point()
+        // Calculate circular position relative to circle center
+        const circularOffsetX = Math.cos(angle) * radius
+        const circularOffsetY = Math.sin(angle) * radius
 
-        // Circular position as matrix - relative to source shape position
-        const circularX = currentPos.x + (centerX || 0) + Math.cos(angle) * radius
-        const circularY = currentPos.y + (centerY || 0) + Math.sin(angle) * radius
-        const positionMatrix = Mat.Translate(circularX, circularY)
+        // Apply source rotation to the circular offset if shape is rotated
+        let rotatedOffsetX = circularOffsetX
+        let rotatedOffsetY = circularOffsetY
 
-        // Rotation composition
-        let rotationAngle = 0
+        if (sourceRotation !== 0) {
+          const cos = Math.cos(sourceRotation)
+          const sin = Math.sin(sourceRotation)
+          rotatedOffsetX = circularOffsetX * cos - circularOffsetY * sin
+          rotatedOffsetY = circularOffsetX * sin + circularOffsetY * cos
+        }
+
+        // Position clone at circular position, then convert to top-left position
+        const newX = circleCenter.x + rotatedOffsetX - shapeBounds.width / 2
+        const newY = circleCenter.y + rotatedOffsetY - shapeBounds.height / 2
+
+        // Calculate new rotation (will be applied via rotateShapesBy for center-based rotation)
+        let totalRotation = currentRotation
+
         if (alignToTangent) {
-          rotationAngle += angle + Math.PI / 2
+          totalRotation += angle + Math.PI / 2
         }
         if (rotateAll) {
-          rotationAngle += (rotateAll * Math.PI / 180)
+          totalRotation += (rotateAll * Math.PI / 180)
         }
         if (rotateEach) {
-          rotationAngle += (rotateEach * i * Math.PI / 180)
+          totalRotation += (rotateEach * i * Math.PI / 180)
         }
-        const rotationMatrix = Mat.Rotate(rotationAngle)
 
-        // Compose transforms
-        const composedTransform = Mat.Compose(
-          positionMatrix,
-          rotationMatrix,
-          instance.transform
-        )
+        // Create transform with position only
+        // Rotation will be stored separately and applied via rotateShapesBy
+        const composedTransform = Mat.Translate(newX, newY)
 
         newInstances.push({
           sourceShapeId: instance.sourceShapeId,
@@ -334,7 +346,8 @@ export class TransformComposer {
             index: newInstances.length,
             sourceIndex: instances.indexOf(instance),
             arrayIndex: i,
-            circularArrayIndex: i
+            circularArrayIndex: i,
+            targetRotation: totalRotation  // Store rotation separately for center-based application
           }
         })
       }
@@ -344,28 +357,98 @@ export class TransformComposer {
   }
 
   /**
-   * Grid array using matrix composition
+   * Grid array using matrix composition (following Linear Array pattern)
    */
   private static applyGridArray(
     instances: VirtualInstance[],
     settings: GridArraySettings,
-    _originalShape: TLShape  // eslint-disable-line @typescript-eslint/no-unused-vars
+    originalShape: TLShape,
+    editor?: Editor
   ): VirtualInstance[] {
-    const { rows, columns, spacingX, spacingY, offsetX, offsetY } = settings
+    const { rows, columns, spacingX, spacingY, rotateEach, rotateAll, scaleStep } = settings
     const newInstances: VirtualInstance[] = []
+
+    // Get shape dimensions for percentage-based spacing
+    const shapeBounds = this.getShapeBounds(originalShape)
+    const pixelSpacingX = (spacingX / 100) * shapeBounds.width
+    const pixelSpacingY = (spacingY / 100) * shapeBounds.height
+
+    // Get original shape center for orbital rotation calculations
+    let originalShapeCenter
+
+    // Always use visual bounds when editor is available for consistent center
+    if (editor) {
+      const visualBounds = editor.getShapePageBounds(originalShape.id)
+      if (visualBounds) {
+        originalShapeCenter = {
+          x: visualBounds.x + visualBounds.width / 2,
+          y: visualBounds.y + visualBounds.height / 2
+        }
+      } else {
+        // Fallback if visual bounds not available
+        originalShapeCenter = {
+          x: originalShape.x + shapeBounds.width / 2,
+          y: originalShape.y + shapeBounds.height / 2
+        }
+      }
+    } else {
+      // Fallback when editor not available
+      originalShapeCenter = {
+        x: originalShape.x + shapeBounds.width / 2,
+        y: originalShape.y + shapeBounds.height / 2
+      }
+    }
+
+    // Get source rotation from the original shape
+    const sourceRotation = originalShape.rotation || 0
+
+    // Calculate grid dimensions and center the grid
+    const gridWidth = (columns - 1) * pixelSpacingX
+    const gridHeight = (rows - 1) * pixelSpacingY
+    const gridStartX = originalShapeCenter.x - gridWidth / 2
+    const gridStartY = originalShapeCenter.y - gridHeight / 2
 
     for (const instance of instances) {
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < columns; col++) {
-          // Grid position as matrix
-          const gridX = (offsetX || 0) + (col * spacingX)
-          const gridY = (offsetY || 0) + (row * spacingY)
-          const positionMatrix = Mat.Translate(gridX, gridY)
+          // Get the current rotation from the instance transform
+          const currentRotation = instance.transform.rotation()
 
-          // Compose with source transform
+          // Calculate grid position relative to center
+          const gridOffsetX = col * pixelSpacingX
+          const gridOffsetY = row * pixelSpacingY
+
+          // Apply rotation to the grid offset vector if shape is rotated
+          let rotatedOffsetX = gridOffsetX
+          let rotatedOffsetY = gridOffsetY
+
+          if (sourceRotation !== 0) {
+            const cos = Math.cos(sourceRotation)
+            const sin = Math.sin(sourceRotation)
+            rotatedOffsetX = gridOffsetX * cos - gridOffsetY * sin
+            rotatedOffsetY = gridOffsetX * sin + gridOffsetY * cos
+          }
+
+          // Position clone at grid position, then convert to top-left position
+          let newX = gridStartX + rotatedOffsetX - shapeBounds.width / 2
+          let newY = gridStartY + rotatedOffsetY - shapeBounds.height / 2
+
+          // Calculate new rotation (will be applied via rotateShapesBy for center-based rotation)
+          const linearIndex = row * columns + col
+          const incrementalRotation = (rotateEach * linearIndex * Math.PI) / 180
+          const uniformRotation = (rotateAll * Math.PI) / 180
+          const totalRotation = currentRotation + incrementalRotation + uniformRotation
+
+          // Calculate scale (based on linear index for consistent progression)
+          const totalItems = rows * columns
+          const progress = totalItems > 1 ? linearIndex / (totalItems - 1) : 0
+          const scale = 1 + ((scaleStep / 100) - 1) * progress
+
+          // Create transform with position and scale only
+          // Rotation will be stored separately and applied via rotateShapesBy
           const composedTransform = Mat.Compose(
-            positionMatrix,
-            instance.transform
+            Mat.Translate(newX, newY),
+            Mat.Scale(scale, scale)
           )
 
           newInstances.push({
@@ -375,9 +458,10 @@ export class TransformComposer {
               modifierType: 'grid-array',
               index: newInstances.length,
               sourceIndex: instances.indexOf(instance),
-              arrayIndex: row * columns + col,
-              gridArrayIndex: row * columns + col,
-              gridPosition: { row, col }
+              arrayIndex: linearIndex,
+              gridArrayIndex: linearIndex,
+              gridPosition: { row, col },
+              targetRotation: totalRotation  // Store rotation separately for center-based application
             }
           })
         }

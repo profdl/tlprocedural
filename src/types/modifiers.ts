@@ -62,10 +62,11 @@ export interface CircularArraySettings {
 export interface GridArraySettings {
   rows: number
   columns: number
-  spacingX: number
-  spacingY: number
-  offsetX: number
-  offsetY: number
+  spacingX: number // percentage-based spacing relative to shape width
+  spacingY: number // percentage-based spacing relative to shape height
+  rotateEach: number // rotation per clone in degrees
+  rotateAll: number // rotation applied to all clones in degrees
+  scaleStep: number // scale change per copy (percentage)
 }
 
 // Mirror Modifier Settings (for future)

@@ -120,12 +120,13 @@ export class GridArrayModifierFactory extends BaseModifierFactory<TLGridArrayMod
       ...this.createBaseModifier(id, 'grid-array', targetShapeId, order),
       type: 'grid-array',
       props: {
-        rows: 2,
-        columns: 2,
-        spacingX: 50,
-        spacingY: 50,
-        offsetX: 0,
-        offsetY: 0,
+        rows: 3,
+        columns: 3,
+        spacingX: 120, // 120% = 1.2x shape width spacing
+        spacingY: 120, // 120% = 1.2x shape height spacing
+        rotateEach: 0,
+        rotateAll: 0,
+        scaleStep: 100, // 100% = no scaling by default
         ...settings
       }
     }
