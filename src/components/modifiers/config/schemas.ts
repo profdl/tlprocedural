@@ -346,16 +346,6 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
         step: INPUT_CONSTRAINTS.offset.step,
         precision: 0,
         unit: 'px'
-      },
-      {
-        type: 'number',
-        label: 'Merge Threshold',
-        field: 'mergeThreshold',
-        min: INPUT_CONSTRAINTS.mergeThreshold.min,
-        max: INPUT_CONSTRAINTS.mergeThreshold.max,
-        step: INPUT_CONSTRAINTS.mergeThreshold.step,
-        precision: 0,
-        unit: 'px'
       }
     ]
   },

@@ -128,7 +128,7 @@ export class TransformComposer {
       case 'grid-array':
         return this.applyGridArray(instances, modifier.props as GridArraySettings, originalShape, editor)
       case 'mirror':
-        return this.applyMirror(instances, modifier.props as MirrorSettings, originalShape)
+        return this.applyMirror(instances, modifier.props as MirrorSettings, originalShape, editor)
       case 'boolean':
         return this.applyBoolean(instances, modifier.props as BooleanSettings, originalShape)
     }
@@ -484,7 +484,8 @@ export class TransformComposer {
   private static applyMirror(
     instances: VirtualInstance[],
     settings: MirrorSettings,
-    _originalShape: TLShape  // eslint-disable-line @typescript-eslint/no-unused-vars
+    originalShape: TLShape,
+    editor?: Editor
   ): VirtualInstance[] {
     const { axis, offset } = settings
 
@@ -493,6 +494,38 @@ export class TransformComposer {
     }
 
     const newInstances: VirtualInstance[] = []
+
+    // Get shape dimensions for reference
+    const shapeBounds = this.getShapeBounds(originalShape)
+
+    // Get original shape center for mirror calculations
+    let originalShapeCenter
+
+    // Always use visual bounds when editor is available for consistent center
+    if (editor) {
+      const visualBounds = editor.getShapePageBounds(originalShape.id)
+      if (visualBounds) {
+        originalShapeCenter = {
+          x: visualBounds.x + visualBounds.width / 2,
+          y: visualBounds.y + visualBounds.height / 2
+        }
+      } else {
+        // Fallback if visual bounds not available
+        originalShapeCenter = {
+          x: originalShape.x + shapeBounds.width / 2,
+          y: originalShape.y + shapeBounds.height / 2
+        }
+      }
+    } else {
+      // Fallback when editor not available
+      originalShapeCenter = {
+        x: originalShape.x + shapeBounds.width / 2,
+        y: originalShape.y + shapeBounds.height / 2
+      }
+    }
+
+    // Get source rotation from the original shape
+    const sourceRotation = originalShape.rotation || 0
 
     // Detect if we're processing instances from previous modifiers
     const hasModifiedInstances = instances.length > 1 ||
@@ -514,32 +547,29 @@ export class TransformComposer {
 
     // Then create mirrored copies of ALL instances
     instances.forEach(instance => {
-      // Extract position from transform matrix
-      const position = instance.transform.point()
+      // Get the current rotation from the instance transform
+      const currentRotation = instance.transform.rotation()
 
-      // Create mirror transformation matrix
-      let mirrorMatrix: Mat
+      // Calculate mirror position relative to shape center (fixed position, no orbital rotation)
+      let newX: number
+      let newY: number
 
       if (axis === 'x') {
-        // Mirror across vertical line at x = offset
-        // This is equivalent to: translate(-offset, 0) * scale(-1, 1) * translate(offset, 0)
-        mirrorMatrix = Mat.Compose(
-          Mat.Translate(offset * 2 - position.x, position.y),
-          Mat.Scale(-1, 1),
-          instance.transform.rotation() !== 0 ? Mat.Rotate(-instance.transform.rotation() * 2) : Mat.Identity()
-        )
+        // Mirror across vertical axis through shape center with offset
+        newX = originalShapeCenter.x + offset - shapeBounds.width / 2
+        newY = originalShapeCenter.y - shapeBounds.height / 2
       } else {
-        // Mirror across horizontal line at y = offset
-        // This is equivalent to: translate(0, -offset) * scale(1, -1) * translate(0, offset)
-        mirrorMatrix = Mat.Compose(
-          Mat.Translate(position.x, offset * 2 - position.y),
-          Mat.Scale(1, -1),
-          instance.transform.rotation() !== 0 ? Mat.Rotate(-instance.transform.rotation() * 2) : Mat.Identity()
-        )
+        // Mirror across horizontal axis through shape center with offset
+        newX = originalShapeCenter.x - shapeBounds.width / 2
+        newY = originalShapeCenter.y + offset - shapeBounds.height / 2
       }
 
-      // Compose with the original transform to get final mirrored position
-      const composedTransform = mirrorMatrix
+      // Calculate inverse rotation for the mirrored clone
+      const inverseRotation = -currentRotation
+
+      // Create transform with position only
+      // Rotation will be stored separately and applied via rotateShapesBy
+      const composedTransform = Mat.Translate(newX, newY)
 
       newInstances.push({
         sourceShapeId: instance.sourceShapeId,
@@ -552,7 +582,9 @@ export class TransformComposer {
           mirrorAxis: axis,
           mirrorOffset: offset,
           sourceIndex: instances.indexOf(instance),
-          // Store flip metadata for shape rendering
+          targetRotation: inverseRotation,  // Store inverse rotation for center-based application
+          arrayIndex: 0,  // Mirror creates one clone
+          // Store flip metadata for shape rendering if needed
           isFlippedX: axis === 'x',
           isFlippedY: axis === 'y'
         }

@@ -44,8 +44,7 @@ export const DEFAULT_SETTINGS = {
   },
   [MODIFIER_TYPES.MIRROR]: {
     axis: 'x' as const,
-    offset: 0,
-    mergeThreshold: 10
+    offset: 0
   },
   [MODIFIER_TYPES.BOOLEAN]: {
     operation: 'union' as const
@@ -71,8 +70,7 @@ export const INPUT_CONSTRAINTS = {
   columns: { min: 1, max: 20, step: 1 },
   spacingX: { min: 50, max: 500, step: 10 },
   spacingY: { min: 50, max: 500, step: 10 },
-  offset: { min: -200, max: 200, step: 1 },
-  mergeThreshold: { min: 0, max: 50, step: 1 }
+  offset: { min: -200, max: 200, step: 1 }
 } as const
 
 // Modifier type display names

@@ -77,7 +77,6 @@ export interface GridArraySettings {
 export interface MirrorSettings {
   axis: 'x' | 'y' | 'diagonal'
   offset: number
-  mergeThreshold: number
 }
 
 // Boolean Modifier Settings
