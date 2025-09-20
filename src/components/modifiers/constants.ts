@@ -36,7 +36,11 @@ export const DEFAULT_SETTINGS = {
     spacingY: 120, // 120% = 1.2x shape height spacing
     rotateEach: 0,
     rotateAll: 0,
-    scaleStep: 100 // 100% = no scaling by default
+    rotateEachRow: 0,
+    rotateEachColumn: 0,
+    scaleStep: 100, // 100% = no scaling by default
+    rowScaleStep: 100, // 100% = no row scaling by default
+    columnScaleStep: 100 // 100% = no column scaling by default
   },
   [MODIFIER_TYPES.MIRROR]: {
     axis: 'x' as const,

@@ -66,7 +66,11 @@ export interface GridArraySettings {
   spacingY: number // percentage-based spacing relative to shape height
   rotateEach: number // rotation per clone in degrees
   rotateAll: number // rotation applied to all clones in degrees
+  rotateEachRow: number // additional rotation per row in degrees
+  rotateEachColumn: number // additional rotation per column in degrees
   scaleStep: number // scale change per copy (percentage)
+  rowScaleStep: number // scale change per row (percentage)
+  columnScaleStep: number // scale change per column (percentage)
 }
 
 // Mirror Modifier Settings (for future)

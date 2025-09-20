@@ -274,8 +274,48 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
       },
       {
         type: 'number',
+        label: 'Rotate Each Row',
+        field: 'rotateEachRow',
+        min: INPUT_CONSTRAINTS.rotateEach.min,
+        max: INPUT_CONSTRAINTS.rotateEach.max,
+        step: INPUT_CONSTRAINTS.rotateEach.step,
+        precision: 0,
+        unit: '°'
+      },
+      {
+        type: 'number',
+        label: 'Rotate Each Column',
+        field: 'rotateEachColumn',
+        min: INPUT_CONSTRAINTS.rotateEach.min,
+        max: INPUT_CONSTRAINTS.rotateEach.max,
+        step: INPUT_CONSTRAINTS.rotateEach.step,
+        precision: 0,
+        unit: '°'
+      },
+      {
+        type: 'number',
         label: 'Scale Step',
         field: 'scaleStep',
+        min: INPUT_CONSTRAINTS.scaleStep.min,
+        max: INPUT_CONSTRAINTS.scaleStep.max,
+        step: INPUT_CONSTRAINTS.scaleStep.step,
+        precision: 0,
+        unit: '%'
+      },
+      {
+        type: 'number',
+        label: 'Row Scale Step',
+        field: 'rowScaleStep',
+        min: INPUT_CONSTRAINTS.scaleStep.min,
+        max: INPUT_CONSTRAINTS.scaleStep.max,
+        step: INPUT_CONSTRAINTS.scaleStep.step,
+        precision: 0,
+        unit: '%'
+      },
+      {
+        type: 'number',
+        label: 'Column Scale Step',
+        field: 'columnScaleStep',
         min: INPUT_CONSTRAINTS.scaleStep.min,
         max: INPUT_CONSTRAINTS.scaleStep.max,
         step: INPUT_CONSTRAINTS.scaleStep.step,

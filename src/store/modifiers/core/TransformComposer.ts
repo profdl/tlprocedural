@@ -365,7 +365,7 @@ export class TransformComposer {
     originalShape: TLShape,
     editor?: Editor
   ): VirtualInstance[] {
-    const { rows, columns, spacingX, spacingY, rotateEach, rotateAll, scaleStep } = settings
+    const { rows, columns, spacingX, spacingY, rotateEach, rotateAll, rotateEachRow, rotateEachColumn, scaleStep, rowScaleStep, columnScaleStep } = settings
     const newInstances: VirtualInstance[] = []
 
     // Get shape dimensions for percentage-based spacing
@@ -434,13 +434,22 @@ export class TransformComposer {
           // Calculate new rotation (will be applied via rotateShapesBy for center-based rotation)
           const linearIndex = row * columns + col
           const incrementalRotation = (rotateEach * linearIndex * Math.PI) / 180
+          const rowRotation = (rotateEachRow * row * Math.PI) / 180
+          const columnRotation = (rotateEachColumn * col * Math.PI) / 180
           const uniformRotation = (rotateAll * Math.PI) / 180
-          const totalRotation = currentRotation + incrementalRotation + uniformRotation
+          const totalRotation = currentRotation + incrementalRotation + rowRotation + columnRotation + uniformRotation
 
-          // Calculate scale (based on linear index for consistent progression)
+          // Calculate scale with separate row and column progression
           const totalItems = rows * columns
-          const progress = totalItems > 1 ? linearIndex / (totalItems - 1) : 0
-          const scale = 1 + ((scaleStep / 100) - 1) * progress
+          const linearProgress = totalItems > 1 ? linearIndex / (totalItems - 1) : 0
+          const rowProgress = rows > 1 ? row / (rows - 1) : 0
+          const columnProgress = columns > 1 ? col / (columns - 1) : 0
+
+          // Combine all scale factors
+          const linearScale = 1 + ((scaleStep / 100) - 1) * linearProgress
+          const rowScale = 1 + ((rowScaleStep / 100) - 1) * rowProgress
+          const columnScale = 1 + ((columnScaleStep / 100) - 1) * columnProgress
+          const scale = linearScale * rowScale * columnScale
 
           // Create transform with position and scale only
           // Rotation will be stored separately and applied via rotateShapesBy

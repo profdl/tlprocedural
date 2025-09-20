@@ -126,7 +126,11 @@ export class GridArrayModifierFactory extends BaseModifierFactory<TLGridArrayMod
         spacingY: 120, // 120% = 1.2x shape height spacing
         rotateEach: 0,
         rotateAll: 0,
+        rotateEachRow: 0,
+        rotateEachColumn: 0,
         scaleStep: 100, // 100% = no scaling by default
+        rowScaleStep: 100, // 100% = no row scaling by default
+        columnScaleStep: 100, // 100% = no column scaling by default
         ...settings
       }
     }
