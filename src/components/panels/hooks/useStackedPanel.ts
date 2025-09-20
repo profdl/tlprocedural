@@ -69,7 +69,10 @@ export function useStackedPanel({
 
   // Calculate drop zones between panels
   const calculateDropZones = useCallback(() => {
-    const visiblePanels = panelOrder.filter(id => panels[id]?.isVisible)
+    // When dragging, exclude the dragged panel from the visible panels list
+    const visiblePanels = panelOrder.filter(id =>
+      panels[id]?.isVisible && (!dragState.isDragging || id !== panelId)
+    )
     const dropZones: Array<{ y: number; index: number }> = []
 
     let currentY = 8 // TOP_MARGIN
@@ -93,7 +96,7 @@ export function useStackedPanel({
     dropZones.push({ y: currentY, index: visiblePanels.length })
 
     return dropZones
-  }, [panelOrder, panels])
+  }, [panelOrder, panels, dragState.isDragging, panelId])
 
   // Calculate merge zones for tab group creation
   const calculateMergeZones = useCallback((): MergeZone[] => {
@@ -200,15 +203,33 @@ export function useStackedPanel({
   // Find the insert index based on current drag position
   const findInsertIndex = useCallback((dragY: number): number => {
     const dropZones = calculateDropZones()
+    const visiblePanelsExcludingDragged = panelOrder.filter(id =>
+      panels[id]?.isVisible && id !== panelId
+    )
+
 
     for (let i = 0; i < dropZones.length; i++) {
       if (dragY <= dropZones[i].y) {
-        return dropZones[i].index
+        const dropZoneIndex = dropZones[i].index
+
+        // Convert the drop zone index back to the original panelOrder index
+        let originalIndex = dropZoneIndex
+
+        if (dropZoneIndex < visiblePanelsExcludingDragged.length) {
+          // Find the panel at this position in the filtered list
+          const targetPanelId = visiblePanelsExcludingDragged[dropZoneIndex]
+          originalIndex = panelOrder.indexOf(targetPanelId)
+        } else {
+          // Dropping at the end
+          originalIndex = panelOrder.length
+        }
+
+        return originalIndex
       }
     }
 
-    return dropZones[dropZones.length - 1]?.index || 0
-  }, [calculateDropZones])
+    return panelOrder.length
+  }, [calculateDropZones, panelId, panelOrder, panels])
 
   // Handle mouse down on drag handle
   const handleMouseDown = useCallback((event: React.MouseEvent) => {
@@ -312,9 +333,8 @@ export function useStackedPanel({
           mergeIntoTabGroup(mergeTargetIdRef.current as PanelId, panelId)
         }
       } else if (insertIndex !== undefined && insertIndex !== currentIndex) {
-        // Perform reorder if needed
-        const adjustedIndex = insertIndex > currentIndex ? insertIndex - 1 : insertIndex
-        reorderPanels(currentIndex, adjustedIndex)
+        // Perform reorder if needed - insertIndex is now already correctly calculated
+        reorderPanels(currentIndex, insertIndex)
       }
 
       // Reset drag state
@@ -363,9 +383,6 @@ export function useStackedPanel({
     findInsertIndex,
     detectMergeZone,
     mergeIntoTabGroup,
-    dragState.isMergeZone,
-    dragState.mergeTargetId,
-    dragState.mergeTargetType,
     onDragStart,
     onDragEnd
   ])

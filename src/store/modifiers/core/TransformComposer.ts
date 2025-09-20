@@ -544,25 +544,30 @@ export class TransformComposer {
     )
 
     return cloneInstances.map((instance) => {
-      // Extract position from matrix
-      const { x, y } = instance.transform.point()
+      // Extract position and scale from matrix using decomposed method
+      const decomposed = instance.transform.decomposed()
+      const { x, y, scaleX, scaleY } = decomposed
       // Store targetRotation from metadata for later center-based application
       const targetRotation = instance.metadata.targetRotation ?? instance.transform.rotation()
 
       // Create shape with composed transform and unique index
       // ALWAYS set rotation to 0 here - rotation will be applied via rotateShapesBy
+      // Store scale in metadata instead of applying to props - will be applied via resizeShape
       return {
         ...originalShape,
         id: createId(),
         x,
         y,
         rotation: 0, // Always 0 - rotation applied via center-based method
+        props: originalShape.props, // Keep original props, scaling applied via resizeShape
         meta: {
           ...originalShape.meta,
           ...instance.metadata,
           stackProcessed: true,
           originalShapeId: originalShape.id,
-          targetRotation: targetRotation as number // Store for center-based application
+          targetRotation: targetRotation as number, // Store for center-based application
+          targetScaleX: scaleX, // Store scale for center-based application via resizeShape
+          targetScaleY: scaleY
         }
       } as TLShape
     })
@@ -614,7 +619,9 @@ export class TransformComposer {
 
     cloneInstances.forEach((instance, index) => {
       const existing = existingShapes.get(index)
-      const { x, y } = instance.transform.point()
+      // Extract position and scale from matrix using decomposed method
+      const decomposed = instance.transform.decomposed()
+      const { x, y, scaleX, scaleY } = decomposed
       // Store targetRotation from metadata for later center-based application
       const targetRotation = instance.metadata.targetRotation ?? instance.transform.rotation()
 
@@ -627,12 +634,15 @@ export class TransformComposer {
           x,
           y,
           rotation: 0, // Always 0 - rotation applied via center-based method
+          props: originalShape.props, // Keep original props, scaling applied via resizeShape
           meta: {
             ...originalShape.meta,
             ...instance.metadata,
             stackProcessed: true,
             originalShapeId: originalShape.id,
-            targetRotation: targetRotation as number // Store for center-based application
+            targetRotation: targetRotation as number, // Store for center-based application
+            targetScaleX: scaleX, // Store scale for center-based application via resizeShape
+            targetScaleY: scaleY
           }
         })
       } else {
@@ -643,12 +653,15 @@ export class TransformComposer {
           x,
           y,
           rotation: 0, // Always 0 - rotation applied via center-based method
+          props: originalShape.props, // Keep original props, scaling applied via resizeShape
           meta: {
             ...originalShape.meta,
             ...instance.metadata,
             stackProcessed: true,
             originalShapeId: originalShape.id,
-            targetRotation: targetRotation as number // Store for center-based application
+            targetRotation: targetRotation as number, // Store for center-based application
+            targetScaleX: scaleX, // Store scale for center-based application via resizeShape
+            targetScaleY: scaleY
           }
         } as TLShape)
       }

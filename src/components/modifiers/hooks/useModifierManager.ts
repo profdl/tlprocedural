@@ -3,7 +3,7 @@ import { useModifierStore } from '../../../store/modifierStore'
 import { TransformComposer, extractShapesFromState } from '../../../store/modifiers'
 import { getOriginalShapeId, findTopLevelGroup, getGroupPageBounds, getGroupChildShapes } from '../utils'
 import { applyRotationToShapes } from '../utils/transformUtils'
-import { useEditor, createShapeId } from 'tldraw'
+import { useEditor, createShapeId, Vec } from 'tldraw'
 import type { TLShape } from 'tldraw'
 import type { TLModifier, TLModifierId, GroupContext, ModifierType } from '../../../types/modifiers'
 
@@ -192,8 +192,8 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
           // Array modifiers: Create clones alongside the original
           console.log('🏗️ Handling array modifiers - creating clones')
 
-          // Create actual shapes from the transformed results (skip the first one as it's the original)
-          const shapesToCreate = transformedShapes.slice(1).map(transformedShape => {
+          // Create actual shapes from the transformed results (transformedShapes already excludes the original)
+          const shapesToCreate = transformedShapes.map(transformedShape => {
             const newId = createShapeId()
             return {
               id: newId,
@@ -234,10 +234,21 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
             console.log('✅ Shapes created successfully!')
 
             // Apply rotation using shared utility for center-based rotation (same as preview)
-            transformedShapes.slice(1).forEach((transformedShape, index) => {
-              if (transformedShape.rotation && transformedShape.rotation !== 0) {
+            transformedShapes.forEach((transformedShape, index) => {
+              const targetRotation = transformedShape.meta?.targetRotation as number
+              if (targetRotation && targetRotation !== 0) {
                 const shapeId = shapesToCreate[index].id
-                applyRotationToShapes(editor, [shapeId], transformedShape.rotation)
+                applyRotationToShapes(editor, [shapeId], targetRotation)
+              }
+            })
+
+            // Apply scaling using resizeShape for center-based scaling
+            transformedShapes.forEach((transformedShape, index) => {
+              const targetScaleX = transformedShape.meta?.targetScaleX as number
+              const targetScaleY = transformedShape.meta?.targetScaleY as number
+              if (targetScaleX && targetScaleY && (targetScaleX !== 1 || targetScaleY !== 1)) {
+                const shapeId = shapesToCreate[index].id
+                editor.resizeShape(shapeId, new Vec(targetScaleX, targetScaleY))
               }
             })
           }

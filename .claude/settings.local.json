@@ -18,7 +18,9 @@
       "WebSearch",
       "WebFetch(domain:github.com)",
       "Bash(npm install:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(node:*)",
+      "Bash(tsc --noEmit)"
     ],
     "deny": [],
     "ask": []

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useCallback } from 'react'
-import { useEditor, type TLShape, type TLShapePartial, type Editor } from 'tldraw'
+import { useEditor, type TLShape, type TLShapePartial, type Editor, Vec } from 'tldraw'
 import { TransformComposer, extractShapesFromState } from '../../../store/modifiers'
 import type { TLModifier, GroupContext } from '../../../types/modifiers'
 import {
@@ -135,6 +135,16 @@ export function useCloneManager({
           if (targetRotation && targetRotation !== 0) {
             const shapeId = shapesToCreate[index].id
             applyRotationToShapes(editor, [shapeId], targetRotation)
+          }
+        })
+
+        // Apply scaling using resizeShape for center-based scaling
+        currentProcessedShapes.forEach((processedShape, index) => {
+          const targetScaleX = processedShape.meta?.targetScaleX as number
+          const targetScaleY = processedShape.meta?.targetScaleY as number
+          if (targetScaleX && targetScaleY && (targetScaleX !== 1 || targetScaleY !== 1)) {
+            const shapeId = shapesToCreate[index].id
+            editor.resizeShape(shapeId, new Vec(targetScaleX, targetScaleY))
           }
         })
       }
@@ -311,6 +321,19 @@ function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModif
       // Batch apply all rotations using shared utility
       rotationsToApply.forEach(({ id, delta }) => {
         editor.rotateShapesBy([id] as import('tldraw').TLShapeId[], delta)
+      })
+
+      // Apply scaling using resizeShape for center-based scaling
+      updatedClones.forEach((update, index) => {
+        if (!update) return
+        const correspondingUpdatedShape = updatedShapes[index]
+        if (!correspondingUpdatedShape) return
+
+        const targetScaleX = correspondingUpdatedShape.meta?.targetScaleX as number
+        const targetScaleY = correspondingUpdatedShape.meta?.targetScaleY as number
+        if (targetScaleX && targetScaleY && (targetScaleX !== 1 || targetScaleY !== 1)) {
+          editor.resizeShape(update.id, new Vec(targetScaleX, targetScaleY))
+        }
       })
     }, { ignoreShapeLock: true, history: 'ignore' })
 
