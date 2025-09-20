@@ -183,6 +183,10 @@ For TLDraw-specific development, reference these included documentation files:
 - **Path Modifier System**: Added new PathModifier base class and path-based modifiers (subdivide, smooth, noise-offset, simplify)
 - **Performance Optimization**: Eliminated O(n²) shape multiplication in favor of mathematical matrix composition
 - **Memory Efficiency**: Virtual instances dramatically reduce memory usage for complex modifier stacks
+- **Center-Based Transformations**: Implemented proper center-based rotation and scaling using TLDraw's native methods
+- **Transform Architecture**: Three-phase transformation system (Virtual → Materialization → Application) for optimal performance
+- **Scale Steps Fix**: Fixed Linear Array scaling to work from shape centers using `editor.resizeShape()`
+- **Apply All Improvements**: Fixed rotation loss and missing first clone issues in permanent shape application
 
 ### Development Priorities
 
@@ -195,6 +199,186 @@ For TLDraw-specific development, reference these included documentation files:
 7. **Documentation** - Update documentation for new architecture and path modifier system
 
 **When working on this codebase**: Expect to encounter bugs, incomplete features, and areas needing significant refactoring. Always test modifier combinations thoroughly and be prepared to debug complex state synchronization issues.
+
+## Shape Transformations in the Modifier System
+
+Understanding how position, rotation, and scaling work in our modifier system is crucial for maintaining and extending the codebase. The system uses a sophisticated approach that leverages TLDraw's native transformation methods for optimal performance and user experience.
+
+### Transformation Architecture Overview
+
+The modifier system processes transformations through a **three-phase approach**:
+
+1. **Virtual Phase**: Matrix-based transform calculations using `VirtualInstance` objects
+2. **Materialization Phase**: Converting virtual instances to TLShape objects with metadata
+3. **Application Phase**: Applying transformations using TLDraw's native methods
+
+### Position Handling
+
+**Matrix Composition**:
+- Positions are calculated mathematically using `Mat.Translate()` in `TransformComposer`
+- For array modifiers, offsets are applied incrementally: `newX = currentPos.x + (pixelOffsetX * (i + 1))`
+- Percentage-based offsets are converted to pixels using shape bounds: `pixelOffsetX = (offsetX / 100) * shapeBounds.width`
+
+**Orbital Rotation Support**:
+- When the source shape is rotated, clone positions are calculated using orbital rotation around the source center
+- Uses `calculateOrbitalPosition()` function to apply source rotation to clone positions
+- This ensures clones maintain their relative positions when the original shape rotates
+
+**Position Extraction**:
+- During materialization, positions are extracted using `instance.transform.decomposed()`
+- Returns `{ x, y, scaleX, scaleY, rotation }` from the composed matrix
+- Position values are applied directly to shape `x, y` properties
+
+### Rotation Handling
+
+**Three-Stage Rotation Process**:
+
+1. **Calculation Phase** (`TransformComposer.applyLinearArray`):
+   ```typescript
+   const incrementalRotation = (rotationIncrement * i * Math.PI) / 180
+   const uniformRotation = (rotateAll * Math.PI) / 180
+   const totalRotation = currentRotation + incrementalRotation + uniformRotation
+   ```
+
+2. **Storage Phase** (`materializeInstances`):
+   ```typescript
+   rotation: 0, // Always create shapes with 0 rotation
+   meta: {
+     targetRotation: targetRotation as number // Store actual rotation in metadata
+   }
+   ```
+
+3. **Application Phase** (`useCloneManager` & `useModifierManager`):
+   ```typescript
+   // Apply rotation using TLDraw's center-based rotation
+   applyRotationToShapes(editor, [shapeId], targetRotation)
+   ```
+
+**Why This Approach**:
+- TLDraw's `editor.rotateShapesBy()` rotates around shape centers (like UI handles)
+- Direct `rotation` property assignment rotates around top-left corner (incorrect)
+- Our approach ensures all rotations are center-based and match user expectations
+
+### Scaling Handling
+
+**Center-Based Scaling Implementation**:
+
+The scaling system was redesigned to use TLDraw's native `editor.resizeShape()` method for proper center-based scaling.
+
+1. **Matrix Storage** (`TransformComposer`):
+   ```typescript
+   // Scale calculated and stored in transform matrix
+   const scale = 1 + ((scaleStep / 100) - 1) * progress
+   const composedTransform = Mat.Compose(
+     Mat.Translate(newX, newY),
+     Mat.Scale(scale, scale)
+   )
+   ```
+
+2. **Metadata Storage** (`materializeInstances`):
+   ```typescript
+   // Extract scale from matrix and store in metadata
+   const { x, y, scaleX, scaleY } = decomposed
+   return {
+     ...originalShape,
+     props: originalShape.props, // Keep original dimensions
+     meta: {
+       targetScaleX: scaleX, // Store scale for later application
+       targetScaleY: scaleY
+     }
+   }
+   ```
+
+3. **Center-Based Application**:
+   ```typescript
+   // Apply scaling using TLDraw's resizeShape for center-based scaling
+   if (targetScaleX !== 1 || targetScaleY !== 1) {
+     editor.resizeShape(shapeId, new Vec(targetScaleX, targetScaleY))
+   }
+   ```
+
+**Previous vs Current Approach**:
+- **Before**: Direct dimension scaling (`w: originalW * scaleX`) caused top-left scaling
+- **After**: `editor.resizeShape()` provides automatic center-based scaling with position adjustment
+
+### Transform Synchronization
+
+**Preview vs Applied Shapes**:
+- **Preview clones** (`useCloneManager`): Apply transformations immediately for real-time feedback
+- **Applied shapes** (`useModifierManager`): Apply transformations after permanent creation
+- Both use identical transformation logic for consistency
+
+**Live Updates**:
+- `updateExistingClones()` re-applies transformations when modifiers change
+- Batch operations for performance: position updates, then rotation, then scaling
+- Uses `editor.run()` with `{ history: 'ignore' }` to prevent undo history pollution
+
+### Performance Optimizations
+
+**Virtual Instance Benefits**:
+- Transforms calculated mathematically without creating TLShape objects
+- Memory usage reduced dramatically for complex modifier stacks
+- O(n) complexity instead of O(n²) shape multiplication
+
+**Batch Operations**:
+- All shapes created in single `editor.createShapes()` call
+- Transformations applied in batches by type (rotation, then scaling)
+- Reduces store mutations and improves responsiveness
+
+**Transform Caching**:
+- Virtual instances cache transform matrices
+- Reuse calculations when possible
+- Avoid redundant matrix compositions
+
+### Metadata Schema
+
+**Shape Metadata Structure**:
+```typescript
+meta: {
+  stackProcessed: true,           // Marks shape as modifier-generated
+  originalShapeId: string,        // Reference to source shape
+  targetRotation: number,         // Rotation to apply via rotateShapesBy
+  targetScaleX: number,          // X-scale to apply via resizeShape
+  targetScaleY: number,          // Y-scale to apply via resizeShape
+  arrayIndex: number,            // Position in modifier array
+  modifierType: string,          // Type of modifier that created this
+  appliedFromModifier: boolean   // Marks permanently applied shapes
+}
+```
+
+**Metadata Usage**:
+- **Preview identification**: `stackProcessed && !appliedFromModifier`
+- **Cleanup filtering**: Used to identify shapes for deletion
+- **Transform application**: Source of truth for deferred transformations
+- **Debugging**: Provides traceability for modifier-generated shapes
+
+### Best Practices for Modifier Development
+
+**Position Calculations**:
+- Always use percentage-based offsets converted to pixels
+- Account for shape bounds when calculating positions
+- Consider orbital rotation for rotated source shapes
+- Use `Mat.Translate()` for mathematical precision
+
+**Rotation Implementation**:
+- NEVER set `rotation` property directly on shapes
+- Always store target rotation in metadata
+- Use `applyRotationToShapes()` utility for center-based rotation
+- Test with various rotation combinations
+
+**Scaling Implementation**:
+- Store scale values in metadata, not shape properties
+- Use `editor.resizeShape(shapeId, new Vec(scaleX, scaleY))` for center-based scaling
+- Avoid direct dimension manipulation (`w`, `h` properties)
+- Validate scale values before application
+
+**Common Pitfalls**:
+- ❌ Direct property assignment: `shape.rotation = angle`
+- ❌ Top-left scaling: `shape.props.w = w * scale`
+- ❌ Custom properties at shape root level (TLDraw validation errors)
+- ✅ Use TLDraw's transformation methods
+- ✅ Store custom data in `meta` object
+- ✅ Apply transformations after shape creation
 
 ## TLDraw Shape Transforms & Coordinates
 
@@ -362,15 +546,18 @@ const x = originalShape.x + offset; // This moves when shape rotates!
 
 **Best Practices for Modifier Development**:
 
+- **Transformations**: See the "Shape Transformations in the Modifier System" section above for detailed guidance on position, rotation, and scaling
 - **Array Modifiers**: Use TransformComposer and VirtualInstance system for performance
 - **Path Modifiers**: Extend PathModifier base class for shape geometry modifications
 - **Factory Pattern**: Use ModifierFactory for creating new modifier types
 - Always work in consistent coordinate space (preferably page space)
 - Use TLDraw's transform methods rather than manual coordinate calculations
 - **For rotation**: ALWAYS use `editor.rotateShapesBy()` for center-based rotation
+- **For scaling**: ALWAYS use `editor.resizeShape()` for center-based scaling
 - **For positioning**: When shape is rotated, use `editor.getShapePageBounds()` to get visual center
 - Test with rotated shapes and nested groups
 - Account for different shape types having different origin behaviors
 - Prefer TLDraw's built-in APIs (`getShapePageBounds`, `getShapePageTransform`) over manual calculations
 - Leverage matrix composition for transform calculations rather than iterative shape manipulation
+- Store custom data in shape `meta` object, never at root level (TLDraw validation)
 - Consider path vs array modifier type when planning new modifiers
