@@ -402,11 +402,9 @@ export class TransformComposer {
     // Get source rotation from the original shape
     const sourceRotation = originalShape.rotation || 0
 
-    // Calculate grid dimensions and center the grid
-    const gridWidth = (columns - 1) * pixelSpacingX
-    const gridHeight = (rows - 1) * pixelSpacingY
-    const gridStartX = originalShapeCenter.x - gridWidth / 2
-    const gridStartY = originalShapeCenter.y - gridHeight / 2
+    // Calculate grid starting position so first clone (0,0) aligns with source shape
+    const gridStartX = originalShapeCenter.x
+    const gridStartY = originalShapeCenter.y
 
     for (const instance of instances) {
       for (let row = 0; row < rows; row++) {
