@@ -95,7 +95,7 @@ export function useStackedModifier({ shape, modifiers }: UseStackedModifierProps
         }
       }
 
-      const result = TransformComposer.processModifiers(shape, modifiers, groupContext)
+      const result = TransformComposer.processModifiers(shape, modifiers, groupContext, editor)
       const shapes = extractShapesFromState(result)
 
       if (!result || !shapes) {

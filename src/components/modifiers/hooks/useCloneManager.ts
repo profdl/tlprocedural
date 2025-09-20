@@ -263,7 +263,7 @@ function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModif
     }
   }
 
-  const result = TransformComposer.processModifiers(shape, modifiers, groupContext)
+  const result = TransformComposer.processModifiers(shape, modifiers, groupContext, editor)
   const updatedShapes = extractShapesFromState(result)
 
   // Update existing clones with new positions
