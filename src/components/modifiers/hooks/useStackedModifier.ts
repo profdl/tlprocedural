@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useCallback } from 'react'
 import { useEditor, type TLShape, type TLShapePartial, createShapeId, type TLShapeId } from 'tldraw'
 import { TransformComposer, extractShapesFromState } from '../../../store/modifiers'
 import type { TLModifier, GroupContext } from '../../../types/modifiers'
@@ -29,6 +29,9 @@ export function useStackedModifier({ shape, modifiers }: UseStackedModifierProps
   // Use refs to store stable references
   const shapeRef = useRef(shape)
   const modifiersRef = useRef(modifiers)
+  const lastProcessingTime = useRef(0)
+  const lastSignature = useRef('')
+  const lastValidResult = useRef<TLShapePartial[]>([])
 
   // Update refs on each render but memoize expensive computations
   shapeRef.current = shape
@@ -50,18 +53,33 @@ export function useStackedModifier({ shape, modifiers }: UseStackedModifierProps
   // Optimize processing with better memoization strategy using stable signatures
   const processedShapes = useMemo(() => {
     try {
-      console.log(`[useStackedModifier] Processing ${shape.id} with ${modifiers.length} modifiers, signature: ${modifierSignature.substring(0, 50)}...`)
+      const currentSignature = `${shapeSignature}-${modifierSignature}`
+      const now = Date.now()
+
+      // Prevent rapid successive processing of the same configuration
+      if (currentSignature === lastSignature.current && (now - lastProcessingTime.current) < 50) {
+        console.log(`[useStackedModifier] Skipping rapid duplicate processing for ${shape.id}, returning cached result`)
+        return lastValidResult.current
+      }
+
+      lastSignature.current = currentSignature
+      lastProcessingTime.current = now
+
+      const processingId = `USM-${now}-${Math.random().toString(36).substr(2, 9)}`
+      console.log(`[useStackedModifier] ${processingId} Processing ${shape.id} with ${modifiers.length} modifiers, signature: ${modifierSignature.substring(0, 50)}...`)
 
       logShapeOperation('useStackedModifier', shape.id, {
         shapeType: shape.type,
         modifierCount: modifiers.filter(m => m.enabled).length,
         modifiers: modifiers.map(m => ({ type: m.type, enabled: m.enabled })),
         shapeSignature,
-        modifierSignature
+        modifierSignature,
+        processingId
       })
 
       if (!modifiers.length) {
-        console.log(`[useStackedModifier] No modifiers for ${shape.id}`)
+        console.log(`[useStackedModifier] ${processingId} No modifiers for ${shape.id}`)
+        lastValidResult.current = []
         return []
       }
 
@@ -117,7 +135,10 @@ export function useStackedModifier({ shape, modifiers }: UseStackedModifierProps
         return createRegularShape(processedShape, cloneId, index, modifiers, shape.id)
       })
 
-      console.log(`[useStackedModifier] Created ${shapePartials.length} processed shapes for ${shape.id}`)
+      console.log(`[useStackedModifier] ${processingId} Created ${shapePartials.length} processed shapes for ${shape.id}`)
+
+      // Cache the valid result for reuse
+      lastValidResult.current = shapePartials
       return shapePartials
     } catch (error) {
       console.error('Error in modifier processing:', error, {
@@ -127,8 +148,8 @@ export function useStackedModifier({ shape, modifiers }: UseStackedModifierProps
         shapeSignature,
         modifierSignature
       })
-      // Return empty array to gracefully handle the error
-      return []
+      // Return cached result to gracefully handle the error
+      return lastValidResult.current
     }
   }, [editor, shapeSignature, modifierSignature])
   
@@ -175,7 +196,7 @@ function createRegularShape(
       isArrayClone: true, // All remaining modifiers are array modifiers
       isPathModified: false,
       originalShapeId: originalShapeId,
-      arrayIndex: index,
+      // Preserve original arrayIndex from TransformComposer, don't overwrite it
       stackProcessed: true,
       modifierCount: modifiers.filter(m => m.enabled).length
     }

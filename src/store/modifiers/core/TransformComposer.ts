@@ -25,6 +25,10 @@ export interface VirtualInstance {
     index: number
     sourceIndex?: number
     arrayIndex?: number
+    // Grouping metadata for unified composition
+    groupId?: string  // Identifies which group this instance belongs to from previous modifiers
+    generationLevel?: number  // Track which modifier generation created this instance
+    fromUnifiedGroup?: boolean  // Whether this came from a unified composition
     // Boolean operation metadata for deferred execution
     virtualId?: string  // Unique identifier for this virtual instance
     booleanGroupId?: string  // Groups instances for boolean operation
@@ -83,7 +87,9 @@ export class TransformComposer {
       metadata: {
         modifierType: 'original',
         index: 0,
-        isOriginal: true
+        isOriginal: true,
+        generationLevel: 0,
+        groupId: 'original'
       }
     }]
 
@@ -92,13 +98,15 @@ export class TransformComposer {
       .filter(m => m.enabled)
       .sort((a, b) => a.order - b.order)
 
-    for (const modifier of enabledModifiers) {
+    for (let i = 0; i < enabledModifiers.length; i++) {
+      const modifier = enabledModifiers[i]
       virtualInstances = this.applyModifier(
         virtualInstances,
         modifier,
         shape,
         groupContext,
-        editor
+        editor,
+        i + 1 // generation level
       )
     }
 
@@ -117,21 +125,92 @@ export class TransformComposer {
     instances: VirtualInstance[],
     modifier: TLModifier,
     originalShape: TLShape,
-    _groupContext?: GroupContext,  // eslint-disable-line @typescript-eslint/no-unused-vars
-    editor?: Editor
+    _groupContext?: GroupContext,
+    editor?: Editor,
+    generationLevel: number = 0
   ): VirtualInstance[] {
     switch (modifier.type) {
       case 'linear-array':
-        return this.applyLinearArray(instances, modifier.props as LinearArraySettings, originalShape, editor)
+        return this.applyLinearArray(instances, modifier.props as LinearArraySettings, originalShape, editor, generationLevel)
       case 'circular-array':
-        return this.applyCircularArray(instances, modifier.props as CircularArraySettings, originalShape, editor)
+        return this.applyCircularArray(instances, modifier.props as CircularArraySettings, originalShape, editor, generationLevel)
       case 'grid-array':
-        return this.applyGridArray(instances, modifier.props as GridArraySettings, originalShape, editor)
+        return this.applyGridArray(instances, modifier.props as GridArraySettings, originalShape, editor, generationLevel)
       case 'mirror':
-        return this.applyMirror(instances, modifier.props as MirrorSettings, originalShape, editor)
+        return this.applyMirror(instances, modifier.props as MirrorSettings, originalShape, editor, generationLevel)
       case 'boolean':
         return this.applyBoolean(instances, modifier.props as BooleanSettings, originalShape)
     }
+  }
+
+  /**
+   * Calculate collective bounds from a group of virtual instances for unified composition
+   */
+  private static calculateCollectiveBounds(
+    instances: VirtualInstance[],
+    originalShape: TLShape,
+    _editor?: Editor  // eslint-disable-line @typescript-eslint/no-unused-vars
+  ): { center: { x: number; y: number }; bounds: { width: number; height: number } } {
+    const shapeBounds = this.getShapeBounds(originalShape)
+
+    if (instances.length === 0) {
+      return {
+        center: { x: originalShape.x + shapeBounds.width / 2, y: originalShape.y + shapeBounds.height / 2 },
+        bounds: shapeBounds
+      }
+    }
+
+    // Calculate bounds from all instances
+    let minX = Infinity, maxX = -Infinity
+    let minY = Infinity, maxY = -Infinity
+
+    instances.forEach(instance => {
+      const { x, y } = instance.transform.point()
+      const instanceMinX = x
+      const instanceMaxX = x + shapeBounds.width
+      const instanceMinY = y
+      const instanceMaxY = y + shapeBounds.height
+
+      minX = Math.min(minX, instanceMinX)
+      maxX = Math.max(maxX, instanceMaxX)
+      minY = Math.min(minY, instanceMinY)
+      maxY = Math.max(maxY, instanceMaxY)
+    })
+
+    const width = maxX - minX
+    const height = maxY - minY
+    const centerX = minX + width / 2
+    const centerY = minY + height / 2
+
+    return {
+      center: { x: centerX, y: centerY },
+      bounds: { width, height }
+    }
+  }
+
+  /**
+   * Detect if instances represent multiple groups that should be treated as one unified entity
+   */
+  private static shouldUseUnifiedComposition(instances: VirtualInstance[]): boolean {
+    // If we have multiple instances that are ALL from previous modifiers (no original),
+    // they should be treated as a unified group
+    const hasOriginal = instances.some(inst => inst.metadata.modifierType === 'original')
+    const nonOriginalInstances = instances.filter(inst => inst.metadata.modifierType !== 'original')
+
+    // Use unified composition if:
+    // 1. We have multiple instances AND no original (output from previous modifier)
+    // 2. OR we have multiple non-original instances with original (mixed case)
+    if (!hasOriginal && instances.length > 1) {
+      // All instances are from previous modifiers - treat as unified
+      return true
+    }
+
+    if (hasOriginal && nonOriginalInstances.length > 1) {
+      // Mixed case - multiple instances from previous modifier plus original
+      return true
+    }
+
+    return false
   }
 
   /**
@@ -141,53 +220,33 @@ export class TransformComposer {
     instances: VirtualInstance[],
     settings: LinearArraySettings,
     originalShape: TLShape,
-    editor?: Editor
+    editor?: Editor,
+    generationLevel: number = 0
   ): VirtualInstance[] {
     const { count, offsetX, offsetY, rotationIncrement, rotateAll, scaleStep } = settings
 
     const newInstances: VirtualInstance[] = []
 
-    // Get shape dimensions for percentage-based offsets
-    const shapeBounds = this.getShapeBounds(originalShape)
-    const pixelOffsetX = (offsetX / 100) * shapeBounds.width
-    const pixelOffsetY = (offsetY / 100) * shapeBounds.height
+    // Check if we should use unified composition (treating all instances as one group)
+    const useUnified = this.shouldUseUnifiedComposition(instances)
 
-    // Get original shape center for orbital rotation calculations
-    let originalShapeCenter
+    if (useUnified) {
+      // Unified composition: treat all existing instances as a single entity
+      const { center: collectiveCenter, bounds: collectiveBounds } = this.calculateCollectiveBounds(instances, originalShape, editor)
 
-    // Always use visual bounds when editor is available for consistent center
-    if (editor) {
-      const visualBounds = editor.getShapePageBounds(originalShape.id)
-      if (visualBounds) {
-        originalShapeCenter = {
-          x: visualBounds.x + visualBounds.width / 2,
-          y: visualBounds.y + visualBounds.height / 2
-        }
-      } else {
-        // Fallback if visual bounds not available
-        originalShapeCenter = {
-          x: originalShape.x + shapeBounds.width / 2,
-          y: originalShape.y + shapeBounds.height / 2
-        }
-      }
-    } else {
-      // Fallback when editor not available
-      originalShapeCenter = {
-        x: originalShape.x + shapeBounds.width / 2,
-        y: originalShape.y + shapeBounds.height / 2
-      }
-    }
+      // Calculate pixel offsets based on collective bounds
+      const pixelOffsetX = (offsetX / 100) * collectiveBounds.width
+      const pixelOffsetY = (offsetY / 100) * collectiveBounds.height
 
-    // Get source rotation from the original shape
-    const sourceRotation = originalShape.rotation || 0
+      // Get source rotation from the original shape
+      const sourceRotation = originalShape.rotation || 0
 
-    for (const instance of instances) {
+      // Generate a unique group ID for this generation
+      const groupId = `linear-array-gen${generationLevel}-${Date.now()}`
+
+      // Create copies of the entire group
       for (let i = 0; i < count; i++) {
-        // Get the current rotation from the instance transform
-        const currentRotation = instance.transform.rotation()
-
-        // Calculate offset from center in local coordinate space
-        // First clone (i=0) has no offset, subsequent clones are progressively offset
+        // Calculate offset from collective center
         const centerOffsetX = pixelOffsetX * i
         const centerOffsetY = pixelOffsetY * i
 
@@ -202,39 +261,158 @@ export class TransformComposer {
           rotatedOffsetY = centerOffsetX * sin + centerOffsetY * cos
         }
 
-        // Position clone at center + rotated offset, then convert to top-left position
-        let newX = originalShapeCenter.x + rotatedOffsetX - shapeBounds.width / 2
-        let newY = originalShapeCenter.y + rotatedOffsetY - shapeBounds.height / 2
+        // For each copy, create instances for all input instances
+        instances.forEach((instance, instanceIndex) => {
+          if (instance.metadata.modifierType === 'original') return // Skip original when in unified mode
 
-        // Calculate new rotation (will be applied via rotateShapesBy for center-based rotation)
-        const incrementalRotation = (rotationIncrement * i * Math.PI) / 180
-        const uniformRotation = (rotateAll * Math.PI) / 180
-        const totalRotation = currentRotation + incrementalRotation + uniformRotation
+          const { x: instanceX, y: instanceY } = instance.transform.point()
+          const existingTransform = instance.transform
 
-
-        // Calculate scale
-        const progress = count > 1 ? i / (count - 1) : 0
-        const scale = 1 + ((scaleStep / 100) - 1) * progress
-
-        // Create transform with position and scale only
-        // Rotation will be stored separately and applied via rotateShapesBy
-        const composedTransform = Mat.Compose(
-          Mat.Translate(newX, newY),
-          Mat.Scale(scale, scale)
-        )
-
-        newInstances.push({
-          sourceShapeId: instance.sourceShapeId,
-          transform: composedTransform,
-          metadata: {
-            modifierType: 'linear-array',
-            index: newInstances.length,
-            sourceIndex: instances.indexOf(instance),
-            arrayIndex: i,
-            linearArrayIndex: i,
-            targetRotation: totalRotation  // Store rotation separately for center-based application
+          // Extract transforms from metadata first (where previous modifiers store them), fall back to matrix
+          const currentRotation = (instance.metadata.targetRotation as number) ?? existingTransform.rotation()
+          const existingScale = {
+            scaleX: (instance.metadata.targetScaleX as number) ?? existingTransform.decomposed().scaleX,
+            scaleY: (instance.metadata.targetScaleY as number) ?? existingTransform.decomposed().scaleY
           }
+
+          // Calculate offset from collective center to instance position
+          const relativeX = instanceX - collectiveCenter.x
+          const relativeY = instanceY - collectiveCenter.y
+
+          // New position = collective center + group offset + relative position
+          const newX = collectiveCenter.x + rotatedOffsetX + relativeX
+          const newY = collectiveCenter.y + rotatedOffsetY + relativeY
+
+          // Calculate rotation
+          const incrementalRotation = (rotationIncrement * i * Math.PI) / 180
+          const uniformRotation = (rotateAll * Math.PI) / 180
+          const totalRotation = currentRotation + incrementalRotation + uniformRotation
+
+          // Calculate scale accumulation
+          const progress = count > 1 ? i / (count - 1) : 0
+          const newScale = 1 + ((scaleStep / 100) - 1) * progress
+          const accumulatedScaleX = existingScale.scaleX * newScale
+          const accumulatedScaleY = existingScale.scaleY * newScale
+
+          const composedTransform = Mat.Compose(
+            Mat.Translate(newX, newY),
+            Mat.Scale(accumulatedScaleX, accumulatedScaleY)
+          )
+
+          newInstances.push({
+            sourceShapeId: instance.sourceShapeId,
+            transform: composedTransform,
+            metadata: {
+              modifierType: 'linear-array',
+              index: newInstances.length,
+              sourceIndex: instanceIndex,
+              arrayIndex: i,
+              linearArrayIndex: i,
+              targetRotation: totalRotation,
+              generationLevel,
+              groupId,
+              fromUnifiedGroup: true,
+              // Preserve existing metadata and accumulate scale
+              targetScaleX: accumulatedScaleX,
+              targetScaleY: accumulatedScaleY
+            }
+          })
         })
+      }
+    } else {
+      // Original behavior: multiply each instance (but only create clones, not preserve original)
+      const shapeBounds = this.getShapeBounds(originalShape)
+      const pixelOffsetX = (offsetX / 100) * shapeBounds.width
+      const pixelOffsetY = (offsetY / 100) * shapeBounds.height
+
+      // Get original shape center for orbital rotation calculations
+      let originalShapeCenter
+      if (editor) {
+        const visualBounds = editor.getShapePageBounds(originalShape.id)
+        if (visualBounds) {
+          originalShapeCenter = {
+            x: visualBounds.x + visualBounds.width / 2,
+            y: visualBounds.y + visualBounds.height / 2
+          }
+        } else {
+          originalShapeCenter = {
+            x: originalShape.x + shapeBounds.width / 2,
+            y: originalShape.y + shapeBounds.height / 2
+          }
+        }
+      } else {
+        originalShapeCenter = {
+          x: originalShape.x + shapeBounds.width / 2,
+          y: originalShape.y + shapeBounds.height / 2
+        }
+      }
+
+      const sourceRotation = originalShape.rotation || 0
+
+      for (const instance of instances) {
+        // Extract existing transform components for accumulation
+        const existingTransform = instance.transform
+
+        // Extract transforms from metadata first (where previous modifiers store them), fall back to matrix
+        const baseRotation = (instance.metadata.targetRotation as number) ?? existingTransform.rotation()
+        const existingScale = {
+          scaleX: (instance.metadata.targetScaleX as number) ?? existingTransform.decomposed().scaleX,
+          scaleY: (instance.metadata.targetScaleY as number) ?? existingTransform.decomposed().scaleY
+        }
+
+        for (let i = 0; i < count; i++) {
+          // Calculate offset from center in local coordinate space
+          const centerOffsetX = pixelOffsetX * i
+          const centerOffsetY = pixelOffsetY * i
+
+          // Apply rotation to the offset vector if shape is rotated
+          let rotatedOffsetX = centerOffsetX
+          let rotatedOffsetY = centerOffsetY
+
+          if (sourceRotation !== 0) {
+            const cos = Math.cos(sourceRotation)
+            const sin = Math.sin(sourceRotation)
+            rotatedOffsetX = centerOffsetX * cos - centerOffsetY * sin
+            rotatedOffsetY = centerOffsetX * sin + centerOffsetY * cos
+          }
+
+          const newX = originalShapeCenter.x + rotatedOffsetX - shapeBounds.width / 2
+          const newY = originalShapeCenter.y + rotatedOffsetY - shapeBounds.height / 2
+
+          const incrementalRotation = (rotationIncrement * i * Math.PI) / 180
+          const uniformRotation = (rotateAll * Math.PI) / 180
+          const totalRotation = baseRotation + incrementalRotation + uniformRotation
+
+          const progress = count > 1 ? i / (count - 1) : 0
+          const newScale = 1 + ((scaleStep / 100) - 1) * progress
+          // Accumulate scale with existing scale
+          const accumulatedScaleX = existingScale.scaleX * newScale
+          const accumulatedScaleY = existingScale.scaleY * newScale
+
+          // Create new transform that multiplies with existing transform
+          const newTransform = Mat.Compose(
+            Mat.Translate(newX, newY),
+            Mat.Scale(accumulatedScaleX, accumulatedScaleY)
+          )
+
+          newInstances.push({
+            sourceShapeId: instance.sourceShapeId,
+            transform: newTransform,
+            metadata: {
+              modifierType: 'linear-array',
+              index: newInstances.length,
+              sourceIndex: instances.indexOf(instance),
+              arrayIndex: i,
+              linearArrayIndex: i,
+              targetRotation: totalRotation,
+              generationLevel,
+              groupId: instance.metadata.groupId || 'original',
+              // Preserve and accumulate existing metadata
+              targetScaleX: accumulatedScaleX,
+              targetScaleY: accumulatedScaleY
+            }
+          })
+        }
       }
     }
 
@@ -248,54 +426,44 @@ export class TransformComposer {
     instances: VirtualInstance[],
     settings: CircularArraySettings,
     originalShape: TLShape,
-    editor?: Editor
+    editor?: Editor,
+    generationLevel: number = 0
   ): VirtualInstance[] {
     const { count, radius, startAngle, endAngle, centerX, centerY, rotateAll, rotateEach, alignToTangent } = settings
     const newInstances: VirtualInstance[] = []
 
-    // Get shape dimensions for reference
-    const shapeBounds = this.getShapeBounds(originalShape)
+    // Check if we should use unified composition (treating all instances as one group)
+    const useUnified = this.shouldUseUnifiedComposition(instances)
 
-    // Get original shape center for orbital rotation calculations
-    let originalShapeCenter
+    const processingId = `CA-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    console.log(`[CircularArray] ${processingId} Processing ${instances.length} instances, useUnified: ${useUnified}`, {
+      instances: instances.map(i => ({
+        type: i.metadata.modifierType,
+        sourceId: i.sourceShapeId,
+        groupId: i.metadata.groupId,
+        index: i.metadata.index
+      })),
+      processingId
+    })
 
-    // Always use visual bounds when editor is available for consistent center
-    if (editor) {
-      const visualBounds = editor.getShapePageBounds(originalShape.id)
-      if (visualBounds) {
-        originalShapeCenter = {
-          x: visualBounds.x + visualBounds.width / 2,
-          y: visualBounds.y + visualBounds.height / 2
-        }
-      } else {
-        // Fallback if visual bounds not available
-        originalShapeCenter = {
-          x: originalShape.x + shapeBounds.width / 2,
-          y: originalShape.y + shapeBounds.height / 2
-        }
+    if (useUnified) {
+      // Unified composition: treat all existing instances as a single entity
+      const { center: collectiveCenter } = this.calculateCollectiveBounds(instances, originalShape, editor)
+
+      // Get source rotation from the original shape
+      const sourceRotation = originalShape.rotation || 0
+
+      // Calculate circle center (offset from collective center)
+      const circleCenter = {
+        x: collectiveCenter.x + (centerX || 0),
+        y: collectiveCenter.y + (centerY || 0)
       }
-    } else {
-      // Fallback when editor not available
-      originalShapeCenter = {
-        x: originalShape.x + shapeBounds.width / 2,
-        y: originalShape.y + shapeBounds.height / 2
-      }
-    }
 
-    // Get source rotation from the original shape
-    const sourceRotation = originalShape.rotation || 0
+      // Generate a unique group ID for this generation
+      const groupId = `circular-array-gen${generationLevel}-${Date.now()}`
 
-    // Calculate circle center (offset from shape center)
-    const circleCenter = {
-      x: originalShapeCenter.x + (centerX || 0),
-      y: originalShapeCenter.y + (centerY || 0)
-    }
-
-    for (const instance of instances) {
+      // Create circular copies of the entire group
       for (let i = 0; i < count; i++) {
-        // Get the current rotation from the instance transform
-        const currentRotation = instance.transform.rotation()
-
         // Calculate angle for this position
         const totalAngle = endAngle - startAngle
         const isFullCircle = Math.abs(totalAngle) >= 360
@@ -317,42 +485,182 @@ export class TransformComposer {
           rotatedOffsetY = circularOffsetX * sin + circularOffsetY * cos
         }
 
-        // Position clone at circular position, then convert to top-left position
-        const newX = circleCenter.x + rotatedOffsetX - shapeBounds.width / 2
-        const newY = circleCenter.y + rotatedOffsetY - shapeBounds.height / 2
+        // Filter out original instances for unified composition
+        const groupInstances = instances.filter(inst => inst.metadata.modifierType !== 'original')
 
-        // Calculate new rotation (will be applied via rotateShapesBy for center-based rotation)
-        let totalRotation = currentRotation
+        // For each instance in the group, create it at this circular position
+        groupInstances.forEach((instance, instanceIndex) => {
+          const { x: instanceX, y: instanceY } = instance.transform.point()
+          const existingTransform = instance.transform
 
-        if (alignToTangent) {
-          totalRotation += angle + Math.PI / 2
-        }
-        if (rotateAll) {
-          totalRotation += (rotateAll * Math.PI / 180)
-        }
-        if (rotateEach) {
-          totalRotation += (rotateEach * i * Math.PI / 180)
-        }
-
-        // Create transform with position only
-        // Rotation will be stored separately and applied via rotateShapesBy
-        const composedTransform = Mat.Translate(newX, newY)
-
-        newInstances.push({
-          sourceShapeId: instance.sourceShapeId,
-          transform: composedTransform,
-          metadata: {
-            modifierType: 'circular-array',
-            index: newInstances.length,
-            sourceIndex: instances.indexOf(instance),
-            arrayIndex: i,
-            circularArrayIndex: i,
-            targetRotation: totalRotation  // Store rotation separately for center-based application
+          // Extract transforms from metadata first (where Linear Array stores them), fall back to matrix
+          const currentRotation = (instance.metadata.targetRotation as number) ?? existingTransform.rotation()
+          const existingScale = {
+            scaleX: (instance.metadata.targetScaleX as number) ?? existingTransform.decomposed().scaleX,
+            scaleY: (instance.metadata.targetScaleY as number) ?? existingTransform.decomposed().scaleY
           }
+
+          // Calculate offset from collective center to instance position
+          const relativeX = instanceX - collectiveCenter.x
+          const relativeY = instanceY - collectiveCenter.y
+
+          // New position = circle center + circular offset + relative position
+          const newX = circleCenter.x + rotatedOffsetX + relativeX
+          const newY = circleCenter.y + rotatedOffsetY + relativeY
+
+          // Calculate rotation accumulation
+          let totalRotation = currentRotation
+
+          if (alignToTangent) {
+            totalRotation += angle + Math.PI / 2
+          }
+          if (rotateAll) {
+            totalRotation += (rotateAll * Math.PI / 180)
+          }
+          if (rotateEach) {
+            totalRotation += (rotateEach * i * Math.PI / 180)
+          }
+
+          // Preserve existing scale (circular array doesn't add scale by default)
+          const composedTransform = Mat.Compose(
+            Mat.Translate(newX, newY),
+            Mat.Scale(existingScale.scaleX, existingScale.scaleY)
+          )
+
+          newInstances.push({
+            sourceShapeId: instance.sourceShapeId,
+            transform: composedTransform,
+            metadata: {
+              modifierType: 'circular-array',
+              index: newInstances.length,
+              sourceIndex: instanceIndex,
+              arrayIndex: i,
+              circularArrayIndex: i,
+              targetRotation: totalRotation,
+              generationLevel,
+              groupId,
+              fromUnifiedGroup: true,
+              // Preserve existing metadata transforms
+              targetScaleX: existingScale.scaleX,
+              targetScaleY: existingScale.scaleY,
+              // Add processing ID for debugging
+              processingId
+            }
+          })
         })
+      }
+    } else {
+      // Original behavior: multiply each instance
+      const shapeBounds = this.getShapeBounds(originalShape)
+
+      // Get original shape center for orbital rotation calculations
+      let originalShapeCenter
+      if (editor) {
+        const visualBounds = editor.getShapePageBounds(originalShape.id)
+        if (visualBounds) {
+          originalShapeCenter = {
+            x: visualBounds.x + visualBounds.width / 2,
+            y: visualBounds.y + visualBounds.height / 2
+          }
+        } else {
+          originalShapeCenter = {
+            x: originalShape.x + shapeBounds.width / 2,
+            y: originalShape.y + shapeBounds.height / 2
+          }
+        }
+      } else {
+        originalShapeCenter = {
+          x: originalShape.x + shapeBounds.width / 2,
+          y: originalShape.y + shapeBounds.height / 2
+        }
+      }
+
+      const sourceRotation = originalShape.rotation || 0
+
+      // Calculate circle center (offset from shape center)
+      const circleCenter = {
+        x: originalShapeCenter.x + (centerX || 0),
+        y: originalShapeCenter.y + (centerY || 0)
+      }
+
+      for (const instance of instances) {
+        // Extract existing transform components for accumulation
+        const existingTransform = instance.transform
+
+        // Extract transforms from metadata first (where previous modifiers store them), fall back to matrix
+        const baseRotation = (instance.metadata.targetRotation as number) ?? existingTransform.rotation()
+        const existingScale = {
+          scaleX: (instance.metadata.targetScaleX as number) ?? existingTransform.decomposed().scaleX,
+          scaleY: (instance.metadata.targetScaleY as number) ?? existingTransform.decomposed().scaleY
+        }
+
+        for (let i = 0; i < count; i++) {
+          const currentRotation = baseRotation
+
+          // Calculate angle for this position
+          const totalAngle = endAngle - startAngle
+          const isFullCircle = Math.abs(totalAngle) >= 360
+          const angleStep = count > 1 ? (isFullCircle ? totalAngle / count : totalAngle / (count - 1)) : 0
+          const angle = (startAngle + angleStep * i) * Math.PI / 180
+
+          // Calculate circular position relative to circle center
+          const circularOffsetX = Math.cos(angle) * radius
+          const circularOffsetY = Math.sin(angle) * radius
+
+          // Apply source rotation to the circular offset if shape is rotated
+          let rotatedOffsetX = circularOffsetX
+          let rotatedOffsetY = circularOffsetY
+
+          if (sourceRotation !== 0) {
+            const cos = Math.cos(sourceRotation)
+            const sin = Math.sin(sourceRotation)
+            rotatedOffsetX = circularOffsetX * cos - circularOffsetY * sin
+            rotatedOffsetY = circularOffsetX * sin + circularOffsetY * cos
+          }
+
+          const newX = circleCenter.x + rotatedOffsetX - shapeBounds.width / 2
+          const newY = circleCenter.y + rotatedOffsetY - shapeBounds.height / 2
+
+          let totalRotation = currentRotation
+
+          if (alignToTangent) {
+            totalRotation += angle + Math.PI / 2
+          }
+          if (rotateAll) {
+            totalRotation += (rotateAll * Math.PI / 180)
+          }
+          if (rotateEach) {
+            totalRotation += (rotateEach * i * Math.PI / 180)
+          }
+
+          // Preserve existing scale
+          const composedTransform = Mat.Compose(
+            Mat.Translate(newX, newY),
+            Mat.Scale(existingScale.scaleX, existingScale.scaleY)
+          )
+
+          newInstances.push({
+            sourceShapeId: instance.sourceShapeId,
+            transform: composedTransform,
+            metadata: {
+              modifierType: 'circular-array',
+              index: newInstances.length,
+              sourceIndex: instances.indexOf(instance),
+              arrayIndex: i,
+              circularArrayIndex: i,
+              targetRotation: totalRotation,
+              generationLevel,
+              groupId: instance.metadata.groupId || 'original',
+              // Preserve existing scale
+              targetScaleX: existingScale.scaleX,
+              targetScaleY: existingScale.scaleY
+            }
+          })
+        }
       }
     }
 
+    console.log(`[CircularArray] ${processingId} Completed: Created ${newInstances.length} instances (unified: ${useUnified})`)
     return newInstances
   }
 
@@ -363,39 +671,51 @@ export class TransformComposer {
     instances: VirtualInstance[],
     settings: GridArraySettings,
     originalShape: TLShape,
-    editor?: Editor
+    editor?: Editor,
+    generationLevel: number = 0
   ): VirtualInstance[] {
     const { rows, columns, spacingX, spacingY, rotateEach, rotateAll, rotateEachRow, rotateEachColumn, scaleStep, rowScaleStep, columnScaleStep } = settings
     const newInstances: VirtualInstance[] = []
 
+    // Check if we should use unified composition (treating all instances as one group)
+    const useUnified = this.shouldUseUnifiedComposition(instances)
+
+    // If using unified composition, calculate collective bounds
+    const { center: collectiveCenter, bounds: collectiveBounds } = useUnified
+      ? this.calculateCollectiveBounds(instances, originalShape, editor)
+      : { center: { x: 0, y: 0 }, bounds: { width: 100, height: 100 } }
+
     // Get shape dimensions for percentage-based spacing
     const shapeBounds = this.getShapeBounds(originalShape)
-    const pixelSpacingX = (spacingX / 100) * shapeBounds.width
-    const pixelSpacingY = (spacingY / 100) * shapeBounds.height
+    const referenceWidth = useUnified ? collectiveBounds.width : shapeBounds.width
+    const referenceHeight = useUnified ? collectiveBounds.height : shapeBounds.height
+    const pixelSpacingX = (spacingX / 100) * referenceWidth
+    const pixelSpacingY = (spacingY / 100) * referenceHeight
 
     // Get original shape center for orbital rotation calculations
     let originalShapeCenter
-
-    // Always use visual bounds when editor is available for consistent center
-    if (editor) {
-      const visualBounds = editor.getShapePageBounds(originalShape.id)
-      if (visualBounds) {
-        originalShapeCenter = {
-          x: visualBounds.x + visualBounds.width / 2,
-          y: visualBounds.y + visualBounds.height / 2
+    if (useUnified) {
+      originalShapeCenter = collectiveCenter
+    } else {
+      // Original behavior
+      if (editor) {
+        const visualBounds = editor.getShapePageBounds(originalShape.id)
+        if (visualBounds) {
+          originalShapeCenter = {
+            x: visualBounds.x + visualBounds.width / 2,
+            y: visualBounds.y + visualBounds.height / 2
+          }
+        } else {
+          originalShapeCenter = {
+            x: originalShape.x + shapeBounds.width / 2,
+            y: originalShape.y + shapeBounds.height / 2
+          }
         }
       } else {
-        // Fallback if visual bounds not available
         originalShapeCenter = {
           x: originalShape.x + shapeBounds.width / 2,
           y: originalShape.y + shapeBounds.height / 2
         }
-      }
-    } else {
-      // Fallback when editor not available
-      originalShapeCenter = {
-        x: originalShape.x + shapeBounds.width / 2,
-        y: originalShape.y + shapeBounds.height / 2
       }
     }
 
@@ -406,7 +726,15 @@ export class TransformComposer {
     const gridStartX = originalShapeCenter.x
     const gridStartY = originalShapeCenter.y
 
-    for (const instance of instances) {
+    // Generate a unique group ID for this generation
+    const groupId = `grid-array-gen${generationLevel}-${Date.now()}`
+
+    // Filter instances if using unified composition
+    const processInstances = useUnified
+      ? instances.filter(inst => inst.metadata.modifierType !== 'original')
+      : instances
+
+    for (const instance of processInstances) {
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < columns; col++) {
           // Get the current rotation from the instance transform
@@ -427,9 +755,20 @@ export class TransformComposer {
             rotatedOffsetY = gridOffsetX * sin + gridOffsetY * cos
           }
 
-          // Position clone at grid position, then convert to top-left position
-          let newX = gridStartX + rotatedOffsetX - shapeBounds.width / 2
-          let newY = gridStartY + rotatedOffsetY - shapeBounds.height / 2
+          // Position clone at grid position
+          let newX: number, newY: number
+          if (useUnified) {
+            // For unified composition, handle positioning differently
+            const { x: instanceX, y: instanceY } = instance.transform.point()
+            const relativeX = instanceX - collectiveCenter.x
+            const relativeY = instanceY - collectiveCenter.y
+            newX = gridStartX + rotatedOffsetX + relativeX
+            newY = gridStartY + rotatedOffsetY + relativeY
+          } else {
+            // Original behavior
+            newX = gridStartX + rotatedOffsetX - shapeBounds.width / 2
+            newY = gridStartY + rotatedOffsetY - shapeBounds.height / 2
+          }
 
           // Calculate new rotation (will be applied via rotateShapesBy for center-based rotation)
           const linearIndex = row * columns + col
@@ -464,11 +803,14 @@ export class TransformComposer {
             metadata: {
               modifierType: 'grid-array',
               index: newInstances.length,
-              sourceIndex: instances.indexOf(instance),
+              sourceIndex: processInstances.indexOf(instance),
               arrayIndex: linearIndex,
               gridArrayIndex: linearIndex,
               gridPosition: { row, col },
-              targetRotation: totalRotation  // Store rotation separately for center-based application
+              targetRotation: totalRotation,
+              generationLevel,
+              groupId,
+              fromUnifiedGroup: useUnified
             }
           })
         }
@@ -485,7 +827,8 @@ export class TransformComposer {
     instances: VirtualInstance[],
     settings: MirrorSettings,
     originalShape: TLShape,
-    editor?: Editor
+    editor?: Editor,
+    generationLevel: number = 0
   ): VirtualInstance[] {
     const { axis, offset } = settings
 
@@ -495,44 +838,48 @@ export class TransformComposer {
 
     const newInstances: VirtualInstance[] = []
 
-    // Get shape dimensions for reference
-    const shapeBounds = this.getShapeBounds(originalShape)
+    // Check if we should use unified composition
+    const useUnified = this.shouldUseUnifiedComposition(instances)
 
-    // Get original shape center for mirror calculations
-    let originalShapeCenter
-
-    // Always use visual bounds when editor is available for consistent center
-    if (editor) {
-      const visualBounds = editor.getShapePageBounds(originalShape.id)
-      if (visualBounds) {
-        originalShapeCenter = {
-          x: visualBounds.x + visualBounds.width / 2,
-          y: visualBounds.y + visualBounds.height / 2
+    // Get reference center and bounds
+    let referenceCenter: { x: number; y: number }
+    if (useUnified) {
+      const { center } = this.calculateCollectiveBounds(instances, originalShape, editor)
+      referenceCenter = center
+    } else {
+      // Original behavior
+      const shapeBounds = this.getShapeBounds(originalShape)
+      if (editor) {
+        const visualBounds = editor.getShapePageBounds(originalShape.id)
+        if (visualBounds) {
+          referenceCenter = {
+            x: visualBounds.x + visualBounds.width / 2,
+            y: visualBounds.y + visualBounds.height / 2
+          }
+        } else {
+          referenceCenter = {
+            x: originalShape.x + shapeBounds.width / 2,
+            y: originalShape.y + shapeBounds.height / 2
+          }
         }
       } else {
-        // Fallback if visual bounds not available
-        originalShapeCenter = {
+        referenceCenter = {
           x: originalShape.x + shapeBounds.width / 2,
           y: originalShape.y + shapeBounds.height / 2
         }
       }
-    } else {
-      // Fallback when editor not available
-      originalShapeCenter = {
-        x: originalShape.x + shapeBounds.width / 2,
-        y: originalShape.y + shapeBounds.height / 2
-      }
     }
 
-    // Get source rotation from the original shape
-    const sourceRotation = originalShape.rotation || 0
+    // Generate group ID
+    const groupId = `mirror-gen${generationLevel}-${Date.now()}`
 
-    // Detect if we're processing instances from previous modifiers
-    const hasModifiedInstances = instances.length > 1 ||
-      instances.some(inst => inst.metadata.modifierType !== 'original')
+    // Filter instances if using unified composition, otherwise preserve all (including originals)
+    const processInstances = useUnified
+      ? instances.filter(inst => inst.metadata.modifierType !== 'original')
+      : instances
 
-    // If there are instances from previous modifiers, preserve them
-    if (hasModifiedInstances) {
+    // If not unified and there are modified instances, preserve them first
+    if (!useUnified && instances.length > 1) {
       instances.forEach(instance => {
         newInstances.push({
           sourceShapeId: instance.sourceShapeId,
@@ -545,30 +892,38 @@ export class TransformComposer {
       })
     }
 
-    // Then create mirrored copies of ALL instances
-    instances.forEach(instance => {
-      // Get the current rotation from the instance transform
+    // Then create mirrored copies of processed instances
+    processInstances.forEach(instance => {
       const currentRotation = instance.transform.rotation()
 
-      // Calculate mirror position relative to shape center (fixed position, no orbital rotation)
-      let newX: number
-      let newY: number
+      // Calculate mirror position
+      let newX: number, newY: number
 
-      if (axis === 'x') {
-        // Mirror across vertical axis through shape center with offset
-        newX = originalShapeCenter.x + offset - shapeBounds.width / 2
-        newY = originalShapeCenter.y - shapeBounds.height / 2
+      if (useUnified) {
+        // For unified composition, mirror relative to collective center
+        const { x: instanceX, y: instanceY } = instance.transform.point()
+        if (axis === 'x') {
+          newX = referenceCenter.x + offset + (referenceCenter.x - instanceX)
+          newY = instanceY
+        } else {
+          newX = instanceX
+          newY = referenceCenter.y + offset + (referenceCenter.y - instanceY)
+        }
       } else {
-        // Mirror across horizontal axis through shape center with offset
-        newX = originalShapeCenter.x - shapeBounds.width / 2
-        newY = originalShapeCenter.y + offset - shapeBounds.height / 2
+        // Original behavior
+        const shapeBounds = this.getShapeBounds(originalShape)
+        if (axis === 'x') {
+          newX = referenceCenter.x + offset - shapeBounds.width / 2
+          newY = referenceCenter.y - shapeBounds.height / 2
+        } else {
+          newX = referenceCenter.x - shapeBounds.width / 2
+          newY = referenceCenter.y + offset - shapeBounds.height / 2
+        }
       }
 
       // Calculate inverse rotation for the mirrored clone
       const inverseRotation = -currentRotation
 
-      // Create transform with position only
-      // Rotation will be stored separately and applied via rotateShapesBy
       const composedTransform = Mat.Translate(newX, newY)
 
       newInstances.push({
@@ -581,10 +936,12 @@ export class TransformComposer {
           isMirrored: true,
           mirrorAxis: axis,
           mirrorOffset: offset,
-          sourceIndex: instances.indexOf(instance),
-          targetRotation: inverseRotation,  // Store inverse rotation for center-based application
-          arrayIndex: 0,  // Mirror creates one clone
-          // Store flip metadata for shape rendering if needed
+          sourceIndex: processInstances.indexOf(instance),
+          targetRotation: inverseRotation,
+          arrayIndex: 0,
+          generationLevel,
+          groupId,
+          fromUnifiedGroup: useUnified,
           isFlippedX: axis === 'x',
           isFlippedY: axis === 'y'
         }

@@ -92,12 +92,12 @@ export function useCloneManager({
 
     // Batch all shape operations together for better performance
     editor.run(() => {
-      // Restore original opacity for array modifiers
+      // Hide original shape when clones exist (set opacity to 0)
       if (processedShapesCount > 0) {
         editor.updateShape({
           id: currentShape.id,
           type: currentShape.type,
-          opacity: currentShape.opacity || 1
+          opacity: 0
         })
       }
 
@@ -226,11 +226,14 @@ function cleanupGroupClones(editor: Editor, shape: TLShape) {
 }
 
 
+// Track last processing time to prevent rapid successive TransformComposer calls
+const lastTransformComposerCall = new Map<string, { time: number; result: any }>()
+
 /**
  * Update existing clones with new positions and properties
  */
 function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModifier[], existingClones: TLShape[]) {
-  // Debug: Log when this function is called
+  console.log(`[updateExistingClones] Processing ${shape.id} with ${existingClones.length} existing clones`)
 
   // Recalculate positions based on current shape state
   // Create group context if needed
@@ -263,13 +266,30 @@ function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModif
     }
   }
 
-  const result = TransformComposer.processModifiers(shape, modifiers, groupContext, editor)
+  // Create signature for this specific modifier configuration
+  const modifierSignature = modifiers.map(m => `${m.id}-${m.enabled}-${m.order}-${JSON.stringify(m.props)}`).join('|')
+  const shapeSignature = `${shape.id}-${shape.x}-${shape.y}-${shape.rotation}-${JSON.stringify(shape.props)}`
+  const fullSignature = `${shapeSignature}-${modifierSignature}`
+
+  const now = Date.now()
+  const lastCall = lastTransformComposerCall.get(shape.id)
+
+  let result
+  if (lastCall && lastCall.time && (now - lastCall.time) < 100 && lastCall.result) {
+    console.log(`[updateExistingClones] Using cached TransformComposer result for ${shape.id}`)
+    result = lastCall.result
+  } else {
+    console.log(`[updateExistingClones] Calling TransformComposer.processModifiers for ${shape.id}`)
+    result = TransformComposer.processModifiers(shape, modifiers, groupContext, editor)
+    lastTransformComposerCall.set(shape.id, { time: now, result })
+  }
+
   const updatedShapes = extractShapesFromState(result)
 
   // Update existing clones with new positions
   const updatedClones = existingClones.map((clone: TLShape) => {
-    const cloneIndex = clone.meta?.arrayIndex as number
-    const updatedShape = updatedShapes.find(s => s.meta?.arrayIndex === cloneIndex)
+    const cloneIndex = clone.meta?.index as number
+    const updatedShape = updatedShapes.find(s => s.meta?.index === cloneIndex)
 
     if (!updatedShape) return null
 
