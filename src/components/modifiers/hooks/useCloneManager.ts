@@ -33,6 +33,15 @@ export function useCloneManager({
   // Memoize processedShapes count to avoid dependency issues
   const processedShapesCount = useMemo(() => processedShapes.length, [processedShapes.length])
 
+  // Check if we should hide the source shape based on modifier types
+  // Keep source visible for array modifiers (linear-array, circular-array, grid-array, mirror)
+  const shouldHideSourceShape = useMemo(() => {
+    const arrayModifierTypes = ['linear-array', 'circular-array', 'grid-array', 'mirror']
+    return !modifiers.some(modifier =>
+      modifier.enabled && arrayModifierTypes.includes(modifier.type)
+    )
+  }, [modifiers])
+
   // All remaining modifiers are array modifiers (no path modifiers left)
   const hasPathModifiers = false
 
@@ -53,13 +62,22 @@ export function useCloneManager({
       }, { ignoreShapeLock: true, history: 'ignore' })
     }
 
-    // No path modifiers to restore opacity for
+    // Restore source shape opacity if it was hidden
+    if (currentShape.opacity === 0) {
+      editor.run(() => {
+        editor.updateShape({
+          id: currentShape.id,
+          type: currentShape.type,
+          opacity: 1
+        })
+      }, { ignoreShapeLock: true, history: 'ignore' })
+    }
 
     // For group modifiers, also clean up clones of all shapes in the group during cleanup
     if (currentShape.type === 'group') {
       cleanupGroupClones(editor, currentShape)
     }
-  }, [editor, hasPathModifiers])
+  }, [editor])
 
   // Use refs to store current values without triggering re-renders
   const modifiersRef = useRef(modifiers)
@@ -92,8 +110,8 @@ export function useCloneManager({
 
     // Batch all shape operations together for better performance
     editor.run(() => {
-      // Hide original shape when clones exist (set opacity to 0)
-      if (processedShapesCount > 0) {
+      // Hide original shape when clones exist (set opacity to 0) only for certain modifier types
+      if (processedShapesCount > 0 && shouldHideSourceShape) {
         editor.updateShape({
           id: currentShape.id,
           type: currentShape.type,
@@ -152,7 +170,7 @@ export function useCloneManager({
 
     // Return cleanup function
     return cleanupFunction
-  }, [editor, shapeKey, processedShapesCount, hasPathModifiers, cleanupFunction])
+  }, [editor, shapeKey, processedShapesCount, hasPathModifiers, shouldHideSourceShape, cleanupFunction])
 
   // Update existing clones when original shape changes (second effect for live updates)
   useEffect(() => {
@@ -266,10 +284,7 @@ function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModif
     }
   }
 
-  // Create signature for this specific modifier configuration
-  const modifierSignature = modifiers.map(m => `${m.id}-${m.enabled}-${m.order}-${JSON.stringify(m.props)}`).join('|')
-  const shapeSignature = `${shape.id}-${shape.x}-${shape.y}-${shape.rotation}-${JSON.stringify(shape.props)}`
-  const fullSignature = `${shapeSignature}-${modifierSignature}`
+  // These variables were used for caching but are not currently needed
 
   const now = Date.now()
   const lastCall = lastTransformComposerCall.get(shape.id)
