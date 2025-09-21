@@ -504,9 +504,21 @@ export class TransformComposer {
           const relativeX = instanceX - collectiveCenter.x
           const relativeY = instanceY - collectiveCenter.y
 
-          // New position = circle center + circular offset + relative position
-          const newX = circleCenter.x + rotatedOffsetX + relativeX
-          const newY = circleCenter.y + rotatedOffsetY + relativeY
+          // Apply tangent rotation to relative positions to make groups orbit around each circular position
+          let rotatedRelativeX = relativeX
+          let rotatedRelativeY = relativeY
+
+          if (alignToTangent) {
+            const tangentAngle = angle + Math.PI / 2
+            const cos = Math.cos(tangentAngle)
+            const sin = Math.sin(tangentAngle)
+            rotatedRelativeX = relativeX * cos - relativeY * sin
+            rotatedRelativeY = relativeX * sin + relativeY * cos
+          }
+
+          // New position = circle center + circular offset + (possibly rotated) relative position
+          const newX = circleCenter.x + rotatedOffsetX + rotatedRelativeX
+          const newY = circleCenter.y + rotatedOffsetY + rotatedRelativeY
 
           // Calculate rotation accumulation
           let totalRotation = currentRotation
