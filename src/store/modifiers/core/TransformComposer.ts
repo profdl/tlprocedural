@@ -820,13 +820,17 @@ export class TransformComposer {
               scaleY: (instance.metadata.targetScaleY as number) ?? existingTransform.decomposed().scaleY
             }
 
-            // Calculate instance position relative to group center
+            // Calculate the center of THIS grid position (where the group will be placed)
+            const gridPositionCenterX = gridStartX + rotatedOffsetX
+            const gridPositionCenterY = gridStartY + rotatedOffsetY
+
+            // Calculate instance position relative to original group center
             const { x: instanceX, y: instanceY } = instance.transform.point()
             const relativeX = instanceX - collectiveCenter.x
             const relativeY = instanceY - collectiveCenter.y
 
-            // Apply orbital rotation to relative positions (like Circular Array)
-            // This creates orbital motion of the group formation around the grid position
+            // Apply orbital rotation around the grid position center
+            // This creates orbital motion of the group formation around each grid position
             let rotatedRelativeX = relativeX
             let rotatedRelativeY = relativeY
 
@@ -837,9 +841,9 @@ export class TransformComposer {
               rotatedRelativeY = relativeX * sin + relativeY * cos
             }
 
-            // Position at grid location with orbital rotation applied
-            const newX = gridStartX + rotatedOffsetX + rotatedRelativeX
-            const newY = gridStartY + rotatedOffsetY + rotatedRelativeY
+            // Position at grid location center + rotated relative position
+            const newX = gridPositionCenterX + rotatedRelativeX
+            const newY = gridPositionCenterY + rotatedRelativeY
 
             // Apply GROUP orbital rotation to maintain shape orientation (same as relative position rotation)
             const totalRotation = currentRotation + groupRotationAdjustment
