@@ -152,7 +152,7 @@ export class MirrorModifierFactory extends BaseModifierFactory<TLMirrorModifier>
       type: 'mirror',
       props: {
         axis: 'x',
-        offset: 0,
+        offset: 200,
         ...settings
       }
     }
