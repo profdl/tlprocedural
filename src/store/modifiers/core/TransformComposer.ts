@@ -287,7 +287,13 @@ export class TransformComposer {
           // Don't apply additional rotations to individual shapes within the group
           // Only rotateAll affects the entire group uniformly
           const uniformRotation = (rotateAll * Math.PI) / 180
-          const totalRotation = currentRotation + uniformRotation
+          let totalRotation = currentRotation + uniformRotation
+
+          // If source shape is rotated, offsets are rotated
+          // So shapes must rotate with them to maintain rigid body
+          if (sourceRotation !== 0) {
+            totalRotation += sourceRotation
+          }
 
           // Calculate scale accumulation
           const progress = count > 1 ? i / (count - 1) : 0
@@ -538,6 +544,12 @@ export class TransformComposer {
           // Add the group orbit angle to maintain orientation relative to the group
           let totalRotation = currentRotation + groupOrbitAngle
 
+          // If source shape is rotated, circular positions are rotated
+          // So shapes must rotate with them to maintain rigid body
+          if (sourceRotation !== 0) {
+            totalRotation += sourceRotation
+          }
+
           // rotateEach additionally rotates individual shapes within the group
           if (rotateEach) {
             totalRotation += (rotateEach * i * Math.PI / 180)
@@ -759,8 +771,15 @@ export class TransformComposer {
     for (const instance of processInstances) {
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < columns; col++) {
-          // Get the current rotation from the instance transform
-          const currentRotation = instance.transform.rotation()
+          // Extract existing transform components for accumulation
+          const existingTransform = instance.transform
+
+          // Extract transforms from metadata first (where previous modifiers store them), fall back to matrix
+          const currentRotation = (instance.metadata.targetRotation as number) ?? existingTransform.rotation()
+          const existingScale = {
+            scaleX: (instance.metadata.targetScaleX as number) ?? existingTransform.decomposed().scaleX,
+            scaleY: (instance.metadata.targetScaleY as number) ?? existingTransform.decomposed().scaleY
+          }
 
           // Calculate grid position relative to center
           const gridOffsetX = col * pixelSpacingX
@@ -798,9 +817,15 @@ export class TransformComposer {
           let totalRotation: number
           if (useUnified) {
             // In unified mode, preserve internal group rotations (rigid body)
-            // Only apply uniform rotation to all shapes in the group
+            // Apply uniform rotation to all shapes in the group
             const uniformRotation = (rotateAll * Math.PI) / 180
             totalRotation = currentRotation + uniformRotation
+
+            // If source shape is rotated, the grid formation rotates
+            // So shapes must rotate with it to maintain rigid body
+            if (sourceRotation !== 0) {
+              totalRotation += sourceRotation
+            }
           } else {
             // Normal mode: apply all rotation increments
             const incrementalRotation = (rotateEach * linearIndex * Math.PI) / 180
@@ -820,13 +845,17 @@ export class TransformComposer {
           const linearScale = 1 + ((scaleStep / 100) - 1) * linearProgress
           const rowScale = 1 + ((rowScaleStep / 100) - 1) * rowProgress
           const columnScale = 1 + ((columnScaleStep / 100) - 1) * columnProgress
-          const scale = linearScale * rowScale * columnScale
+          const newScale = linearScale * rowScale * columnScale
 
-          // Create transform with position and scale only
+          // Accumulate with existing scale from previous modifiers
+          const accumulatedScaleX = existingScale.scaleX * newScale
+          const accumulatedScaleY = existingScale.scaleY * newScale
+
+          // Create transform with position and accumulated scale
           // Rotation will be stored separately and applied via rotateShapesBy
           const composedTransform = Mat.Compose(
             Mat.Translate(newX, newY),
-            Mat.Scale(scale, scale)
+            Mat.Scale(accumulatedScaleX, accumulatedScaleY)
           )
 
           newInstances.push({
@@ -840,6 +869,9 @@ export class TransformComposer {
               gridArrayIndex: linearIndex,
               gridPosition: { row, col },
               targetRotation: totalRotation,
+              // Preserve and accumulate existing scale
+              targetScaleX: accumulatedScaleX,
+              targetScaleY: accumulatedScaleY,
               generationLevel,
               groupId,
               fromUnifiedGroup: useUnified
