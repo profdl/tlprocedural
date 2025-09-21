@@ -1020,28 +1020,39 @@ export class TransformComposer {
     // Generate group ID
     const groupId = `mirror-gen${generationLevel}-${Date.now()}`
 
-    // Filter instances if using unified composition, otherwise preserve all (including originals)
+    // Always preserve existing instances first (both unified and non-unified modes)
+    // Mirror modifier should keep the original group AND create mirrored copies
+    instances.forEach(instance => {
+      // Skip original instances in unified mode (they were already processed by previous modifiers)
+      if (useUnified && instance.metadata.modifierType === 'original') {
+        return
+      }
+
+      newInstances.push({
+        sourceShapeId: instance.sourceShapeId,
+        transform: instance.transform,
+        metadata: {
+          ...instance.metadata,
+          index: newInstances.length
+        }
+      })
+    })
+
+    // Determine which instances to mirror
     const processInstances = useUnified
       ? instances.filter(inst => inst.metadata.modifierType !== 'original')
       : instances
 
-    // If not unified and there are modified instances, preserve them first
-    if (!useUnified && instances.length > 1) {
-      instances.forEach(instance => {
-        newInstances.push({
-          sourceShapeId: instance.sourceShapeId,
-          transform: instance.transform,
-          metadata: {
-            ...instance.metadata,
-            index: newInstances.length
-          }
-        })
-      })
-    }
-
     // Then create mirrored copies of processed instances
     processInstances.forEach(instance => {
-      const currentRotation = instance.transform.rotation()
+      const existingTransform = instance.transform
+
+      // Extract transforms from metadata first (where previous modifiers store them), fall back to matrix
+      const currentRotation = (instance.metadata.targetRotation as number) ?? existingTransform.rotation()
+      const existingScale = {
+        scaleX: (instance.metadata.targetScaleX as number) ?? existingTransform.decomposed().scaleX,
+        scaleY: (instance.metadata.targetScaleY as number) ?? existingTransform.decomposed().scaleY
+      }
 
       // Calculate mirror position
       let newX: number, newY: number
@@ -1069,11 +1080,16 @@ export class TransformComposer {
       }
 
       // Calculate rotation for the mirrored clone
-      // In unified mode, preserve the rotation to maintain rigid group
-      // In normal mode, invert for traditional mirror behavior
-      const targetRotation = useUnified ? currentRotation : -currentRotation
+      // For proper mirror effect, always apply rotation mirroring based on mirror axis
+      // Horizontal (X-axis) mirror: invert rotation to create opposite rotation direction
+      // Vertical (Y-axis) mirror: invert rotation for correct vertical mirror effect
+      const targetRotation = axis === 'x' ? -currentRotation : -currentRotation
 
-      const composedTransform = Mat.Translate(newX, newY)
+      // Create transform that preserves accumulated scale from previous modifiers
+      const composedTransform = Mat.Compose(
+        Mat.Translate(newX, newY),
+        Mat.Scale(existingScale.scaleX, existingScale.scaleY)
+      )
 
       newInstances.push({
         sourceShapeId: instance.sourceShapeId,
@@ -1092,7 +1108,10 @@ export class TransformComposer {
           groupId,
           fromUnifiedGroup: useUnified,
           isFlippedX: axis === 'x',
-          isFlippedY: axis === 'y'
+          isFlippedY: axis === 'y',
+          // Preserve existing scale from previous modifiers
+          targetScaleX: existingScale.scaleX,
+          targetScaleY: existingScale.scaleY
         }
       })
     })

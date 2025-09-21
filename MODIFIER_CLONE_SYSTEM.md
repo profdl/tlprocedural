@@ -394,12 +394,14 @@ The challenge is treating the 3 linear array clones as a **single unified entity
 
 ### Our Solution: Unified Composition with Virtual Instances
 
-Our system detects when modifier stacking should use **unified composition** and treats multiple clones as a single group entity:
+Our system detects when modifier stacking should use **unified composition** and treats multiple clones as a single group entity. This is implemented in `src/store/modifiers/core/TransformComposer.ts` with sophisticated detection logic.
 
-#### Detection Logic
+#### Detection Logic (`shouldUseUnifiedComposition`)
 
 ```typescript
 private static shouldUseUnifiedComposition(instances: VirtualInstance[]): boolean {
+  // If we have multiple instances that are ALL from previous modifiers (no original),
+  // they should be treated as a unified group
   const hasOriginal = instances.some(inst => inst.metadata.modifierType === 'original')
   const nonOriginalInstances = instances.filter(inst => inst.metadata.modifierType !== 'original')
 
@@ -407,22 +409,48 @@ private static shouldUseUnifiedComposition(instances: VirtualInstance[]): boolea
   // 1. We have multiple instances AND no original (output from previous modifier)
   // 2. OR we have multiple non-original instances with original (mixed case)
   if (!hasOriginal && instances.length > 1) {
-    return true // All instances are from previous modifiers - treat as unified
+    // All instances are from previous modifiers - treat as unified
+    return true
   }
 
   if (hasOriginal && nonOriginalInstances.length > 1) {
-    return true // Mixed case - multiple instances from previous modifier plus original
+    // Mixed case - multiple instances from previous modifier plus original
+    return true
   }
 
   return false
 }
 ```
 
-#### Unified Processing Flow
+#### Virtual Instance Processing Flow
+
+The system starts with a single virtual instance representing the original shape:
+
+```typescript
+// Initialize with single virtual instance representing original
+let virtualInstances: VirtualInstance[] = [{
+  sourceShapeId: shape.id,
+  transform: Mat.Translate(shape.x, shape.y).multiply(
+    Mat.Rotate(shape.rotation || 0)
+  ),
+  metadata: {
+    modifierType: 'original',
+    index: 0,
+    isOriginal: true,
+    generationLevel: 0,
+    groupId: 'original'
+  }
+}]
+```
+
+Each modifier then processes these instances sequentially, with each modifier receiving the output of the previous one.
+
+#### Unified Processing Implementation
 
 **Step 1: Calculate Collective Bounds**
+When unified composition is detected, the system calculates bounds across all instances:
+
 ```typescript
-// Instead of processing each clone individually, calculate bounds of the entire group
 private static calculateCollectiveBounds(
   instances: VirtualInstance[],
   originalShape: TLShape,
@@ -436,8 +464,19 @@ private static calculateCollectiveBounds(
     const { x, y } = instance.transform.point()
     const instanceMinX = x
     const instanceMaxX = x + shapeBounds.width
-    // ... calculate bounds from all instances
+    const instanceMinY = y
+    const instanceMaxY = y + shapeBounds.height
+
+    minX = Math.min(minX, instanceMinX)
+    maxX = Math.max(maxX, instanceMaxX)
+    minY = Math.min(minY, instanceMinY)
+    maxY = Math.max(maxY, instanceMaxY)
   })
+
+  const width = maxX - minX
+  const height = maxY - minY
+  const centerX = minX + width / 2
+  const centerY = minY + height / 2
 
   return {
     center: { x: centerX, y: centerY },
@@ -446,10 +485,12 @@ private static calculateCollectiveBounds(
 }
 ```
 
-**Step 2: Apply Modifier to Group as Single Entity**
+**Step 2: Group-Level Transform Application**
+Each modifier applies transforms at the group level when unified composition is used:
+
 ```typescript
 if (useUnified) {
-  // Treat all existing instances as a single entity
+  // Unified composition: treat all existing instances as a single entity
   const { center: collectiveCenter, bounds: collectiveBounds } =
     this.calculateCollectiveBounds(instances, originalShape, editor)
 
@@ -457,10 +498,10 @@ if (useUnified) {
   const pixelOffsetX = (offsetX / 100) * collectiveBounds.width
   const pixelOffsetY = (offsetY / 100) * collectiveBounds.height
 
-  // Generate group ID for this modifier generation
+  // Generate a unique group ID for this generation
   const groupId = `linear-array-gen${generationLevel}-${Date.now()}`
 
-  // Create copies of the ENTIRE GROUP
+  // Create copies of the entire group
   for (let i = 0; i < count; i++) {
     // Calculate offset from collective center
     const centerOffsetX = pixelOffsetX * i
@@ -468,7 +509,7 @@ if (useUnified) {
 
     // For each copy, create instances for ALL input instances
     instances.forEach((instance, instanceIndex) => {
-      if (instance.metadata.modifierType === 'original') return // Skip original
+      if (instance.metadata.modifierType === 'original') return // Skip original when in unified mode
 
       // Calculate relative position within the group
       const { x: instanceX, y: instanceY } = instance.transform.point()
@@ -502,43 +543,58 @@ if (useUnified) {
 ### Example: Linear Array + Circular Array Stacking
 
 **Initial State**: 1 circle at (100, 100)
+- Creates virtual instance with `modifierType: 'original'`
 
 **After Linear Array (count=3, offsetX=50)**:
+- Processes the original instance (not unified since only one instance)
 - Creates 3 virtual instances at positions: (100,100), (150,100), (200,100)
-- Collective center: (150, 100)
-- Collective bounds: width=150, height=100
+- Each instance has `modifierType: 'linear-array'`, `generationLevel: 1`
+- Collective center: (150, 100), Collective bounds: width=150, height=100
 
 **After Circular Array (count=4, radius=200)**:
 - Detects unified composition (3 instances, no original)
 - Treats the 3 linear instances as a single group entity
+- Calculates collective bounds from all 3 linear instances
 - Creates 4 copies of the entire group around a circle
+- Each group maintains internal spatial relationships (rigid body transformation)
 - Final result: 12 circles (3 × 4) arranged in 4 groups of 3
 
 ### Generation Tracking and Metadata
 
-Each modifier adds generation-level tracking to virtual instances:
+Each modifier adds comprehensive metadata tracking to virtual instances:
 
 ```typescript
 metadata: {
-  modifierType: 'linear-array',
-  generationLevel: 1,           // Which modifier in the stack created this
+  modifierType: 'linear-array',        // Type of modifier that created this
+  generationLevel: 1,                  // Which modifier in the stack (0=original, 1=first modifier, etc.)
   groupId: 'linear-array-gen1-12345',  // Unique ID for this modifier's output
-  fromUnifiedGroup: true,       // Indicates this came from unified composition
-  sourceIndex: 0,               // Position within the previous modifier's output
-  arrayIndex: 2,                // Position within this modifier's array
+  fromUnifiedGroup: true,              // Indicates this came from unified composition
+  sourceIndex: 0,                      // Position within the previous modifier's output
+  arrayIndex: 2,                       // Position within this modifier's array
+  index: 5,                           // Global index across all instances
+
   // Transform accumulation from all previous modifiers
-  targetRotation: 0.785,        // Cumulative rotation from all modifiers
-  targetScaleX: 1.2,            // Cumulative scale from all modifiers
-  targetScaleY: 1.2
+  targetRotation: 0.785,              // Cumulative rotation from all modifiers
+  targetScaleX: 1.2,                  // Cumulative X scale from all modifiers
+  targetScaleY: 1.2,                  // Cumulative Y scale from all modifiers
+
+  // Modifier-specific metadata
+  linearArrayIndex: 2,                // For linear arrays
+  circularArrayIndex: 1,              // For circular arrays
+  gridPosition: { row: 1, col: 2 },   // For grid arrays
+  mirrorAxis: 'x',                    // For mirror modifiers
+  isFlippedX: false,                  // For mirror modifiers
+  isFlippedY: true                    // For mirror modifiers
 }
 ```
 
-### Transform Accumulation
+### Transform Accumulation System
 
-Each modifier in the stack accumulates transformations from previous modifiers:
+Each modifier in the stack accumulates transformations from previous modifiers using metadata-first extraction:
 
 ```typescript
-// Extract existing transforms from previous modifiers
+// Extract existing transforms from metadata first (where previous modifiers store them),
+// fall back to matrix decomposition
 const currentRotation = (instance.metadata.targetRotation as number) ??
                        existingTransform.rotation()
 const existingScale = {
@@ -549,10 +605,25 @@ const existingScale = {
 }
 
 // Add this modifier's transformations
+const incrementalRotation = (rotationIncrement * i * Math.PI) / 180
+const uniformRotation = (rotateAll * Math.PI) / 180
 const totalRotation = currentRotation + incrementalRotation + uniformRotation
+
+// Calculate scale accumulation
+const progress = count > 1 ? i / (count - 1) : 0
+const newScale = 1 + ((scaleStep / 100) - 1) * progress
 const accumulatedScaleX = existingScale.scaleX * newScale
 const accumulatedScaleY = existingScale.scaleY * newScale
 ```
+
+### Rigid Body Group Transformation
+
+In unified composition mode, modifiers maintain rigid body relationships within groups:
+
+**Linear Array**: Groups translate as single entities while preserving internal spacing
+**Circular Array**: Groups orbit around circles while maintaining internal formation
+**Grid Array**: Groups are positioned at grid points with group-level rotations and scaling
+**Mirror**: Groups are mirrored as cohesive units
 
 ### Performance Benefits of This Approach
 
@@ -560,6 +631,7 @@ const accumulatedScaleY = existingScale.scaleY * newScale
 2. **Memory Efficiency**: Virtual instances store only transform matrices, not full TLShape objects
 3. **Unified Bounds**: Group-aware spacing calculations for natural-looking arrangements
 4. **Transform Preservation**: All previous modifier effects are maintained and accumulated
+5. **Deferred Materialization**: TLShape objects only created when actually needed for rendering
 
 ### Alternative Approaches We Considered (And Why We Didn't Use Them)
 
