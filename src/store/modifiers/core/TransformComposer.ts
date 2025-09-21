@@ -283,10 +283,11 @@ export class TransformComposer {
           const newX = collectiveCenter.x + rotatedOffsetX + relativeX
           const newY = collectiveCenter.y + rotatedOffsetY + relativeY
 
-          // Calculate rotation
-          const incrementalRotation = (rotationIncrement * i * Math.PI) / 180
+          // In unified mode, preserve internal group rotations (rigid body)
+          // Don't apply additional rotations to individual shapes within the group
+          // Only rotateAll affects the entire group uniformly
           const uniformRotation = (rotateAll * Math.PI) / 180
-          const totalRotation = currentRotation + incrementalRotation + uniformRotation
+          const totalRotation = currentRotation + uniformRotation
 
           // Calculate scale accumulation
           const progress = count > 1 ? i / (count - 1) : 0
@@ -504,34 +505,40 @@ export class TransformComposer {
           const relativeX = instanceX - collectiveCenter.x
           const relativeY = instanceY - collectiveCenter.y
 
-          // Apply tangent rotation and rotateAll to relative positions to make groups orbit around each circular position
+          // Apply group-level rotation to preserve rigid body transformation
+          // The group should orbit as a single entity with internal relationships preserved
           let rotatedRelativeX = relativeX
           let rotatedRelativeY = relativeY
 
-          // Calculate combined rotation angle for the group formation
-          let groupRotationAngle = 0
+          // Calculate group orbit rotation angle (how the group is oriented as it orbits)
+          let groupOrbitAngle = 0
           if (alignToTangent) {
-            groupRotationAngle += angle + Math.PI / 2
+            // Orient the group to be tangent to the circle
+            groupOrbitAngle = angle + Math.PI / 2
           }
           if (rotateAll) {
-            groupRotationAngle += (rotateAll * Math.PI / 180)
+            // Additional rotation for all groups
+            groupOrbitAngle += (rotateAll * Math.PI / 180)
           }
 
-          // Apply the combined rotation to relative positions if any rotation is needed
-          if (groupRotationAngle !== 0) {
-            const cos = Math.cos(groupRotationAngle)
-            const sin = Math.sin(groupRotationAngle)
+          // Apply the orbit rotation to the group's relative positions
+          // This rotates the entire group formation around each circular position
+          if (groupOrbitAngle !== 0) {
+            const cos = Math.cos(groupOrbitAngle)
+            const sin = Math.sin(groupOrbitAngle)
             rotatedRelativeX = relativeX * cos - relativeY * sin
             rotatedRelativeY = relativeX * sin + relativeY * cos
           }
 
-          // New position = circle center + circular offset + (possibly rotated) relative position
+          // New position = circle center + circular offset + (rotated) relative position
           const newX = circleCenter.x + rotatedOffsetX + rotatedRelativeX
           const newY = circleCenter.y + rotatedOffsetY + rotatedRelativeY
 
-          // Calculate rotation accumulation (alignToTangent and rotateAll are now applied to group formation)
-          let totalRotation = currentRotation
+          // Apply rigid body rotation: individual shapes must rotate with the group
+          // Add the group orbit angle to maintain orientation relative to the group
+          let totalRotation = currentRotation + groupOrbitAngle
 
+          // rotateEach additionally rotates individual shapes within the group
           if (rotateEach) {
             totalRotation += (rotateEach * i * Math.PI / 180)
           }
@@ -787,11 +794,21 @@ export class TransformComposer {
 
           // Calculate new rotation (will be applied via rotateShapesBy for center-based rotation)
           const linearIndex = row * columns + col
-          const incrementalRotation = (rotateEach * linearIndex * Math.PI) / 180
-          const rowRotation = (rotateEachRow * row * Math.PI) / 180
-          const columnRotation = (rotateEachColumn * col * Math.PI) / 180
-          const uniformRotation = (rotateAll * Math.PI) / 180
-          const totalRotation = currentRotation + incrementalRotation + rowRotation + columnRotation + uniformRotation
+
+          let totalRotation: number
+          if (useUnified) {
+            // In unified mode, preserve internal group rotations (rigid body)
+            // Only apply uniform rotation to all shapes in the group
+            const uniformRotation = (rotateAll * Math.PI) / 180
+            totalRotation = currentRotation + uniformRotation
+          } else {
+            // Normal mode: apply all rotation increments
+            const incrementalRotation = (rotateEach * linearIndex * Math.PI) / 180
+            const rowRotation = (rotateEachRow * row * Math.PI) / 180
+            const columnRotation = (rotateEachColumn * col * Math.PI) / 180
+            const uniformRotation = (rotateAll * Math.PI) / 180
+            totalRotation = currentRotation + incrementalRotation + rowRotation + columnRotation + uniformRotation
+          }
 
           // Calculate scale with separate row and column progression
           const totalItems = rows * columns
@@ -936,8 +953,10 @@ export class TransformComposer {
         }
       }
 
-      // Calculate inverse rotation for the mirrored clone
-      const inverseRotation = -currentRotation
+      // Calculate rotation for the mirrored clone
+      // In unified mode, preserve the rotation to maintain rigid group
+      // In normal mode, invert for traditional mirror behavior
+      const targetRotation = useUnified ? currentRotation : -currentRotation
 
       const composedTransform = Mat.Translate(newX, newY)
 
@@ -952,7 +971,7 @@ export class TransformComposer {
           mirrorAxis: axis,
           mirrorOffset: offset,
           sourceIndex: processInstances.indexOf(instance),
-          targetRotation: inverseRotation,
+          targetRotation: targetRotation,
           arrayIndex: 0,
           generationLevel,
           groupId,
