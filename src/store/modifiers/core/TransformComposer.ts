@@ -763,29 +763,21 @@ export class TransformComposer {
     // Generate a unique group ID for this generation
     const groupId = `grid-array-gen${generationLevel}-${Date.now()}`
 
-    // Filter instances if using unified composition
-    const processInstances = useUnified
-      ? instances.filter(inst => inst.metadata.modifierType !== 'original')
-      : instances
+    // Handle unified composition differently - grid loops on outside, instances on inside
+    if (useUnified) {
+      // Filter out original for unified composition
+      const groupInstances = instances.filter(inst => inst.metadata.modifierType !== 'original')
 
-    for (const instance of processInstances) {
+      // Outer loops: Grid positions (each position gets a copy of the entire group)
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < columns; col++) {
-          // Extract existing transform components for accumulation
-          const existingTransform = instance.transform
+          const linearIndex = row * columns + col
 
-          // Extract transforms from metadata first (where previous modifiers store them), fall back to matrix
-          const currentRotation = (instance.metadata.targetRotation as number) ?? existingTransform.rotation()
-          const existingScale = {
-            scaleX: (instance.metadata.targetScaleX as number) ?? existingTransform.decomposed().scaleX,
-            scaleY: (instance.metadata.targetScaleY as number) ?? existingTransform.decomposed().scaleY
-          }
-
-          // Calculate grid position relative to center
+          // Calculate grid position for this group
           const gridOffsetX = col * pixelSpacingX
           const gridOffsetY = row * pixelSpacingY
 
-          // Apply rotation to the grid offset vector if shape is rotated
+          // Apply source rotation to grid offset if needed
           let rotatedOffsetX = gridOffsetX
           let rotatedOffsetY = gridOffsetY
 
@@ -796,87 +788,174 @@ export class TransformComposer {
             rotatedOffsetY = gridOffsetX * sin + gridOffsetY * cos
           }
 
-          // Position clone at grid position
-          let newX: number, newY: number
-          if (useUnified) {
-            // For unified composition, handle positioning differently
-            const { x: instanceX, y: instanceY } = instance.transform.point()
-            const relativeX = instanceX - collectiveCenter.x
-            const relativeY = instanceY - collectiveCenter.y
-            newX = gridStartX + rotatedOffsetX + relativeX
-            newY = gridStartY + rotatedOffsetY + relativeY
-          } else {
-            // Original behavior
-            newX = gridStartX + rotatedOffsetX - shapeBounds.width / 2
-            newY = gridStartY + rotatedOffsetY - shapeBounds.height / 2
-          }
+          // Calculate GROUP-LEVEL rotation for this grid position
+          // This rotation applies to the entire group as a rigid body
+          const uniformRotation = (rotateAll * Math.PI) / 180
+          const incrementalRotation = (rotateEach * linearIndex * Math.PI) / 180
+          const rowRotation = (rotateEachRow * row * Math.PI) / 180
+          const columnRotation = (rotateEachColumn * col * Math.PI) / 180
 
-          // Calculate new rotation (will be applied via rotateShapesBy for center-based rotation)
-          const linearIndex = row * columns + col
+          const groupRotationAdjustment = uniformRotation + incrementalRotation +
+                                         rowRotation + columnRotation + sourceRotation
 
-          let totalRotation: number
-          if (useUnified) {
-            // In unified mode, preserve internal group rotations (rigid body)
-            // Apply uniform rotation to all shapes in the group
-            const uniformRotation = (rotateAll * Math.PI) / 180
-            totalRotation = currentRotation + uniformRotation
-
-            // If source shape is rotated, the grid formation rotates
-            // So shapes must rotate with it to maintain rigid body
-            if (sourceRotation !== 0) {
-              totalRotation += sourceRotation
-            }
-          } else {
-            // Normal mode: apply all rotation increments
-            const incrementalRotation = (rotateEach * linearIndex * Math.PI) / 180
-            const rowRotation = (rotateEachRow * row * Math.PI) / 180
-            const columnRotation = (rotateEachColumn * col * Math.PI) / 180
-            const uniformRotation = (rotateAll * Math.PI) / 180
-            totalRotation = currentRotation + incrementalRotation + rowRotation + columnRotation + uniformRotation
-          }
-
-          // Calculate scale with separate row and column progression
+          // Calculate GROUP-LEVEL scale for this grid position
           const totalItems = rows * columns
           const linearProgress = totalItems > 1 ? linearIndex / (totalItems - 1) : 0
           const rowProgress = rows > 1 ? row / (rows - 1) : 0
           const columnProgress = columns > 1 ? col / (columns - 1) : 0
 
-          // Combine all scale factors
           const linearScale = 1 + ((scaleStep / 100) - 1) * linearProgress
           const rowScale = 1 + ((rowScaleStep / 100) - 1) * rowProgress
           const columnScale = 1 + ((columnScaleStep / 100) - 1) * columnProgress
-          const newScale = linearScale * rowScale * columnScale
+          const groupScale = linearScale * rowScale * columnScale
 
-          // Accumulate with existing scale from previous modifiers
-          const accumulatedScaleX = existingScale.scaleX * newScale
-          const accumulatedScaleY = existingScale.scaleY * newScale
+          // Inner loop: Create each instance in the group at this grid position
+          groupInstances.forEach((instance, instanceIndex) => {
+            const existingTransform = instance.transform
 
-          // Create transform with position and accumulated scale
-          // Rotation will be stored separately and applied via rotateShapesBy
-          const composedTransform = Mat.Compose(
-            Mat.Translate(newX, newY),
-            Mat.Scale(accumulatedScaleX, accumulatedScaleY)
-          )
-
-          newInstances.push({
-            sourceShapeId: instance.sourceShapeId,
-            transform: composedTransform,
-            metadata: {
-              modifierType: 'grid-array',
-              index: newInstances.length,
-              sourceIndex: processInstances.indexOf(instance),
-              arrayIndex: linearIndex,
-              gridArrayIndex: linearIndex,
-              gridPosition: { row, col },
-              targetRotation: totalRotation,
-              // Preserve and accumulate existing scale
-              targetScaleX: accumulatedScaleX,
-              targetScaleY: accumulatedScaleY,
-              generationLevel,
-              groupId,
-              fromUnifiedGroup: useUnified
+            // Extract transforms from metadata first, fall back to matrix
+            const currentRotation = (instance.metadata.targetRotation as number) ?? existingTransform.rotation()
+            const existingScale = {
+              scaleX: (instance.metadata.targetScaleX as number) ?? existingTransform.decomposed().scaleX,
+              scaleY: (instance.metadata.targetScaleY as number) ?? existingTransform.decomposed().scaleY
             }
+
+            // Calculate instance position relative to group center
+            const { x: instanceX, y: instanceY } = instance.transform.point()
+            const relativeX = instanceX - collectiveCenter.x
+            const relativeY = instanceY - collectiveCenter.y
+
+            // Apply orbital rotation to relative positions (like Circular Array)
+            // This creates orbital motion of the group formation around the grid position
+            let rotatedRelativeX = relativeX
+            let rotatedRelativeY = relativeY
+
+            if (groupRotationAdjustment !== 0) {
+              const cos = Math.cos(groupRotationAdjustment)
+              const sin = Math.sin(groupRotationAdjustment)
+              rotatedRelativeX = relativeX * cos - relativeY * sin
+              rotatedRelativeY = relativeX * sin + relativeY * cos
+            }
+
+            // Position at grid location with orbital rotation applied
+            const newX = gridStartX + rotatedOffsetX + rotatedRelativeX
+            const newY = gridStartY + rotatedOffsetY + rotatedRelativeY
+
+            // Apply GROUP orbital rotation to maintain shape orientation (same as relative position rotation)
+            const totalRotation = currentRotation + groupRotationAdjustment
+
+            // Apply GROUP scale (accumulated with existing)
+            const accumulatedScaleX = existingScale.scaleX * groupScale
+            const accumulatedScaleY = existingScale.scaleY * groupScale
+
+            // Create transform with position and accumulated scale
+            const composedTransform = Mat.Compose(
+              Mat.Translate(newX, newY),
+              Mat.Scale(accumulatedScaleX, accumulatedScaleY)
+            )
+
+            newInstances.push({
+              sourceShapeId: instance.sourceShapeId,
+              transform: composedTransform,
+              metadata: {
+                modifierType: 'grid-array',
+                index: newInstances.length,
+                sourceIndex: instanceIndex,
+                arrayIndex: linearIndex,
+                gridArrayIndex: linearIndex,
+                gridPosition: { row, col },
+                targetRotation: totalRotation,
+                targetScaleX: accumulatedScaleX,
+                targetScaleY: accumulatedScaleY,
+                generationLevel,
+                groupId,
+                fromUnifiedGroup: useUnified
+              }
+            })
           })
+        }
+      }
+    } else {
+      // Non-unified mode: Original behavior - process each instance individually
+      const processInstances = instances
+
+      for (const instance of processInstances) {
+        for (let row = 0; row < rows; row++) {
+          for (let col = 0; col < columns; col++) {
+            // Extract existing transform components
+            const existingTransform = instance.transform
+            const currentRotation = (instance.metadata.targetRotation as number) ?? existingTransform.rotation()
+            const existingScale = {
+              scaleX: (instance.metadata.targetScaleX as number) ?? existingTransform.decomposed().scaleX,
+              scaleY: (instance.metadata.targetScaleY as number) ?? existingTransform.decomposed().scaleY
+            }
+
+            // Calculate grid position
+            const gridOffsetX = col * pixelSpacingX
+            const gridOffsetY = row * pixelSpacingY
+
+            // Apply rotation to grid offset if source is rotated
+            let rotatedOffsetX = gridOffsetX
+            let rotatedOffsetY = gridOffsetY
+
+            if (sourceRotation !== 0) {
+              const cos = Math.cos(sourceRotation)
+              const sin = Math.sin(sourceRotation)
+              rotatedOffsetX = gridOffsetX * cos - gridOffsetY * sin
+              rotatedOffsetY = gridOffsetX * sin + gridOffsetY * cos
+            }
+
+            // Position at grid location
+            const newX = gridStartX + rotatedOffsetX - shapeBounds.width / 2
+            const newY = gridStartY + rotatedOffsetY - shapeBounds.height / 2
+
+            // Calculate new rotation
+            const linearIndex = row * columns + col
+            const incrementalRotation = (rotateEach * linearIndex * Math.PI) / 180
+            const rowRotation = (rotateEachRow * row * Math.PI) / 180
+            const columnRotation = (rotateEachColumn * col * Math.PI) / 180
+            const uniformRotation = (rotateAll * Math.PI) / 180
+            const totalRotation = currentRotation + incrementalRotation + rowRotation + columnRotation + uniformRotation
+
+            // Calculate scale
+            const totalItems = rows * columns
+            const linearProgress = totalItems > 1 ? linearIndex / (totalItems - 1) : 0
+            const rowProgress = rows > 1 ? row / (rows - 1) : 0
+            const columnProgress = columns > 1 ? col / (columns - 1) : 0
+
+            const linearScale = 1 + ((scaleStep / 100) - 1) * linearProgress
+            const rowScale = 1 + ((rowScaleStep / 100) - 1) * rowProgress
+            const columnScale = 1 + ((columnScaleStep / 100) - 1) * columnProgress
+            const newScale = linearScale * rowScale * columnScale
+
+            const accumulatedScaleX = existingScale.scaleX * newScale
+            const accumulatedScaleY = existingScale.scaleY * newScale
+
+            // Create transform
+            const composedTransform = Mat.Compose(
+              Mat.Translate(newX, newY),
+              Mat.Scale(accumulatedScaleX, accumulatedScaleY)
+            )
+
+            newInstances.push({
+              sourceShapeId: instance.sourceShapeId,
+              transform: composedTransform,
+              metadata: {
+                modifierType: 'grid-array',
+                index: newInstances.length,
+                sourceIndex: processInstances.indexOf(instance),
+                arrayIndex: linearIndex,
+                gridArrayIndex: linearIndex,
+                gridPosition: { row, col },
+                targetRotation: totalRotation,
+                targetScaleX: accumulatedScaleX,
+                targetScaleY: accumulatedScaleY,
+                generationLevel,
+                groupId,
+                fromUnifiedGroup: false
+              }
+            })
+          }
         }
       }
     }
