@@ -504,14 +504,23 @@ export class TransformComposer {
           const relativeX = instanceX - collectiveCenter.x
           const relativeY = instanceY - collectiveCenter.y
 
-          // Apply tangent rotation to relative positions to make groups orbit around each circular position
+          // Apply tangent rotation and rotateAll to relative positions to make groups orbit around each circular position
           let rotatedRelativeX = relativeX
           let rotatedRelativeY = relativeY
 
+          // Calculate combined rotation angle for the group formation
+          let groupRotationAngle = 0
           if (alignToTangent) {
-            const tangentAngle = angle + Math.PI / 2
-            const cos = Math.cos(tangentAngle)
-            const sin = Math.sin(tangentAngle)
+            groupRotationAngle += angle + Math.PI / 2
+          }
+          if (rotateAll) {
+            groupRotationAngle += (rotateAll * Math.PI / 180)
+          }
+
+          // Apply the combined rotation to relative positions if any rotation is needed
+          if (groupRotationAngle !== 0) {
+            const cos = Math.cos(groupRotationAngle)
+            const sin = Math.sin(groupRotationAngle)
             rotatedRelativeX = relativeX * cos - relativeY * sin
             rotatedRelativeY = relativeX * sin + relativeY * cos
           }
@@ -520,15 +529,9 @@ export class TransformComposer {
           const newX = circleCenter.x + rotatedOffsetX + rotatedRelativeX
           const newY = circleCenter.y + rotatedOffsetY + rotatedRelativeY
 
-          // Calculate rotation accumulation
+          // Calculate rotation accumulation (alignToTangent and rotateAll are now applied to group formation)
           let totalRotation = currentRotation
 
-          if (alignToTangent) {
-            totalRotation += angle + Math.PI / 2
-          }
-          if (rotateAll) {
-            totalRotation += (rotateAll * Math.PI / 180)
-          }
           if (rotateEach) {
             totalRotation += (rotateEach * i * Math.PI / 180)
           }
