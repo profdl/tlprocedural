@@ -55,7 +55,7 @@ export interface CircularArraySettings {
   centerY: number
   rotateEach: number // rotation per clone in degrees
   rotateAll: number // rotation applied to all clones in degrees
-  alignToTangent?: boolean // align clones to tangent of the circle
+  alignToCenter?: boolean // align clones to point towards the center of the circle
 }
 
 // Grid Array Modifier Settings

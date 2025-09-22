@@ -452,7 +452,7 @@ export class TransformComposer {
     editor?: Editor,
     generationLevel: number = 0
   ): VirtualInstance[] {
-    const { count, radius, startAngle, endAngle, centerX, centerY, rotateAll, rotateEach, alignToTangent } = settings
+    const { count, radius, startAngle, endAngle, centerX, centerY, rotateAll, rotateEach, alignToCenter } = settings
     const newInstances: VirtualInstance[] = []
 
     // Check if we should use unified composition (treating all instances as one group)
@@ -476,10 +476,27 @@ export class TransformComposer {
       // Get source rotation from the original shape
       const sourceRotation = originalShape.rotation || 0
 
-      // Calculate circle center (offset from collective center)
+      // Use STABLE source shape center as circular array origin (not collective center)
+      // This ensures circular array center doesn't shift when linear array parameters change
+      // Use same manual calculation as CircularArrayGraphics to avoid hidden shape bounds issues
+      const shapeWidth = 'w' in originalShape.props ? (originalShape.props.w as number) : 100
+      const shapeHeight = 'h' in originalShape.props ? (originalShape.props.h as number) : 100
+      const localCenterX = shapeWidth / 2
+      const localCenterY = shapeHeight / 2
+      const rotation = originalShape.rotation || 0
+      const cos = Math.cos(rotation)
+      const sin = Math.sin(rotation)
+
+      // Transform the local center to world coordinates (same as CircularArrayGraphics)
+      const stableCenter = {
+        x: originalShape.x + (localCenterX * cos - localCenterY * sin),
+        y: originalShape.y + (localCenterX * sin + localCenterY * cos)
+      }
+
+      // Calculate circle center (offset from stable source shape center)
       const circleCenter = {
-        x: collectiveCenter.x + (centerX || 0),
-        y: collectiveCenter.y + (centerY || 0)
+        x: stableCenter.x + (centerX || 0),
+        y: stableCenter.y + (centerY || 0)
       }
 
       // Generate a unique group ID for this generation
@@ -512,9 +529,10 @@ export class TransformComposer {
         const uniformRotation = (rotateAll * Math.PI) / 180
         const incrementalRotation = (rotateEach * i * Math.PI) / 180
         let groupOrbitAngle = 0
-        if (alignToTangent) {
-          // Orient the group to be tangent to the circle
-          groupOrbitAngle = angle + Math.PI / 2
+        if (alignToCenter) {
+          // Orient the group to point towards the center of the circle
+          // angle + Math.PI points outward from center, + Math.PI/2 (90°) rotates to point inward
+          groupOrbitAngle = angle + Math.PI + Math.PI / 2
         }
 
         const groupRotationAdjustment = uniformRotation + incrementalRotation + groupOrbitAngle + sourceRotation
@@ -659,8 +677,10 @@ export class TransformComposer {
 
           let totalRotation = currentRotation
 
-          if (alignToTangent) {
-            totalRotation += angle + Math.PI / 2
+          if (alignToCenter) {
+            // Orient to point towards the center of the circle
+            // angle + Math.PI points outward from center, + Math.PI/2 (90°) rotates to point inward
+            totalRotation += angle + Math.PI + Math.PI / 2
           }
           if (rotateAll) {
             totalRotation += (rotateAll * Math.PI / 180)

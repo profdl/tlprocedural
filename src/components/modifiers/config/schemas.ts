@@ -203,8 +203,8 @@ export const MODIFIER_SCHEMAS: ModifierSchemas = {
       },
       {
         type: 'checkbox',
-        label: 'Align to Tangent',
-        field: 'alignToTangent',
+        label: 'Align to Center',
+        field: 'alignToCenter',
         fullWidth: true
       }
     ]
