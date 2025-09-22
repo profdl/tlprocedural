@@ -97,9 +97,17 @@ export class GeometryConverter {
   /**
    * Convert polygon coordinates to bezier shape properties
    * Returns a complete bezier shape definition that can render the merged polygon
-   * Preserves visual alignment with original shape position
+   * Preserves visual alignment with original shape position or collective bounds context
    */
-  static polygonToBezierShape(polygon: PolygonCoordinates, originalShape: TLShape, editor?: Editor): {
+  static polygonToBezierShape(
+    polygon: PolygonCoordinates,
+    originalShape: TLShape,
+    editor?: Editor,
+    positionContext?: {
+      collectiveBounds?: { centerX: number; centerY: number; width: number; height: number }
+      shouldPreserveCollectivePosition?: boolean
+    }
+  ): {
     type: 'bezier'
     x: number
     y: number
@@ -168,31 +176,42 @@ export class GeometryConverter {
     const minY = Math.min(...ys)
     const maxY = Math.max(...ys)
 
-    // Calculate original shape center for position preservation
-    // Use visual bounds when editor is available (accounts for rotation)
-    let originalCenterX: number
-    let originalCenterY: number
+    // Calculate reference center for position preservation
+    // Use collective bounds when available (for boolean operations on linear arrays)
+    // Otherwise use original shape center
+    let referenceCenterX: number
+    let referenceCenterY: number
 
-    if (editor) {
+    if (positionContext?.collectiveBounds && positionContext?.shouldPreserveCollectivePosition) {
+      // Use collective bounds center for boolean operations on modifier results
+      referenceCenterX = positionContext.collectiveBounds.centerX
+      referenceCenterY = positionContext.collectiveBounds.centerY
+      console.log('📍 Using collective bounds center for positioning:', {
+        referenceCenterX,
+        referenceCenterY,
+        collectiveBounds: positionContext.collectiveBounds
+      })
+    } else if (editor) {
+      // Use visual bounds when editor is available (accounts for rotation)
       const visualBounds = editor.getShapePageBounds(originalShape.id)
       if (visualBounds) {
-        originalCenterX = visualBounds.x + visualBounds.width / 2
-        originalCenterY = visualBounds.y + visualBounds.height / 2
+        referenceCenterX = visualBounds.x + visualBounds.width / 2
+        referenceCenterY = visualBounds.y + visualBounds.height / 2
       } else {
         // Fallback to geometric calculation
         const originalProps = originalShape.props as { w?: number; h?: number }
         const originalW = originalProps.w || 100
         const originalH = originalProps.h || 100
-        originalCenterX = originalShape.x + originalW / 2
-        originalCenterY = originalShape.y + originalH / 2
+        referenceCenterX = originalShape.x + originalW / 2
+        referenceCenterY = originalShape.y + originalH / 2
       }
     } else {
       // No editor available, use geometric calculation
       const originalProps = originalShape.props as { w?: number; h?: number }
       const originalW = originalProps.w || 100
       const originalH = originalProps.h || 100
-      originalCenterX = originalShape.x + originalW / 2
-      originalCenterY = originalShape.y + originalH / 2
+      referenceCenterX = originalShape.x + originalW / 2
+      referenceCenterY = originalShape.y + originalH / 2
     }
 
     // Calculate polygon center
@@ -201,15 +220,18 @@ export class GeometryConverter {
     const polygonW = maxX - minX
     const polygonH = maxY - minY
 
-    // Calculate position offset to maintain visual alignment with original shape
-    // Place the polygon center at the original shape center
-    const targetX = originalCenterX - polygonW / 2
-    const targetY = originalCenterY - polygonH / 2
+    // Calculate position offset to maintain visual alignment
+    // Place the polygon center at the reference center (original or collective)
+    const targetX = referenceCenterX - polygonW / 2
+    const targetY = referenceCenterY - polygonH / 2
 
     console.log('📐 Position calculation:', {
       polygon: { minX, maxX, minY, maxY, centerX: polygonCenterX, centerY: polygonCenterY },
-      positionMethod: editor ? 'visual bounds' : 'geometric calculation',
-      original: { x: originalShape.x, y: originalShape.y, centerX: originalCenterX, centerY: originalCenterY },
+      positionMethod: positionContext?.shouldPreserveCollectivePosition
+        ? 'collective bounds'
+        : (editor ? 'visual bounds' : 'geometric calculation'),
+      original: { x: originalShape.x, y: originalShape.y },
+      reference: { x: referenceCenterX, y: referenceCenterY },
       target: { x: targetX, y: targetY },
       offset: { x: targetX - minX, y: targetY - minY }
     })

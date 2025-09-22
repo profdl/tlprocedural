@@ -1,4 +1,4 @@
-import { useMemo, useRef, useCallback } from 'react'
+import { useMemo, useRef } from 'react'
 import { useEditor, type TLShape, type TLShapePartial, createShapeId, type TLShapeId } from 'tldraw'
 import { TransformComposer, extractShapesFromState } from '../../../store/modifiers'
 import type { TLModifier, GroupContext } from '../../../types/modifiers'
@@ -151,7 +151,7 @@ export function useStackedModifier({ shape, modifiers }: UseStackedModifierProps
       // Return cached result to gracefully handle the error
       return lastValidResult.current
     }
-  }, [editor, shapeSignature, modifierSignature])
+  }, [editor, shapeSignature, modifierSignature, shape, modifiers])
   
   // Remove redundant useMemo wrapper since we already memoized above
 

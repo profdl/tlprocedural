@@ -1429,30 +1429,35 @@ export class TransformComposer {
       hasStorageKey: !!deferredBoolean.storageKey
     })
 
-    // Check cache first
+    // Get the source virtual instances that need to be processed first
+    // We need this for collective bounds calculation even when using cached geometry
+    const sourceInstances = this.getSourceInstancesFromMetadata(virtualState, deferredBoolean.inputInstanceIds)
+
+    console.log('💫 Source instances retrieved:', {
+      count: sourceInstances.length,
+      positions: sourceInstances.map(i => i.transform.point())
+    })
+
+    if (sourceInstances.length === 0) {
+      console.error('❌ No source instances found for boolean operation')
+      return { create: [], update: [], delete: [] }
+    }
+
+    // Always calculate collective bounds for positioning (lightweight operation)
+    const { collectiveBounds } = this.materializeInstancesForGeometry(sourceInstances, virtualState.originalShape)
+
+    // Check cache for geometry computation (expensive operation)
     const cacheKey = deferredBoolean.cacheKey!
     let mergedPolygon = this.booleanCache.get(cacheKey)
 
     if (!mergedPolygon) {
-      // Get the source virtual instances that need to be processed
-      const sourceInstances = this.getSourceInstancesFromMetadata(virtualState, deferredBoolean.inputInstanceIds)
-
-      console.log('💫 Source instances retrieved:', {
-        count: sourceInstances.length,
-        positions: sourceInstances.map(i => i.transform.point())
-      })
-
-      if (sourceInstances.length === 0) {
-        console.error('❌ No source instances found for boolean operation')
-        return { create: [], update: [], delete: [] }
-      }
-
-      // Temporarily materialize shapes for geometry extraction (in memory only)
-      const tempShapes = this.materializeInstancesForGeometry(sourceInstances, virtualState.originalShape)
+      // Need to perform geometry computation
+      const { shapes: tempShapes } = this.materializeInstancesForGeometry(sourceInstances, virtualState.originalShape)
 
       console.log('🏗️ Temporary shapes for geometry:', {
         count: tempShapes.length,
-        shapes: tempShapes.map(s => ({ x: s.x, y: s.y, rotation: s.rotation }))
+        shapes: tempShapes.map(s => ({ x: s.x, y: s.y, rotation: s.rotation })),
+        collectiveBounds
       })
 
       // Perform boolean operation
@@ -1469,11 +1474,20 @@ export class TransformComposer {
       // Cache the result for future use
       this.booleanCache.set(cacheKey, mergedPolygon)
     } else {
-      console.log('♻️ Using cached boolean result')
+      console.log('♻️ Using cached boolean result with fresh collective bounds')
     }
 
     // Convert polygon to bezier shape for proper rendering of merged geometry
-    const bezierShapeData = GeometryConverter.polygonToBezierShape(mergedPolygon, virtualState.originalShape, virtualState.editor)
+    // Pass collective bounds to preserve position alignment with linear array results
+    const bezierShapeData = GeometryConverter.polygonToBezierShape(
+      mergedPolygon,
+      virtualState.originalShape,
+      virtualState.editor,
+      {
+        collectiveBounds,
+        shouldPreserveCollectivePosition: true
+      }
+    )
 
     console.log('📐 Bezier shape data:', bezierShapeData)
 
@@ -1511,7 +1525,11 @@ export class TransformComposer {
         ? ((booleanResultShape.props as Record<string, unknown>).points as unknown[]).length
         : 0,
       isClosed: (booleanResultShape.props as Record<string, unknown>).isClosed,
-      fill: (booleanResultShape.props as Record<string, unknown>).fill
+      fill: (booleanResultShape.props as Record<string, unknown>).fill,
+      usedCollectiveBounds: {
+        center: { x: collectiveBounds.centerX, y: collectiveBounds.centerY },
+        dimensions: { width: collectiveBounds.width, height: collectiveBounds.height }
+      }
     })
 
     // Delete all existing shapes and replace with the boolean result
@@ -1571,14 +1589,83 @@ export class TransformComposer {
   }
 
   /**
+   * Calculate collective bounds from virtual instances for boolean operations
+   * Returns bounds in page coordinates that include all instances
+   */
+  private static calculateCollectiveBoundsFromInstances(
+    instances: VirtualInstance[],
+    originalShape: TLShape
+  ): { centerX: number; centerY: number; width: number; height: number; minX: number; maxX: number; minY: number; maxY: number } {
+    const shapeBounds = this.getShapeBounds(originalShape)
+
+    if (instances.length === 0) {
+      return {
+        centerX: originalShape.x + shapeBounds.width / 2,
+        centerY: originalShape.y + shapeBounds.height / 2,
+        width: shapeBounds.width,
+        height: shapeBounds.height,
+        minX: originalShape.x,
+        maxX: originalShape.x + shapeBounds.width,
+        minY: originalShape.y,
+        maxY: originalShape.y + shapeBounds.height
+      }
+    }
+
+    // Calculate bounds from all virtual instances, accounting for scale
+    let minX = Infinity, maxX = -Infinity
+    let minY = Infinity, maxY = -Infinity
+
+    instances.forEach(instance => {
+      const { x, y } = instance.transform.point()
+
+      // Get scale from metadata (more accurate) or transform
+      const scaleX = (instance.metadata.targetScaleX as number) ?? instance.transform.decomposed().scaleX
+      const scaleY = (instance.metadata.targetScaleY as number) ?? instance.transform.decomposed().scaleY
+
+      // Calculate scaled dimensions
+      const scaledWidth = shapeBounds.width * scaleX
+      const scaledHeight = shapeBounds.height * scaleY
+
+      const instanceMinX = x
+      const instanceMaxX = x + scaledWidth
+      const instanceMinY = y
+      const instanceMaxY = y + scaledHeight
+
+      minX = Math.min(minX, instanceMinX)
+      maxX = Math.max(maxX, instanceMaxX)
+      minY = Math.min(minY, instanceMinY)
+      maxY = Math.max(maxY, instanceMaxY)
+    })
+
+    const width = maxX - minX
+    const height = maxY - minY
+    const centerX = minX + width / 2
+    const centerY = minY + height / 2
+
+    console.log('📊 Calculated collective bounds from virtual instances:', {
+      instanceCount: instances.length,
+      bounds: { minX, maxX, minY, maxY },
+      dimensions: { width, height },
+      center: { centerX, centerY }
+    })
+
+    return { centerX, centerY, width, height, minX, maxX, minY, maxY }
+  }
+
+  /**
    * Materialize virtual instances temporarily for geometry extraction
    * Extracts full transforms including scale for accurate boolean operations
+   * Now includes collective bounds calculation for position context
    */
   private static materializeInstancesForGeometry(
     instances: VirtualInstance[],
     originalShape: TLShape
-  ): TLShape[] {
-    return instances.map((instance, index) => {
+  ): { shapes: TLShape[]; collectiveBounds: ReturnType<typeof this.calculateCollectiveBoundsFromInstances> } {
+    // Calculate collective bounds first
+    const collectiveBounds = this.calculateCollectiveBoundsFromInstances(instances, originalShape)
+
+    // Create temporary shapes with exact positioning
+    const shapes = instances.map((instance, index) => {
       const { x, y, scaleX, scaleY } = instance.transform.decomposed()
       const rotation = instance.metadata.targetRotation ?? instance.transform.rotation()
 
@@ -1590,6 +1677,13 @@ export class TransformComposer {
       const originalProps = originalShape.props as Record<string, unknown> & { w?: number; h?: number }
       const scaledW = (originalProps.w || 100) * targetScaleX
       const scaledH = (originalProps.h || 100) * targetScaleY
+
+      console.log(`🔧 Materializing instance ${index}:`, {
+        position: { x, y },
+        rotation: typeof rotation === 'number' ? rotation : 0,
+        scale: { scaleX: targetScaleX, scaleY: targetScaleY },
+        scaledDimensions: { w: scaledW, h: scaledH }
+      })
 
       return {
         ...originalShape,
@@ -1610,6 +1704,8 @@ export class TransformComposer {
         }
       } as TLShape
     })
+
+    return { shapes, collectiveBounds }
   }
 
   /**

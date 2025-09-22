@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useCallback } from 'react'
 import { useEditor, type TLShape, type TLShapePartial, type Editor, Vec } from 'tldraw'
-import { TransformComposer, extractShapesFromState } from '../../../store/modifiers'
+import { TransformComposer, extractShapesFromState, type VirtualModifierState } from '../../../store/modifiers'
 import type { TLModifier, GroupContext } from '../../../types/modifiers'
 import {
   getOriginalShapeId,
@@ -300,7 +300,7 @@ function cleanupGroupClones(editor: Editor, shape: TLShape) {
 
 
 // Track last processing time to prevent rapid successive TransformComposer calls
-const lastTransformComposerCall = new Map<string, { time: number; result: any }>()
+const lastTransformComposerCall = new Map<string, { time: number; result: VirtualModifierState }>()
 
 /**
  * Update existing clones with new positions and properties
