@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react'
 import { useEditor, useValue } from 'tldraw'
 import { useCustomShapeInstances } from './useCustomShapeInstances'
 import { useCustomShapes } from './useCustomShapes'
-import { bezierShapeToCustomTrayItem } from '../utils/bezierToCustomShape'
+import { bezierShapeToCustomTrayItem, normalizeBezierPoints } from '../utils/bezierToCustomShape'
+import { BezierBounds } from '../shapes/services/BezierBounds'
 import type { BezierShape } from '../shapes/BezierShape'
 
 /**
@@ -100,9 +101,20 @@ export function useCustomShapeInstanceManager() {
     console.log(`Live update for custom shape instance: ${customShapeId}`)
 
     try {
+      // Normalize the points to ensure they're relative to the shape's origin
+      // This prevents position drift when other instances are at different positions
+      const { normalizedPoints } = normalizeBezierPoints(shape.props.points)
+
+      // Calculate the bounds using the same method as BezierShape for consistency
+      const bounds = BezierBounds.getAccurateBounds(normalizedPoints, shape.props.isClosed)
+      const w = Math.max(1, bounds.maxX - bounds.minX)
+      const h = Math.max(1, bounds.maxY - bounds.minY)
+
       // Create properties update from the currently edited shape
       const liveProps = {
-        points: shape.props.points,
+        w,
+        h,
+        points: normalizedPoints,
         isClosed: shape.props.isClosed,
         color: shape.props.color,
         fillColor: shape.props.fillColor,
