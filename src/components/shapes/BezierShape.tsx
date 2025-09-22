@@ -404,9 +404,12 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     // Don't allow resize in edit mode
     if (shape.props.editMode) return shape
 
+    // First, let the parent class handle the resize properly (position, dimensions, flipping)
+    const resizedShape = super.onResize(shape, info) as BezierShape
+
     const { scaleX, scaleY } = info
-    
-    // Scale all points and control points
+
+    // Scale all points and control points relative to the new dimensions
     const scaledPoints = shape.props.points.map(p => ({
       x: p.x * scaleX,
       y: p.y * scaleY,
@@ -414,9 +417,6 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
       cp2: p.cp2 ? { x: p.cp2.x * scaleX, y: p.cp2.y * scaleY } : undefined,
     }))
 
-    // Note: FlippableShapeUtil doesn't have onResize, so we implement our own
-    const resizedShape = { ...shape }
-    
     return {
       ...resizedShape,
       props: {
