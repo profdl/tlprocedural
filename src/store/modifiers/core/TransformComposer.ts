@@ -1656,15 +1656,16 @@ export class TransformComposer {
    * Materialize virtual instances temporarily for geometry extraction
    * Extracts full transforms including scale for accurate boolean operations
    * Now includes collective bounds calculation for position context
+   * Uses center-based scaling consistent with array modifiers
    */
   private static materializeInstancesForGeometry(
     instances: VirtualInstance[],
     originalShape: TLShape
-  ): { shapes: TLShape[]; collectiveBounds: ReturnType<typeof this.calculateCollectiveBoundsFromInstances> } {
+  ): { shapes: TLShape[]; collectiveBounds: { centerX: number; centerY: number; width: number; height: number; minX: number; maxX: number; minY: number; maxY: number } } {
     // Calculate collective bounds first
     const collectiveBounds = this.calculateCollectiveBoundsFromInstances(instances, originalShape)
 
-    // Create temporary shapes with exact positioning
+    // Create temporary shapes with center-based scaling
     const shapes = instances.map((instance, index) => {
       const { x, y, scaleX, scaleY } = instance.transform.decomposed()
       const rotation = instance.metadata.targetRotation ?? instance.transform.rotation()
@@ -1673,23 +1674,39 @@ export class TransformComposer {
       const targetScaleX = (instance.metadata.targetScaleX as number) ?? scaleX
       const targetScaleY = (instance.metadata.targetScaleY as number) ?? scaleY
 
-      // Apply scale to shape dimensions
+      // Get original shape dimensions
       const originalProps = originalShape.props as Record<string, unknown> & { w?: number; h?: number }
-      const scaledW = (originalProps.w || 100) * targetScaleX
-      const scaledH = (originalProps.h || 100) * targetScaleY
+      const originalW = originalProps.w || 100
+      const originalH = originalProps.h || 100
 
-      console.log(`🔧 Materializing instance ${index}:`, {
-        position: { x, y },
+      // For center-based scaling, we need to adjust position to account for scale
+      // When scaling from center, the position needs to shift to maintain center position
+      const scaledW = originalW * targetScaleX
+      const scaledH = originalH * targetScaleY
+
+      // Calculate center-based position adjustment
+      // The shape grows from its center, so we need to move the top-left position
+      const centerAdjustmentX = (scaledW - originalW) / 2
+      const centerAdjustmentY = (scaledH - originalH) / 2
+
+      // Adjust position for center-based scaling
+      const adjustedX = x - centerAdjustmentX
+      const adjustedY = y - centerAdjustmentY
+
+      console.log(`🔧 Materializing instance ${index} (center-based):`, {
+        originalPosition: { x, y },
+        adjustedPosition: { x: adjustedX, y: adjustedY },
         rotation: typeof rotation === 'number' ? rotation : 0,
         scale: { scaleX: targetScaleX, scaleY: targetScaleY },
-        scaledDimensions: { w: scaledW, h: scaledH }
+        scaledDimensions: { w: scaledW, h: scaledH },
+        centerAdjustment: { x: centerAdjustmentX, y: centerAdjustmentY }
       })
 
       return {
         ...originalShape,
         id: `temp-${index}` as TLShapeId,
-        x,
-        y,
+        x: adjustedX,
+        y: adjustedY,
         rotation: typeof rotation === 'number' ? rotation : 0,
         props: {
           ...originalProps,
@@ -1700,7 +1717,8 @@ export class TransformComposer {
           ...originalShape.meta,
           isTemporary: true,
           appliedScaleX: targetScaleX,
-          appliedScaleY: targetScaleY
+          appliedScaleY: targetScaleY,
+          centerBasedScaling: true
         }
       } as TLShape
     })
