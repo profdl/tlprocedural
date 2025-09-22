@@ -1,5 +1,8 @@
-import { useEditor, createShapeId, Vec } from 'tldraw'
-import { useState, useRef, useCallback } from 'react'
+import { useEditor, createShapeId, Vec, useValue } from 'tldraw'
+import { useState, useRef, useCallback, useMemo } from 'react'
+import { useCustomShapes } from './hooks/useCustomShapes'
+import { bezierShapeToCustomTrayItem } from './utils/bezierToCustomShape'
+import type { BezierShape } from './shapes/BezierShape'
 
 type DragState =
   | { type: 'idle' }
@@ -21,7 +24,8 @@ const lucideIcons = {
   triangle: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.73 4a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/></svg>',
   pentagon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.7c-.7.5-1 1.4-.7 2.2l2.8 8.7c.3.8 1 1.4 1.9 1.4h9c.9 0 1.6-.6 1.9-1.4l2.8-8.7c.3-.8 0-1.7-.7-2.2L12 2.2c-.7-.5-1.7-.5-2.4 0Z"/></svg>',
   circle: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>',
-  waves: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>'
+  waves: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>',
+  plus: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>'
 }
 
 const defaultTrayItems: TrayItem[] = [
@@ -88,6 +92,47 @@ export function DragAndDropTray() {
   const [dragPreview, setDragPreview] = useState<{ x: number; y: number; itemId: string } | null>(null)
   const trayRef = useRef<HTMLDivElement>(null)
 
+  // Custom shapes management
+  const { customShapes, addCustomShape } = useCustomShapes()
+
+  // Monitor selected shapes to detect bezier shapes
+  const selectedShapes = useValue(
+    'selected-shapes',
+    () => editor.getSelectedShapes(),
+    [editor]
+  )
+
+  // Check if any selected shapes are bezier shapes (not in edit mode)
+  const selectedBezierShapes = useMemo(() => {
+    return selectedShapes.filter(shape =>
+      shape.type === 'bezier' &&
+      !('editMode' in shape.props && shape.props.editMode)
+    ) as BezierShape[]
+  }, [selectedShapes])
+
+  const hasBezierSelected = selectedBezierShapes.length > 0
+
+  // Combine default and custom tray items
+  const allTrayItems = useMemo(() => {
+    return [...defaultTrayItems, ...customShapes]
+  }, [customShapes])
+
+  // Handle creating custom shape from selected bezier
+  const handleCreateCustomShape = useCallback(() => {
+    if (selectedBezierShapes.length === 0) return
+
+    // Use the first selected bezier shape
+    const bezierShape = selectedBezierShapes[0]
+
+    // Convert to custom tray item
+    const customTrayItem = bezierShapeToCustomTrayItem(bezierShape)
+
+    // Add to custom shapes
+    addCustomShape(customTrayItem)
+
+    console.log('Created custom shape from bezier:', customTrayItem.label)
+  }, [selectedBezierShapes, addCustomShape])
+
   const handlePointerDown = useCallback((e: React.PointerEvent, itemId: string) => {
     e.preventDefault()
     e.stopPropagation()
@@ -139,7 +184,7 @@ export function DragAndDropTray() {
 
   const handlePointerUp = useCallback((e: React.PointerEvent) => {
     if (dragState.type === 'dragging' && e.pointerId === dragState.pointerId) {
-      const trayItem = defaultTrayItems.find(item => item.id === dragState.itemId)
+      const trayItem = allTrayItems.find(item => item.id === dragState.itemId)
       if (!trayItem || !editor) return
 
       // Convert screen coordinates to page coordinates
@@ -170,7 +215,7 @@ export function DragAndDropTray() {
 
     const element = e.currentTarget as HTMLElement
     element.releasePointerCapture(e.pointerId)
-  }, [dragState, setDragState, editor])
+  }, [dragState, setDragState, editor, allTrayItems])
 
   const handlePointerLeave = useCallback((e: React.PointerEvent) => {
     if (dragState.type === 'pointing_item' && e.pointerId === dragState.pointerId) {
@@ -200,7 +245,7 @@ export function DragAndDropTray() {
           userSelect: 'none'
         }}
       >
-        {defaultTrayItems.map((item) => (
+        {allTrayItems.map((item) => (
           <div
             key={item.id}
             data-drag_item_index={item.id}
@@ -237,6 +282,50 @@ export function DragAndDropTray() {
             />
           </div>
         ))}
+
+        {/* Add Custom Shape Button - only visible when bezier shape is selected */}
+        {hasBezierSelected && (
+          <div
+            key="add-custom-shape"
+            className="tray-item add-button"
+            style={{
+              width: '48px',
+              height: '48px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              borderRadius: '4px',
+              border: '2px dashed #007acc',
+              backgroundColor: '#f0f8ff',
+              transition: 'all 0.2s ease',
+              opacity: 0.9
+            }}
+            onClick={handleCreateCustomShape}
+            title="Add selected bezier as custom shape"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#e6f3ff'
+              e.currentTarget.style.opacity = '1'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#f0f8ff'
+              e.currentTarget.style.opacity = '0.9'
+            }}
+          >
+            <div
+              style={{
+                width: '20px',
+                height: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              dangerouslySetInnerHTML={{
+                __html: lucideIcons.plus.replace(/stroke="currentColor"/g, 'stroke="#007acc"')
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Drag Preview */}
@@ -269,7 +358,7 @@ export function DragAndDropTray() {
               justifyContent: 'center'
             }}
             dangerouslySetInnerHTML={{
-              __html: (defaultTrayItems.find(item => item.id === dragPreview.itemId)?.iconSvg || '').replace(/stroke="currentColor"/g, 'stroke="#007acc"')
+              __html: (allTrayItems.find(item => item.id === dragPreview.itemId)?.iconSvg || '').replace(/stroke="currentColor"/g, 'stroke="#007acc"')
             }}
           />
         </div>
