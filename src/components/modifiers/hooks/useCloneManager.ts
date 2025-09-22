@@ -103,6 +103,9 @@ export function useCloneManager({
     // Clean up existing clones for this shape
     cleanupExistingClones(editor, currentShape)
 
+    // Update boolean results when source shape position changes
+    updateBooleanResults(editor, currentShape)
+
     // For group modifiers, also clean up clones of all shapes in the group
     if (currentShape.type === 'group' && processedShapesCount > 0) {
       cleanupGroupClones(editor, currentShape)
@@ -215,6 +218,58 @@ function cleanupExistingClones(editor: Editor, shape: TLShape) {
       editor.deleteShapes(existingClones.map((s: TLShape) => s.id))
     }, { ignoreShapeLock: true, history: 'ignore' })
   }
+}
+
+/**
+ * Update boolean results when source shape position changes
+ */
+function updateBooleanResults(editor: Editor, shape: TLShape) {
+  // Find boolean results created from this source shape
+  const booleanResults = editor.getCurrentPageShapes().filter((s: TLShape) => {
+    return s.meta?.originalShapeId === shape.id && s.meta?.isBooleanResult === true
+  })
+
+  if (booleanResults.length === 0) return
+
+  // Calculate the position offset between old and new source shape position
+  const currentProps = shape.props as { w?: number; h?: number }
+  const currentW = currentProps.w || 100
+  const currentH = currentProps.h || 100
+  const currentCenterX = shape.x + currentW / 2
+  const currentCenterY = shape.y + currentH / 2
+
+  console.log('🔄 Updating boolean results for source shape movement:', {
+    sourceShapeId: shape.id,
+    sourcePosition: { x: shape.x, y: shape.y },
+    sourceCenter: { x: currentCenterX, y: currentCenterY },
+    booleanResultsCount: booleanResults.length
+  })
+
+  editor.run(() => {
+    booleanResults.forEach(booleanResult => {
+      // Get the stored relative positioning from when the boolean was created
+      const booleanProps = booleanResult.props as { w?: number; h?: number }
+      const booleanW = booleanProps.w || 100
+      const booleanH = booleanProps.h || 100
+
+      // Position the boolean result centered on the source shape's new center
+      const newX = currentCenterX - booleanW / 2
+      const newY = currentCenterY - booleanH / 2
+
+      editor.updateShape({
+        id: booleanResult.id,
+        type: booleanResult.type,
+        x: newX,
+        y: newY
+      })
+
+      console.log('📍 Updated boolean result position:', {
+        booleanResultId: booleanResult.id,
+        oldPosition: { x: booleanResult.x, y: booleanResult.y },
+        newPosition: { x: newX, y: newY }
+      })
+    })
+  }, { ignoreShapeLock: true, history: 'ignore' })
 }
 
 /**

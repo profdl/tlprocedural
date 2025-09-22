@@ -1187,7 +1187,7 @@ export class TransformComposer {
           inputInstanceIds: markedInstances.map(i => i.metadata.virtualId!),
           operation: settings.operation,
           computeOnMaterialize: true,
-          cacheKey: this.computeBooleanCacheKey(markedInstances, settings.operation),
+          cacheKey: this.computeBooleanCacheKey(markedInstances, settings.operation, originalShape),
           storageKey: storageKey
         }
       }
@@ -1220,15 +1220,24 @@ export class TransformComposer {
 
   /**
    * Compute cache key for boolean operations
+   * Includes source shape position to invalidate cache when source moves
    */
   private static computeBooleanCacheKey(
     instances: VirtualInstance[],
-    operation: string
+    operation: string,
+    originalShape: TLShape
   ): string {
     const transformHashes = instances.map(instance =>
       `${instance.transform.toString()}-${instance.sourceShapeId}`
     ).join('|')
-    return `${operation}:${transformHashes}`
+
+    // Include source shape position and dimensions in cache key
+    // This ensures cache invalidation when source shape moves
+    const sourceShapeHash = `src:${originalShape.x},${originalShape.y},${originalShape.rotation || 0}`
+    const sourceProps = originalShape.props as { w?: number; h?: number }
+    const sourceDimensions = `${sourceProps.w || 100}x${sourceProps.h || 100}`
+
+    return `${operation}:${transformHashes}:${sourceShapeHash}:${sourceDimensions}`
   }
 
   /**
@@ -1493,12 +1502,14 @@ export class TransformComposer {
       type: booleanResultShape.type,
       x: booleanResultShape.x,
       y: booleanResultShape.y,
-      w: (booleanResultShape.props as any).w,
-      h: (booleanResultShape.props as any).h,
+      w: (booleanResultShape.props as Record<string, unknown>).w,
+      h: (booleanResultShape.props as Record<string, unknown>).h,
       operation: deferredBoolean.operation,
-      bezierPointsCount: (booleanResultShape.props as any).points?.length,
-      isClosed: (booleanResultShape.props as any).isClosed,
-      fill: (booleanResultShape.props as any).fill
+      bezierPointsCount: Array.isArray((booleanResultShape.props as Record<string, unknown>).points)
+        ? ((booleanResultShape.props as Record<string, unknown>).points as unknown[]).length
+        : 0,
+      isClosed: (booleanResultShape.props as Record<string, unknown>).isClosed,
+      fill: (booleanResultShape.props as Record<string, unknown>).fill
     })
 
     // Delete all existing shapes and replace with the boolean result
@@ -1559,14 +1570,24 @@ export class TransformComposer {
 
   /**
    * Materialize virtual instances temporarily for geometry extraction
+   * Extracts full transforms including scale for accurate boolean operations
    */
   private static materializeInstancesForGeometry(
     instances: VirtualInstance[],
     originalShape: TLShape
   ): TLShape[] {
     return instances.map((instance, index) => {
-      const { x, y } = instance.transform.point()
+      const { x, y, scaleX, scaleY } = instance.transform.decomposed()
       const rotation = instance.metadata.targetRotation ?? instance.transform.rotation()
+
+      // Extract scale from metadata first (more accurate), fall back to transform decomposition
+      const targetScaleX = (instance.metadata.targetScaleX as number) ?? scaleX
+      const targetScaleY = (instance.metadata.targetScaleY as number) ?? scaleY
+
+      // Apply scale to shape dimensions
+      const originalProps = originalShape.props as Record<string, unknown> & { w?: number; h?: number }
+      const scaledW = (originalProps.w || 100) * targetScaleX
+      const scaledH = (originalProps.h || 100) * targetScaleY
 
       return {
         ...originalShape,
@@ -1574,9 +1595,16 @@ export class TransformComposer {
         x,
         y,
         rotation: typeof rotation === 'number' ? rotation : 0,
+        props: {
+          ...originalProps,
+          w: scaledW,
+          h: scaledH
+        },
         meta: {
           ...originalShape.meta,
-          isTemporary: true
+          isTemporary: true,
+          appliedScaleX: targetScaleX,
+          appliedScaleY: targetScaleY
         }
       } as TLShape
     })

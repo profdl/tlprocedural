@@ -45,6 +45,9 @@ export class GeometryConverter {
       case 'triangle':
         polygon = this.triangleShapeToPolygon(shape)
         break
+      case 'bezier':
+        polygon = this.bezierShapeToPolygon(shape)
+        break
       default:
         // Fallback: use bounding box for unsupported shapes
         polygon = this.boundingBoxToPolygon(shape)
@@ -94,6 +97,7 @@ export class GeometryConverter {
   /**
    * Convert polygon coordinates to bezier shape properties
    * Returns a complete bezier shape definition that can render the merged polygon
+   * Preserves visual alignment with original shape position
    */
   static polygonToBezierShape(polygon: PolygonCoordinates, originalShape: TLShape): {
     type: 'bezier'
@@ -115,7 +119,8 @@ export class GeometryConverter {
     console.log('🔧 Converting polygon to bezier shape:', {
       polygonLength: polygon.length,
       originalShapeId: originalShape.id,
-      originalShape: originalShape.type
+      originalShape: originalShape.type,
+      originalPosition: { x: originalShape.x, y: originalShape.y }
     })
 
     if (polygon.length === 0) {
@@ -155,7 +160,7 @@ export class GeometryConverter {
       return this.polygonToBezierShape([], originalShape)
     }
 
-    // Calculate bounding box
+    // Calculate polygon bounding box (in page coordinates)
     const xs = outerRing.map(p => p[0])
     const ys = outerRing.map(p => p[1])
     const minX = Math.min(...xs)
@@ -163,17 +168,35 @@ export class GeometryConverter {
     const minY = Math.min(...ys)
     const maxY = Math.max(...ys)
 
-    console.log('📐 Polygon bounding box calculated:', {
-      minX, maxX, minY, maxY,
-      width: maxX - minX,
-      height: maxY - minY,
-      ringPoints: outerRing.length
+    // Calculate original shape center for position preservation
+    const originalProps = originalShape.props as { w?: number; h?: number }
+    const originalW = originalProps.w || 100
+    const originalH = originalProps.h || 100
+    const originalCenterX = originalShape.x + originalW / 2
+    const originalCenterY = originalShape.y + originalH / 2
+
+    // Calculate polygon center
+    const polygonCenterX = (minX + maxX) / 2
+    const polygonCenterY = (minY + maxY) / 2
+    const polygonW = maxX - minX
+    const polygonH = maxY - minY
+
+    // Calculate position offset to maintain visual alignment with original shape
+    // Place the polygon center at the original shape center
+    const targetX = originalCenterX - polygonW / 2
+    const targetY = originalCenterY - polygonH / 2
+
+    console.log('📐 Position calculation:', {
+      polygon: { minX, maxX, minY, maxY, centerX: polygonCenterX, centerY: polygonCenterY },
+      original: { x: originalShape.x, y: originalShape.y, centerX: originalCenterX, centerY: originalCenterY },
+      target: { x: targetX, y: targetY },
+      offset: { x: targetX - minX, y: targetY - minY }
     })
 
-    // Convert polygon points to bezier points (relative to shape origin)
+    // Convert polygon points to bezier points (relative to target position)
     const bezierPoints: BezierPoint[] = outerRing.slice(0, -1).map(([x, y]) => ({
-      x: x - minX,
-      y: y - minY
+      x: x - targetX,
+      y: y - targetY
       // No control points - straight lines between vertices
     }))
 
@@ -188,13 +211,13 @@ export class GeometryConverter {
 
     const result = {
       type: 'bezier' as const,
-      x: minX,
-      y: minY,
-      w: maxX - minX,
-      h: maxY - minY,
+      x: targetX,
+      y: targetY,
+      w: polygonW,
+      h: polygonH,
       props: {
-        w: maxX - minX,
-        h: maxY - minY,
+        w: polygonW,
+        h: polygonH,
         color: extractedProps.color,
         fillColor: extractedProps.color,
         strokeWidth: extractedProps.strokeWidth,
@@ -204,13 +227,12 @@ export class GeometryConverter {
       }
     }
 
-    console.log('✨ Created bezier shape:', {
+    console.log('✨ Created bezier shape with preserved position:', {
       type: result.type,
       position: { x: result.x, y: result.y },
       dimensions: { w: result.w, h: result.h },
       pointsCount: result.props.points.length,
-      isClosed: result.props.isClosed,
-      fill: result.props.fill
+      positionOffset: { x: result.x - minX, y: result.y - minY }
     })
 
     return result
@@ -398,6 +420,42 @@ export class GeometryConverter {
   }
 
   /**
+   * Convert bezier shape to polygon using bezier points
+   */
+  private static bezierShapeToPolygon(shape: TLShape): PolygonCoordinates {
+    const props = shape.props as { points?: BezierPoint[]; w?: number; h?: number; isClosed?: boolean }
+    const { points, w = 100, h = 100, isClosed = true } = props
+    const { x, y, rotation = 0 } = shape
+
+    if (points && Array.isArray(points) && points.length > 0) {
+      // Convert bezier points to polygon points
+      let polygonPoints: Pair[] = points.map((p: BezierPoint) => [x + p.x, y + p.y] as Pair)
+
+      // Close the polygon if needed
+      if (isClosed && polygonPoints.length > 2) {
+        // Only close if not already closed
+        const first = polygonPoints[0]
+        const last = polygonPoints[polygonPoints.length - 1]
+        if (first[0] !== last[0] || first[1] !== last[1]) {
+          polygonPoints.push(first)
+        }
+      }
+
+      // Apply rotation if needed
+      if (rotation !== 0) {
+        const centerX = x + w / 2
+        const centerY = y + h / 2
+        polygonPoints = polygonPoints.map(([px, py]) => this.rotatePoint(px, py, centerX, centerY, rotation))
+      }
+
+      return [[polygonPoints]]
+    }
+
+    // Fallback to bounding box if no points
+    return this.boundingBoxToPolygon(shape)
+  }
+
+  /**
    * Fallback: convert shape bounding box to polygon
    */
   private static boundingBoxToPolygon(shape: TLShape): PolygonCoordinates {
@@ -487,7 +545,7 @@ export class GeometryConverter {
    * Extract color and stroke properties from different shape types
    */
   private static extractShapeProperties(shape: TLShape): { color: string; strokeWidth: number } {
-    const props = shape.props as any
+    const props = shape.props as Record<string, unknown>
 
     // Default values
     let color = '#000000'
@@ -496,26 +554,26 @@ export class GeometryConverter {
     // Handle different shape types
     switch (shape.type) {
       case 'geo':
-        color = props.color || '#000000'
-        strokeWidth = props.size || 2
+        color = (props.color as string) || '#000000'
+        strokeWidth = (props.size as number) || 2
         break
       case 'draw':
       case 'custom-draw':
-        color = props.color || '#000000'
-        strokeWidth = props.strokeWidth || 2
+        color = (props.color as string) || '#000000'
+        strokeWidth = (props.strokeWidth as number) || 2
         break
       case 'bezier':
-        color = props.color || '#000000'
-        strokeWidth = props.strokeWidth || 2
+        color = (props.color as string) || '#000000'
+        strokeWidth = (props.strokeWidth as number) || 2
         break
       case 'arrow':
-        color = props.color || '#000000'
-        strokeWidth = props.size || 2
+        color = (props.color as string) || '#000000'
+        strokeWidth = (props.size as number) || 2
         break
       default:
         // Try to extract common properties
-        color = props.color || props.fill || '#000000'
-        strokeWidth = props.strokeWidth || props.size || props.thickness || 2
+        color = (props.color as string) || (props.fill as string) || '#000000'
+        strokeWidth = (props.strokeWidth as number) || (props.size as number) || (props.thickness as number) || 2
     }
 
     console.log('🎨 Extracted shape properties:', {
