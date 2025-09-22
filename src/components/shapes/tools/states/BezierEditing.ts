@@ -66,13 +66,11 @@ export class BezierEditing extends StateNode {
       return // Let TLDraw's handle system manage control points
     }
 
-    // Check for Alt+click to add point on path segment
-    if (this.editor.inputs.altKey) {
-      const segmentInfo = BezierState.getSegmentAtPosition(shape.props.points, localPoint, this.editor.getZoomLevel(), shape.props.isClosed)
-      if (segmentInfo) {
-        this.addPointToSegment(shape, segmentInfo)
-        return // Point added, don't continue with other logic
-      }
+    // Check if clicking on a path segment to add a point
+    const segmentInfo = BezierState.getSegmentAtPosition(shape.props.points, localPoint, this.editor.getZoomLevel(), shape.props.isClosed)
+    if (segmentInfo) {
+      this.addPointToSegment(shape, segmentInfo)
+      return // Point added, don't continue with other logic
     }
 
     // If clicking elsewhere, clear point selection
@@ -142,7 +140,7 @@ export class BezierEditing extends StateNode {
     const finalShape = BezierBounds.recalculateShapeBounds(updatedShape, updatedShape.props.points)
     
     this.editor.updateShape(finalShape)
-    bezierLog('PointAdd', 'New point added at segment', segmentIndex, 'using Alt+click')
+    bezierLog('PointAdd', 'New point added at segment', segmentIndex, 'using click')
   }
 
 

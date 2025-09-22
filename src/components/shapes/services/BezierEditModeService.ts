@@ -78,9 +78,15 @@ export class BezierEditModeService {
       return
     }
 
-    // Handle point addition via hover preview
+    // Handle point addition via hover preview or direct segment click
     if (clickingOnEditingShape && !interactionContext.clickingOnHandle && !interactionContext.clickingOnAnchorPoint) {
+      // Try hover preview first (if available)
       if (this.handleHoverPreviewClick(editingBezierShape, pagePoint)) {
+        return // Point was added
+      }
+
+      // Try direct segment click if no hover preview
+      if (this.handleDirectSegmentClick(editingBezierShape, pagePoint)) {
         return // Point was added
       }
 
@@ -360,6 +366,40 @@ export class BezierEditModeService {
 
     if (distanceToHoverPoint < clickThreshold) {
       this.addPointAtHoverPreview(shape, hoverPoint, hoverSegmentIndex)
+      return true
+    }
+
+    return false
+  }
+
+  /**
+   * Handle direct clicking on path segments to add points
+   */
+  private handleDirectSegmentClick(shape: BezierShape, pagePoint: { x: number; y: number }): boolean {
+    const shapePageBounds = this.editor.getShapePageBounds(shape.id)
+    if (!shapePageBounds) return false
+
+    const localPoint = {
+      x: pagePoint.x - shapePageBounds.x,
+      y: pagePoint.y - shapePageBounds.y
+    }
+
+    // Use BezierState service to find segment at position
+    const segmentInfo = BezierState.getSegmentAtPosition(
+      shape.props.points,
+      localPoint,
+      this.editor.getZoomLevel(),
+      shape.props.isClosed
+    )
+
+    if (segmentInfo) {
+      // Add point using BezierState service
+      const updatedShape = BezierState.addPointToSegment(shape, segmentInfo.segmentIndex, segmentInfo.t)
+      // Recalculate bounds after addition
+      const finalShape = BezierBounds.recalculateShapeBounds(updatedShape, updatedShape.props.points)
+
+      this.editor.updateShape(finalShape)
+      bezierLog('PointAdd', 'Added point at segment', segmentInfo.segmentIndex, 'using direct click')
       return true
     }
 

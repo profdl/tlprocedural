@@ -13,7 +13,7 @@ interface BezierHoverPreviewProps {
 }
 
 /**
- * Renders the hover preview point for Alt+click point addition
+ * Renders the hover preview point for click point addition
  * Shows a green dot with pulsing ring when hovering over segments
  */
 export const BezierHoverPreview: React.FC<BezierHoverPreviewProps> = ({

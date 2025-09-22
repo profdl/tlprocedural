@@ -20,7 +20,7 @@ interface UseBezierHoverProps {
 
 /**
  * Custom hook for managing bezier shape hover preview functionality
- * Handles Alt+hover preview for point addition
+ * Handles hover preview for point addition on path segments
  */
 export function useBezierHover({ shape, editor, editMode }: UseBezierHoverProps) {
   
@@ -99,10 +99,10 @@ export function useBezierHover({ shape, editor, editMode }: UseBezierHoverProps)
     })
   }, [editor, shape.id, shape.props.hoverPoint])
 
-  // Simplified hover preview - only shows when Alt key is held for point addition
+  // Show hover preview for point addition when in edit mode
   useEffect(() => {
     if (!editMode || !editor) return
-    
+
     const currentTool = editor.getCurrentToolId()
     if (currentTool !== 'select') {
       clearHoverPreview()
@@ -116,16 +116,6 @@ export function useBezierHover({ shape, editor, editMode }: UseBezierHoverProps)
       const currentTool = editor.getCurrentToolId()
       if (currentTool !== 'select') {
         clearHoverPreview()
-        return
-      }
-
-      // Only show preview when Alt key is held (for point addition)
-      if (!editor.inputs.altKey) {
-        if (lastHoverSegment !== null) {
-          clearHoverPreview()
-          lastHoverSegment = null
-        }
-        animationId = requestAnimationFrame(updateHoverPreviewOnMove)
         return
       }
 
