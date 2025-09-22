@@ -279,27 +279,43 @@ export class TransformComposer {
           const relativeX = instanceX - collectiveCenter.x
           const relativeY = instanceY - collectiveCenter.y
 
-          // New position = collective center + group offset + relative position
-          const newX = collectiveCenter.x + rotatedOffsetX + relativeX
-          const newY = collectiveCenter.y + rotatedOffsetY + relativeY
-
-          // In unified mode, preserve internal group rotations (rigid body)
-          // Don't apply additional rotations to individual shapes within the group
-          // Only rotateAll affects the entire group uniformly
+          // Calculate GROUP-LEVEL rotation for this linear array position
+          // This rotation applies to the entire group as a rigid body
           const uniformRotation = (rotateAll * Math.PI) / 180
-          let totalRotation = currentRotation + uniformRotation
+          const incrementalRotation = (rotationIncrement * i * Math.PI) / 180
+          const groupRotationAdjustment = uniformRotation + incrementalRotation + sourceRotation
 
-          // If source shape is rotated, offsets are rotated
-          // So shapes must rotate with them to maintain rigid body
-          if (sourceRotation !== 0) {
-            totalRotation += sourceRotation
+          // Calculate GROUP-LEVEL scale for this linear array position
+          const progress = count > 1 ? i / (count - 1) : 0
+          const groupScale = 1 + ((scaleStep / 100) - 1) * progress
+
+          // Apply GROUP scale to relative positions (true group scaling)
+          // This scales the formation size as well as individual shapes
+          const scaledRelativeX = relativeX * groupScale
+          const scaledRelativeY = relativeY * groupScale
+
+          // Apply orbital rotation to scaled relative positions
+          // This rotates the entire scaled group formation around each linear position
+          let rotatedRelativeX = scaledRelativeX
+          let rotatedRelativeY = scaledRelativeY
+
+          if (groupRotationAdjustment !== 0) {
+            const cos = Math.cos(groupRotationAdjustment)
+            const sin = Math.sin(groupRotationAdjustment)
+            rotatedRelativeX = scaledRelativeX * cos - scaledRelativeY * sin
+            rotatedRelativeY = scaledRelativeX * sin + scaledRelativeY * cos
           }
 
-          // Calculate scale accumulation
-          const progress = count > 1 ? i / (count - 1) : 0
-          const newScale = 1 + ((scaleStep / 100) - 1) * progress
-          const accumulatedScaleX = existingScale.scaleX * newScale
-          const accumulatedScaleY = existingScale.scaleY * newScale
+          // New position = collective center + group offset + rotated scaled relative position
+          const newX = collectiveCenter.x + rotatedOffsetX + rotatedRelativeX
+          const newY = collectiveCenter.y + rotatedOffsetY + rotatedRelativeY
+
+          // Apply GROUP orbital rotation to maintain shape orientation (same as relative position rotation)
+          const totalRotation = currentRotation + groupRotationAdjustment
+
+          // Apply GROUP scale to individual shapes (accumulated with existing scale)
+          const accumulatedScaleX = existingScale.scaleX * groupScale
+          const accumulatedScaleY = existingScale.scaleY * groupScale
 
           const composedTransform = Mat.Compose(
             Mat.Translate(newX, newY),
@@ -492,6 +508,17 @@ export class TransformComposer {
           rotatedOffsetY = circularOffsetX * sin + circularOffsetY * cos
         }
 
+        // Calculate GROUP-LEVEL rotation for this circular position (following Grid Array pattern)
+        const uniformRotation = (rotateAll * Math.PI) / 180
+        const incrementalRotation = (rotateEach * i * Math.PI) / 180
+        let groupOrbitAngle = 0
+        if (alignToTangent) {
+          // Orient the group to be tangent to the circle
+          groupOrbitAngle = angle + Math.PI / 2
+        }
+
+        const groupRotationAdjustment = uniformRotation + incrementalRotation + groupOrbitAngle + sourceRotation
+
         // Filter out original instances for unified composition
         const groupInstances = instances.filter(inst => inst.metadata.modifierType !== 'original')
 
@@ -511,27 +538,14 @@ export class TransformComposer {
           const relativeX = instanceX - collectiveCenter.x
           const relativeY = instanceY - collectiveCenter.y
 
-          // Apply group-level rotation to preserve rigid body transformation
-          // The group should orbit as a single entity with internal relationships preserved
+          // Apply orbital rotation around the circular position center
+          // This creates orbital motion of the group formation around each circular position
           let rotatedRelativeX = relativeX
           let rotatedRelativeY = relativeY
 
-          // Calculate group orbit rotation angle (how the group is oriented as it orbits)
-          let groupOrbitAngle = 0
-          if (alignToTangent) {
-            // Orient the group to be tangent to the circle
-            groupOrbitAngle = angle + Math.PI / 2
-          }
-          if (rotateAll) {
-            // Additional rotation for all groups
-            groupOrbitAngle += (rotateAll * Math.PI / 180)
-          }
-
-          // Apply the orbit rotation to the group's relative positions
-          // This rotates the entire group formation around each circular position
-          if (groupOrbitAngle !== 0) {
-            const cos = Math.cos(groupOrbitAngle)
-            const sin = Math.sin(groupOrbitAngle)
+          if (groupRotationAdjustment !== 0) {
+            const cos = Math.cos(groupRotationAdjustment)
+            const sin = Math.sin(groupRotationAdjustment)
             rotatedRelativeX = relativeX * cos - relativeY * sin
             rotatedRelativeY = relativeX * sin + relativeY * cos
           }
@@ -540,20 +554,8 @@ export class TransformComposer {
           const newX = circleCenter.x + rotatedOffsetX + rotatedRelativeX
           const newY = circleCenter.y + rotatedOffsetY + rotatedRelativeY
 
-          // Apply rigid body rotation: individual shapes must rotate with the group
-          // Add the group orbit angle to maintain orientation relative to the group
-          let totalRotation = currentRotation + groupOrbitAngle
-
-          // If source shape is rotated, circular positions are rotated
-          // So shapes must rotate with them to maintain rigid body
-          if (sourceRotation !== 0) {
-            totalRotation += sourceRotation
-          }
-
-          // rotateEach additionally rotates individual shapes within the group
-          if (rotateEach) {
-            totalRotation += (rotateEach * i * Math.PI / 180)
-          }
+          // Apply GROUP orbital rotation to maintain shape orientation (same as relative position rotation)
+          const totalRotation = currentRotation + groupRotationAdjustment
 
           // Preserve existing scale (circular array doesn't add scale by default)
           const composedTransform = Mat.Compose(
@@ -829,16 +831,21 @@ export class TransformComposer {
             const relativeX = instanceX - collectiveCenter.x
             const relativeY = instanceY - collectiveCenter.y
 
+            // Apply GROUP scale to relative positions (true group scaling)
+            // This scales the formation size as well as individual shapes
+            const scaledRelativeX = relativeX * groupScale
+            const scaledRelativeY = relativeY * groupScale
+
             // Apply orbital rotation around the grid position center
-            // This creates orbital motion of the group formation around each grid position
-            let rotatedRelativeX = relativeX
-            let rotatedRelativeY = relativeY
+            // This creates orbital motion of the scaled group formation around each grid position
+            let rotatedRelativeX = scaledRelativeX
+            let rotatedRelativeY = scaledRelativeY
 
             if (groupRotationAdjustment !== 0) {
               const cos = Math.cos(groupRotationAdjustment)
               const sin = Math.sin(groupRotationAdjustment)
-              rotatedRelativeX = relativeX * cos - relativeY * sin
-              rotatedRelativeY = relativeX * sin + relativeY * cos
+              rotatedRelativeX = scaledRelativeX * cos - scaledRelativeY * sin
+              rotatedRelativeY = scaledRelativeX * sin + scaledRelativeY * cos
             }
 
             // Position at grid location center + rotated relative position
