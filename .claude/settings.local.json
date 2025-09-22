@@ -20,7 +20,9 @@
       "Bash(npm install:*)",
       "Bash(find:*)",
       "Bash(node:*)",
-      "Bash(tsc --noEmit)"
+      "Bash(tsc --noEmit)",
+      "WebFetch(domain:tldraw.dev)",
+      "Bash(npm uninstall:*)"
     ],
     "deny": [],
     "ask": []

@@ -17,6 +17,7 @@ import { useMemo, useLayoutEffect, useRef } from 'react'
 import { CustomStylePanel } from './CustomStylePanel'
 import { CustomToolbar } from './CustomToolbar'
 import { ModifierOverlay } from './ModifierRenderer'
+import { DragAndDropTray } from './DragAndDropTray'
 import { isArrayClone } from './modifiers/utils'
 import { useModifierStore } from '../store/modifierStore'
 import { BezierEditModeService } from './shapes/services/BezierEditModeService'
@@ -166,6 +167,7 @@ const components: TLComponents = {
   Toolbar: CustomToolbar,
   Grid: CuttleGrid,
   SnapIndicator: null, // Disable built-in snap indicators
+  InFrontOfTheCanvas: DragAndDropTray,
 }
 
 // Helper function to create SVG data URLs for Lucide icons
