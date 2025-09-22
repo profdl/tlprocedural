@@ -35,13 +35,15 @@ This is a **TLDraw-based procedural shape manipulation app** built with React + 
 
 **Shape Processing Flow**:
 
-1. Original shape → VirtualModifierState (single virtual instance)
+1. Original shape → VirtualModifierState (single virtual instance with `modifierType: 'original'`)
 2. TransformComposer processes modifiers sequentially using matrix composition
 3. Each modifier creates new virtual instances mathematically (no intermediate TLShapes)
-4. Modifiers compound multiplicatively - LinearArray (count=3) + CircularArray (count=4) = 12 total virtual instances
-5. Virtual instances materialized to TLShapes only when needed (dramatic performance improvement)
-6. useCloneManager hides original shape (opacity=0) and creates visible clones
-7. Clones created with rotation=0, then rotated using `editor.rotateShapesBy()`
+4. **Unified Composition**: When multiple instances exist from previous modifiers, they are treated as a single group entity
+5. **Transform Accumulation**: Position, rotation, and scale accumulate across modifiers using metadata-first extraction
+6. **Modifier Stacking Example**: LinearArray (count=3) + GridArray (2×2) = 12 total virtual instances arranged as 4 groups of 3
+7. Virtual instances materialized to TLShapes only when needed (dramatic performance improvement)
+8. useCloneManager hides original shape (opacity=0) and creates visible clones
+9. Clones created with rotation=0, then rotated using `editor.rotateShapesBy()` for center-based rotation
 
 ### Key Files
 
@@ -97,7 +99,7 @@ The system has special handling for grouped shapes:
 - **Virtual Instances**: Lightweight VirtualInstance objects defer TLShape creation until materialization (major performance gain)
 - **Factory Pattern**: ModifierFactory provides clean, maintainable modifier creation with type safety
 - **Path vs Array Modifiers**: Path modifiers modify shape geometry, array modifiers create spatial arrangements
-- **Compounding Behavior**: Multiple modifiers multiply their effects - LinearArray (3) + CircularArray (4) = 12 total virtual instances
+- **Compounding Behavior**: Multiple modifiers multiply their effects using unified composition - LinearArray (3) + GridArray (2×2) = 12 total virtual instances arranged as 4 groups of 3
 - **Group Processing**: Group modifiers process all shapes in a group simultaneously using shared `GroupContext`
 - **Transform Composition**: Uses mathematical matrix composition rather than iterative shape manipulation
 - **Stateless Design**: All processors are stateless and functional for predictable behavior
@@ -203,6 +205,67 @@ For TLDraw-specific development, reference these included documentation files:
 ## Shape Transformations in the Modifier System
 
 Understanding how position, rotation, and scaling work in our modifier system is crucial for maintaining and extending the codebase. The system uses a sophisticated approach that leverages TLDraw's native transformation methods for optimal performance and user experience.
+
+### Modifier Stacking and Transform Accumulation
+
+The modifier system supports **stacking multiple modifiers** on a single shape, with each modifier building upon the results of previous modifiers. This is achieved through **unified composition** and **transform accumulation**.
+
+#### Unified Composition Detection
+
+The system automatically detects when multiple virtual instances from previous modifiers should be treated as a unified group:
+
+```typescript
+// From TransformComposer.shouldUseUnifiedComposition()
+const hasOriginal = instances.some(inst => inst.metadata.modifierType === 'original')
+const nonOriginalInstances = instances.filter(inst => inst.metadata.modifierType !== 'original')
+
+// Use unified composition when:
+// 1. Multiple instances with no original (pure output from previous modifier)
+// 2. Multiple non-original instances mixed with original
+if (!hasOriginal && instances.length > 1) {
+  return true  // Treat as unified group
+}
+```
+
+#### Transform Accumulation Strategy
+
+**Metadata-First Approach**: Each modifier preserves exact transform values from previous modifiers in virtual instance metadata, avoiding precision loss from matrix decomposition:
+
+```typescript
+// Extract transforms from metadata first, fall back to matrix only if needed
+const currentRotation = (instance.metadata.targetRotation as number) ??
+                       existingTransform.rotation()
+const existingScale = {
+  scaleX: (instance.metadata.targetScaleX as number) ??
+          existingTransform.decomposed().scaleX,
+  scaleY: (instance.metadata.targetScaleY as number) ??
+          existingTransform.decomposed().scaleY
+}
+```
+
+**Multiplicative Scale Accumulation**: Scales multiply across modifiers:
+- Original shape: scale = 1.0
+- Linear Array with 20% scale step: some instances → scale = 1.2
+- Grid Array with 50% scale step: final scale = 1.2 × 1.5 = 1.8
+
+**Additive Rotation Accumulation**: Rotations add across modifiers:
+- Linear Array rotation + Grid Array rotation + group orbital rotation
+
+#### Example: Linear Array + Grid Array Stacking
+
+**Step 1**: Original shape → 1 virtual instance (`modifierType: 'original'`)
+
+**Step 2**: Linear Array (count=3) → 3 virtual instances
+- Uses non-unified mode (only 1 input instance)
+- Creates 3 instances with accumulated transforms
+- Each instance stores `targetRotation`, `targetScaleX/Y` in metadata
+
+**Step 3**: Grid Array (2×2) → 12 virtual instances
+- Detects unified composition (3 instances, no original)
+- Calculates collective bounds from Linear Array group
+- Creates 4 copies of entire 3-instance group at grid positions
+- Maintains rigid body relationships within each group
+- Accumulates transforms: Grid transforms × Linear transforms
 
 ### Transformation Architecture Overview
 

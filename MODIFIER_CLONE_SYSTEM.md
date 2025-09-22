@@ -388,9 +388,9 @@ It's like a recipe book (Zustand) vs the actual cooked meal (TLDraw store). The 
 When you apply multiple modifiers to a shape, they need to compound properly. For example:
 - **Step 1**: Start with 1 circle
 - **Step 2**: Apply Linear Array (count=3) → Creates 3 circles in a line
-- **Step 3**: Apply Circular Array (count=4) → Each of the 3 linear circles should be arrayed in a circle, creating 12 total circles
+- **Step 3**: Apply Grid Array (rows=2, columns=2) → Each group of 3 linear circles should be placed at grid positions, creating 12 total circles (3 × 4)
 
-The challenge is treating the 3 linear array clones as a **single unified entity** when applying the circular array, rather than treating each clone individually.
+The challenge is treating the 3 linear array clones as a **single unified entity** when applying the grid array, rather than treating each clone individually.
 
 ### Our Solution: Unified Composition with Virtual Instances
 
@@ -540,24 +540,27 @@ if (useUnified) {
 }
 ```
 
-### Example: Linear Array + Circular Array Stacking
+### Example: Linear Array + Grid Array Stacking
 
 **Initial State**: 1 circle at (100, 100)
 - Creates virtual instance with `modifierType: 'original'`
 
-**After Linear Array (count=3, offsetX=50)**:
+**After Linear Array (count=3, offsetX=50%)**:
 - Processes the original instance (not unified since only one instance)
-- Creates 3 virtual instances at positions: (100,100), (150,100), (200,100)
+- Creates 3 virtual instances at positions calculated from shape bounds
 - Each instance has `modifierType: 'linear-array'`, `generationLevel: 1`
-- Collective center: (150, 100), Collective bounds: width=150, height=100
+- **Position Calculation**: Uses shape center for orbital rotation support
+- **Scale Accumulation**: Each instance stores `targetScaleX/Y` in metadata
+- **Rotation Accumulation**: Each instance stores `targetRotation` in metadata
 
-**After Circular Array (count=4, radius=200)**:
-- Detects unified composition (3 instances, no original)
-- Treats the 3 linear instances as a single group entity
-- Calculates collective bounds from all 3 linear instances
-- Creates 4 copies of the entire group around a circle
+**After Grid Array (rows=2, columns=2, spacingX=100%, spacingY=100%)**:
+- Detects unified composition (3 instances, no original) using `shouldUseUnifiedComposition()`
+- Treats the 3 linear instances as a **single unified group entity**
+- Calculates collective bounds from all 3 linear instances using `calculateCollectiveBounds()`
+- Creates 4 copies of the **entire group** at grid positions (2×2 grid)
 - Each group maintains internal spatial relationships (rigid body transformation)
-- Final result: 12 circles (3 × 4) arranged in 4 groups of 3
+- **Transform Accumulation**: Preserves Linear Array's rotations and scales, adds Grid Array's transforms
+- **Final result**: 12 circles (3 × 4) arranged in 4 groups of 3, with all transforms properly accumulated
 
 ### Generation Tracking and Metadata
 
@@ -588,15 +591,56 @@ metadata: {
 }
 ```
 
-### Transform Accumulation System
+### Transform Accumulation System: How Position, Scale, and Rotation Stack
 
-Each modifier in the stack accumulates transformations from previous modifiers using metadata-first extraction:
+Each modifier in the stack accumulates transformations from previous modifiers using a **metadata-first extraction** approach. This ensures that transformations compound correctly across the entire modifier stack.
+
+#### Position Accumulation
+
+**Matrix-Based Position Calculation**:
+```typescript
+// Position comes from matrix decomposition
+const { x, y } = instance.transform.point()
+```
+
+**In Unified Composition Mode** (when stacking modifiers):
+- Grid Array calculates new positions relative to the **collective center** of all instances from Linear Array
+- Each instance maintains its **relative position** within the group
+- Group offset is applied: `newX = collectiveCenter.x + gridOffsetX + relativeX`
+
+**Orbital Rotation Support**: When the original shape is rotated, all position offsets are rotated accordingly:
+```typescript
+if (sourceRotation !== 0) {
+  const cos = Math.cos(sourceRotation)
+  const sin = Math.sin(sourceRotation)
+  rotatedOffsetX = gridOffsetX * cos - gridOffsetY * sin
+  rotatedOffsetY = gridOffsetX * sin + gridOffsetY * cos
+}
+```
+
+#### Rotation Accumulation
+
+**Metadata-First Approach**:
 
 ```typescript
-// Extract existing transforms from metadata first (where previous modifiers store them),
-// fall back to matrix decomposition
+// Extract existing transforms from metadata first (where Linear Array stored them),
+// fall back to matrix decomposition only if metadata is missing
 const currentRotation = (instance.metadata.targetRotation as number) ??
                        existingTransform.rotation()
+```
+
+**Example in Linear Array + Grid Array Stack**:
+1. **Linear Array** sets: `targetRotation = baseRotation + incrementalRotation + uniformRotation`
+2. **Grid Array** reads: `currentRotation = instance.metadata.targetRotation` (from Linear Array)
+3. **Grid Array** adds: `totalRotation = currentRotation + gridRotation + groupOrbitRotation`
+
+**Why Metadata-First**: Matrix decomposition can lose precision with complex transforms. Metadata preserves the exact intended rotation values from previous modifiers.
+
+#### Scale Accumulation
+
+**Multiplicative Scale Accumulation**:
+```typescript
+// Extract previous modifier's scale from metadata
 const existingScale = {
   scaleX: (instance.metadata.targetScaleX as number) ??
           existingTransform.decomposed().scaleX,
@@ -604,16 +648,28 @@ const existingScale = {
           existingTransform.decomposed().scaleY
 }
 
-// Add this modifier's transformations
-const incrementalRotation = (rotationIncrement * i * Math.PI) / 180
-const uniformRotation = (rotateAll * Math.PI) / 180
-const totalRotation = currentRotation + incrementalRotation + uniformRotation
-
-// Calculate scale accumulation
+// Calculate this modifier's scale contribution
 const progress = count > 1 ? i / (count - 1) : 0
 const newScale = 1 + ((scaleStep / 100) - 1) * progress
+
+// Multiply scales (accumulative)
 const accumulatedScaleX = existingScale.scaleX * newScale
 const accumulatedScaleY = existingScale.scaleY * newScale
+```
+
+**Example Accumulation**:
+- **Original**: scale = 1.0
+- **Linear Array**: adds 20% scale step → some instances get scale = 1.2
+- **Grid Array**: adds 50% scale step → final scale = 1.2 × 1.5 = 1.8
+
+**Storage in Metadata**: All accumulated transforms are stored in virtual instance metadata for the next modifier:
+```typescript
+metadata: {
+  targetRotation: totalRotation,
+  targetScaleX: accumulatedScaleX,
+  targetScaleY: accumulatedScaleY,
+  // ... other metadata
+}
 ```
 
 ### Rigid Body Group Transformation
