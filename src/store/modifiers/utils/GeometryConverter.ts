@@ -1,4 +1,4 @@
-import { type TLShape } from 'tldraw'
+import { type TLShape, type Editor } from 'tldraw'
 import polygonClipping from 'polygon-clipping'
 import type { BezierPoint } from '../../../components/shapes/BezierShape'
 
@@ -99,7 +99,7 @@ export class GeometryConverter {
    * Returns a complete bezier shape definition that can render the merged polygon
    * Preserves visual alignment with original shape position
    */
-  static polygonToBezierShape(polygon: PolygonCoordinates, originalShape: TLShape): {
+  static polygonToBezierShape(polygon: PolygonCoordinates, originalShape: TLShape, editor?: Editor): {
     type: 'bezier'
     x: number
     y: number
@@ -169,11 +169,31 @@ export class GeometryConverter {
     const maxY = Math.max(...ys)
 
     // Calculate original shape center for position preservation
-    const originalProps = originalShape.props as { w?: number; h?: number }
-    const originalW = originalProps.w || 100
-    const originalH = originalProps.h || 100
-    const originalCenterX = originalShape.x + originalW / 2
-    const originalCenterY = originalShape.y + originalH / 2
+    // Use visual bounds when editor is available (accounts for rotation)
+    let originalCenterX: number
+    let originalCenterY: number
+
+    if (editor) {
+      const visualBounds = editor.getShapePageBounds(originalShape.id)
+      if (visualBounds) {
+        originalCenterX = visualBounds.x + visualBounds.width / 2
+        originalCenterY = visualBounds.y + visualBounds.height / 2
+      } else {
+        // Fallback to geometric calculation
+        const originalProps = originalShape.props as { w?: number; h?: number }
+        const originalW = originalProps.w || 100
+        const originalH = originalProps.h || 100
+        originalCenterX = originalShape.x + originalW / 2
+        originalCenterY = originalShape.y + originalH / 2
+      }
+    } else {
+      // No editor available, use geometric calculation
+      const originalProps = originalShape.props as { w?: number; h?: number }
+      const originalW = originalProps.w || 100
+      const originalH = originalProps.h || 100
+      originalCenterX = originalShape.x + originalW / 2
+      originalCenterY = originalShape.y + originalH / 2
+    }
 
     // Calculate polygon center
     const polygonCenterX = (minX + maxX) / 2
@@ -188,6 +208,7 @@ export class GeometryConverter {
 
     console.log('📐 Position calculation:', {
       polygon: { minX, maxX, minY, maxY, centerX: polygonCenterX, centerY: polygonCenterY },
+      positionMethod: editor ? 'visual bounds' : 'geometric calculation',
       original: { x: originalShape.x, y: originalShape.y, centerX: originalCenterX, centerY: originalCenterY },
       target: { x: targetX, y: targetY },
       offset: { x: targetX - minX, y: targetY - minY }

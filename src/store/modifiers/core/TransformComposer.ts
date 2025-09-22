@@ -53,6 +53,7 @@ export interface VirtualModifierState {
   virtualInstances: VirtualInstance[]
   baseTransform: Mat
   metadata?: Record<string, unknown>
+  editor?: Editor
 }
 
 /**
@@ -114,7 +115,8 @@ export class TransformComposer {
       originalShape: shape,
       virtualInstances,
       baseTransform,
-      metadata: { processedModifiers: enabledModifiers.length }
+      metadata: { processedModifiers: enabledModifiers.length },
+      editor
     }
   }
 
@@ -1471,7 +1473,7 @@ export class TransformComposer {
     }
 
     // Convert polygon to bezier shape for proper rendering of merged geometry
-    const bezierShapeData = GeometryConverter.polygonToBezierShape(mergedPolygon, virtualState.originalShape)
+    const bezierShapeData = GeometryConverter.polygonToBezierShape(mergedPolygon, virtualState.originalShape, virtualState.editor)
 
     console.log('📐 Bezier shape data:', bezierShapeData)
 
