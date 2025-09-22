@@ -188,6 +188,8 @@ export function bezierShapeToCustomTrayItem(
       selectedPointIndices: [],
       hoverPoint: undefined,
       hoverSegmentIndex: undefined
-    }
+    },
+    version: 1,
+    lastModified: Date.now()
   }
 }

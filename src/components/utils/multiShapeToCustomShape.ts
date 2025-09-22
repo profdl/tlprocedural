@@ -45,7 +45,9 @@ export function combineShapesToCustom(
       fillColor: '#ffffff',
       strokeWidth: 1,
       fill: false
-    }
+    },
+    version: 1,
+    lastModified: Date.now()
   }
 }
 

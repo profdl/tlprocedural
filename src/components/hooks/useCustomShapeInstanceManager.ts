@@ -4,7 +4,7 @@ import { useCustomShapeInstances } from './useCustomShapeInstances'
 import { useCustomShapes } from './useCustomShapes'
 import { bezierShapeToCustomTrayItem, normalizeBezierPoints } from '../utils/bezierToCustomShape'
 import { BezierBounds } from '../shapes/services/BezierBounds'
-import type { BezierShape } from '../shapes/BezierShape'
+import type { BezierShape, BezierPoint } from '../shapes/BezierShape'
 
 /**
  * Manager hook that monitors custom shape instance editing and propagates changes
@@ -12,7 +12,7 @@ import type { BezierShape } from '../shapes/BezierShape'
  */
 export function useCustomShapeInstanceManager() {
   const editor = useEditor()
-  const { updateCustomShapeAndInstances, updateAllInstances, getInstancesForCustomShape } = useCustomShapeInstances()
+  const { updateAllInstances, getInstancesForCustomShape } = useCustomShapeInstances()
   const { getCustomShape, updateCustomShape } = useCustomShapes()
 
   // Track edit states to detect when editing ends
@@ -101,6 +101,12 @@ export function useCustomShapeInstanceManager() {
     console.log(`Live update for custom shape instance: ${customShapeId}`)
 
     try {
+      // Calculate the original bounds from the custom shape definition to track changes
+      const originalBounds = BezierBounds.getAccurateBounds(
+        customShape.defaultProps.points as BezierPoint[],
+        customShape.defaultProps.isClosed as boolean
+      )
+
       // Normalize the points to ensure they're relative to the shape's origin
       // This prevents position drift when other instances are at different positions
       const { normalizedPoints } = normalizeBezierPoints(shape.props.points)
@@ -109,6 +115,12 @@ export function useCustomShapeInstanceManager() {
       const bounds = BezierBounds.getAccurateBounds(normalizedPoints, shape.props.isClosed)
       const w = Math.max(1, bounds.maxX - bounds.minX)
       const h = Math.max(1, bounds.maxY - bounds.minY)
+
+      // Calculate bounds offset to compensate for position changes
+      const boundsOffset = {
+        x: bounds.minX - originalBounds.minX,
+        y: bounds.minY - originalBounds.minY
+      }
 
       // Create properties update from the currently edited shape
       const liveProps = {
@@ -135,7 +147,7 @@ export function useCustomShapeInstanceManager() {
       if (otherInstances.length > 0) {
         updateAllInstances(customShapeId, {
           props: liveProps
-        }, shape.id)
+        }, shape.id, boundsOffset)
       }
 
       console.log(`Live updated other instances for: ${customShapeId}`)
@@ -157,8 +169,26 @@ export function useCustomShapeInstanceManager() {
     console.log(`Edit mode ended for custom shape instance: ${customShapeId}`)
 
     try {
+      // Calculate the original bounds from the custom shape definition to track changes
+      const originalBounds = BezierBounds.getAccurateBounds(
+        customShape.defaultProps.points as BezierPoint[],
+        customShape.defaultProps.isClosed as boolean
+      )
+
       // Convert the edited shape back to a custom tray item format
       const updatedCustomShape = bezierShapeToCustomTrayItem(shape, customShape.label)
+
+      // Calculate the new bounds to determine position offset
+      const newBounds = BezierBounds.getAccurateBounds(
+        updatedCustomShape.defaultProps.points as BezierPoint[],
+        updatedCustomShape.defaultProps.isClosed as boolean
+      )
+
+      // Calculate bounds offset for position compensation
+      const boundsOffset = {
+        x: newBounds.minX - originalBounds.minX,
+        y: newBounds.minY - originalBounds.minY
+      }
 
       // Update the custom shape definition
       updateCustomShape(customShapeId, {
@@ -166,14 +196,15 @@ export function useCustomShapeInstanceManager() {
         defaultProps: updatedCustomShape.defaultProps
       })
 
-      // Update all other instances with the new properties
-      updateCustomShapeAndInstances(
-        customShapeId,
-        {}, // No additional definition updates needed (already done above)
-        {
+      // Update all other instances with the new properties and position compensation
+      const allInstances = getInstancesForCustomShape(customShapeId)
+      const otherInstances = allInstances.filter(instance => instance.id !== shape.id)
+
+      if (otherInstances.length > 0) {
+        updateAllInstances(customShapeId, {
           props: updatedCustomShape.defaultProps
-        }
-      )
+        }, shape.id, boundsOffset)
+      }
 
       console.log(`Updated custom shape definition and all instances for: ${customShapeId}`)
     } catch (error) {

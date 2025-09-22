@@ -64,7 +64,7 @@ export function useCustomShapeInstances() {
   }, [])
 
   // Update all instances of a custom shape with new properties
-  const updateAllInstances = useCallback((customShapeId: string, updates: Partial<TLShape>, excludeShapeId?: string) => {
+  const updateAllInstances = useCallback((customShapeId: string, updates: Partial<TLShape>, excludeShapeId?: string, boundsOffset?: { x: number; y: number }) => {
     const instances = getInstancesForCustomShape(customShapeId)
     if (instances.length === 0) return
 
@@ -97,8 +97,16 @@ export function useCustomShapeInstances() {
         }
       }
 
+      // Apply position compensation if bounds offset is provided
+      if (boundsOffset) {
+        // Compensate for bounds changes by adjusting the instance position
+        // This prevents visual movement when the shape's internal coordinate system shifts
+        updatedShape.x = instance.x - boundsOffset.x
+        updatedShape.y = instance.y - boundsOffset.y
+      }
+
       // Apply any other mutable updates (but preserve position and core fields)
-      const { props: _, type: __, id: ___, parentId: ____, index: _____, ...otherUpdates } = mutableUpdates
+      const { props: _, type: __, id: ___, parentId: ____, index: _____, x: ______, y: _______, ...otherUpdates } = mutableUpdates
       Object.assign(updatedShape, otherUpdates)
 
       return updatedShape
