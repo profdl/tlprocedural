@@ -2,6 +2,7 @@ import { useEditor, createShapeId, Vec, useValue } from 'tldraw'
 import { useState, useRef, useCallback, useMemo } from 'react'
 import { useCustomShapes } from './hooks/useCustomShapes'
 import { bezierShapeToCustomTrayItem } from './utils/bezierToCustomShape'
+import { combineShapesToCustom } from './utils/multiShapeToCustomShape'
 import type { BezierShape } from './shapes/BezierShape'
 
 type DragState =
@@ -110,6 +111,19 @@ export function DragAndDropTray() {
     ) as BezierShape[]
   }, [selectedShapes])
 
+  // Check for any valid shapes to create custom shape from
+  const validSelectedShapes = useMemo(() => {
+    return selectedShapes.filter(shape => {
+      // Exclude shapes in edit mode
+      if ('editMode' in shape.props && shape.props.editMode) {
+        return false
+      }
+      // Include all shape types
+      return true
+    })
+  }, [selectedShapes])
+
+  const hasValidShapesSelected = validSelectedShapes.length > 0
   const hasBezierSelected = selectedBezierShapes.length > 0
 
   // Combine default and custom tray items
@@ -117,21 +131,30 @@ export function DragAndDropTray() {
     return [...defaultTrayItems, ...customShapes]
   }, [customShapes])
 
-  // Handle creating custom shape from selected bezier
+  // Handle creating custom shape from selected shapes
   const handleCreateCustomShape = useCallback(() => {
-    if (selectedBezierShapes.length === 0) return
+    if (validSelectedShapes.length === 0 || !editor) return
 
-    // Use the first selected bezier shape
-    const bezierShape = selectedBezierShapes[0]
+    let customTrayItem
 
-    // Convert to custom tray item
-    const customTrayItem = bezierShapeToCustomTrayItem(bezierShape)
+    // If only one bezier shape selected, use the existing specialized function
+    if (validSelectedShapes.length === 1 && validSelectedShapes[0].type === 'bezier') {
+      const bezierShape = validSelectedShapes[0] as BezierShape
+      customTrayItem = bezierShapeToCustomTrayItem(bezierShape)
+    } else {
+      // For multiple shapes or non-bezier shapes, use the multi-shape converter
+      customTrayItem = combineShapesToCustom(validSelectedShapes, editor)
+    }
 
     // Add to custom shapes
     addCustomShape(customTrayItem)
 
-    console.log('Created custom shape from bezier:', customTrayItem.label)
-  }, [selectedBezierShapes, addCustomShape])
+    const shapeDescription = validSelectedShapes.length === 1
+      ? `${validSelectedShapes[0].type} shape`
+      : `${validSelectedShapes.length} shapes`
+
+    console.log(`Created custom shape from ${shapeDescription}:`, customTrayItem.label)
+  }, [validSelectedShapes, editor, addCustomShape])
 
   const handlePointerDown = useCallback((e: React.PointerEvent, itemId: string) => {
     e.preventDefault()
@@ -194,16 +217,46 @@ export function DragAndDropTray() {
       const shapeId = createShapeId()
 
       try {
-        const baseShape = {
-          id: shapeId,
-          type: trayItem.shapeType,
-          x: pagePoint.x - 50, // Center the shape on cursor
-          y: pagePoint.y - 50,
-          props: trayItem.defaultProps || {}
-        }
+        if (trayItem.shapeType === 'multi-shape') {
+          // Handle multi-shape custom shapes
+          const shapes = trayItem.defaultProps?.shapes as any[]
+          if (shapes && shapes.length > 0) {
+            const createdShapeIds: string[] = []
 
-        editor.createShape(baseShape)
-        editor.setSelectedShapes([shapeId])
+            // Calculate center offset for the entire group
+            const bounds = trayItem.defaultProps?.originalBounds as any
+            const centerOffsetX = bounds ? -bounds.width / 2 : -50
+            const centerOffsetY = bounds ? -bounds.height / 2 : -50
+
+            for (const shape of shapes) {
+              const newShapeId = createShapeId()
+              const newShape = {
+                ...shape,
+                id: newShapeId,
+                x: pagePoint.x + shape.x + centerOffsetX,
+                y: pagePoint.y + shape.y + centerOffsetY
+              }
+
+              editor.createShape(newShape)
+              createdShapeIds.push(newShapeId)
+            }
+
+            // Select all created shapes
+            editor.setSelectedShapes(createdShapeIds)
+          }
+        } else {
+          // Handle single shapes (existing logic)
+          const baseShape = {
+            id: shapeId,
+            type: trayItem.shapeType,
+            x: pagePoint.x - 50, // Center the shape on cursor
+            y: pagePoint.y - 50,
+            props: trayItem.defaultProps || {}
+          }
+
+          editor.createShape(baseShape)
+          editor.setSelectedShapes([shapeId])
+        }
       } catch (error) {
         console.error('Failed to create shape:', error)
       }
@@ -283,8 +336,8 @@ export function DragAndDropTray() {
           </div>
         ))}
 
-        {/* Add Custom Shape Button - only visible when bezier shape is selected */}
-        {hasBezierSelected && (
+        {/* Add Custom Shape Button - visible when any valid shapes are selected */}
+        {hasValidShapesSelected && (
           <div
             key="add-custom-shape"
             className="tray-item add-button"
@@ -302,7 +355,10 @@ export function DragAndDropTray() {
               opacity: 0.9
             }}
             onClick={handleCreateCustomShape}
-            title="Add selected bezier as custom shape"
+            title={validSelectedShapes.length === 1
+              ? `Add selected ${validSelectedShapes[0].type} as custom shape`
+              : `Add ${validSelectedShapes.length} selected shapes as custom shape`
+            }
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = '#e6f3ff'
               e.currentTarget.style.opacity = '1'
