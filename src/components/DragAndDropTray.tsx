@@ -1,6 +1,7 @@
 import { useEditor, createShapeId, Vec, useValue } from 'tldraw'
 import { useState, useRef, useCallback, useMemo } from 'react'
 import { useCustomShapes } from './hooks/useCustomShapes'
+import { useCustomShapeInstances } from './hooks/useCustomShapeInstances'
 import { bezierShapeToCustomTrayItem } from './utils/bezierToCustomShape'
 import { combineShapesToCustom } from './utils/multiShapeToCustomShape'
 import type { BezierShape } from './shapes/BezierShape'
@@ -95,6 +96,7 @@ export function DragAndDropTray() {
 
   // Custom shapes management
   const { customShapes, addCustomShape } = useCustomShapes()
+  const { generateInstanceId } = useCustomShapeInstances()
 
   // Monitor selected shapes to detect bezier shapes
   const selectedShapes = useValue(
@@ -217,6 +219,9 @@ export function DragAndDropTray() {
       const shapeId = createShapeId()
 
       try {
+        // Check if this is a custom shape (has createdAt field)
+        const isCustomShape = 'createdAt' in trayItem && 'version' in trayItem
+
         if (trayItem.shapeType === 'multi-shape') {
           // Handle multi-shape custom shapes
           const shapes = trayItem.defaultProps?.shapes as any[]
@@ -234,7 +239,14 @@ export function DragAndDropTray() {
                 ...shape,
                 id: newShapeId,
                 x: pagePoint.x + shape.x + centerOffsetX,
-                y: pagePoint.y + shape.y + centerOffsetY
+                y: pagePoint.y + shape.y + centerOffsetY,
+                // Add instance metadata if this is a custom shape
+                meta: isCustomShape ? {
+                  customShapeId: trayItem.id,
+                  instanceId: generateInstanceId(),
+                  isCustomShapeInstance: true as const,
+                  version: (trayItem as any).version
+                } : shape.meta
               }
 
               editor.createShape(newShape)
@@ -245,13 +257,20 @@ export function DragAndDropTray() {
             editor.setSelectedShapes(createdShapeIds)
           }
         } else {
-          // Handle single shapes (existing logic)
+          // Handle single shapes
           const baseShape = {
             id: shapeId,
             type: trayItem.shapeType,
             x: pagePoint.x - 50, // Center the shape on cursor
             y: pagePoint.y - 50,
-            props: trayItem.defaultProps || {}
+            props: trayItem.defaultProps || {},
+            // Add instance metadata if this is a custom shape
+            meta: isCustomShape ? {
+              customShapeId: trayItem.id,
+              instanceId: generateInstanceId(),
+              isCustomShapeInstance: true as const,
+              version: (trayItem as any).version
+            } : undefined
           }
 
           editor.createShape(baseShape)

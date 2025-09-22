@@ -355,6 +355,18 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
 
   // Double-click to enter/exit edit mode
   override onDoubleClick = (shape: BezierShape) => {
+    // Check if this is a custom shape instance
+    const isCustomShapeInstance = shape.meta?.isCustomShapeInstance === true
+
+    if (isCustomShapeInstance) {
+      // Show notification that editing will affect all instances
+      const customShapeId = shape.meta?.customShapeId
+      if (customShapeId) {
+        console.log(`Editing custom shape instance - changes will affect all instances of "${customShapeId}"`)
+        // TODO: Show user notification/toast
+      }
+    }
+
     // Use BezierState service for consistent edit mode toggling
     return BezierState.toggleEditMode(shape, this.editor)
   }
