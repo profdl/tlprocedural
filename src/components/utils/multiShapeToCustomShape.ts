@@ -34,12 +34,16 @@ export function combineShapesToCustom(
     defaultProps: {
       w: Math.max(combinedBounds.width, 50), // Minimum size for usability
       h: Math.max(combinedBounds.height, 50),
-      shapes: shapes.map(shape => ({
-        ...shape,
-        // Store relative position within the combined bounds
-        x: shape.x - combinedBounds.x,
-        y: shape.y - combinedBounds.y
-      })),
+      shapes: shapes.map(shape => {
+        // Remove the ID to prevent conflicts when creating instances
+        const { id, ...shapeWithoutId } = shape
+        return {
+          ...shapeWithoutId,
+          // Store relative position within the combined bounds
+          x: shape.x - combinedBounds.x,
+          y: shape.y - combinedBounds.y
+        }
+      }),
       originalBounds: combinedBounds,
       color: '#000000',
       fillColor: '#ffffff',

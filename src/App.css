@@ -1,3 +1,89 @@
 /* Import modular CSS files */
 @import './components/modifiers/styles/index.css';
 @import './components/panels/styles/panels.css';
+
+/* Aggressive iOS Chrome tap highlight removal */
+.app,
+.app *,
+.tldraw,
+.tldraw *,
+.tl-container,
+.tl-container *,
+[class*="tl-"],
+[class*="tldraw"],
+[data-testid],
+svg,
+svg *,
+button,
+div,
+span {
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  touch-action: manipulation !important;
+}
+
+/* Specific targeting for TLDraw elements */
+.tl-ui-layout,
+.tl-ui-layout *,
+.tl-ui-toolbar,
+.tl-ui-toolbar *,
+.tl-ui-toolbar__tools,
+.tl-ui-toolbar__tools *,
+.tl-ui-button,
+.tl-ui-button *,
+[data-testid*="tool"],
+[data-testid*="button"] {
+  -webkit-tap-highlight-color: rgba(0,0,0,0) !important;
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-touch-callout: none !important;
+}
+
+/* Only disable touch highlights, preserve keyboard focus for accessibility */
+* {
+  -webkit-tap-highlight-color: rgba(255, 255, 255, 0) !important;
+}
+
+/* Remove focus highlights only on touch/mouse interactions, not keyboard */
+*:focus:not(:focus-visible) {
+  outline: none !important;
+}
+
+/* Keep keyboard focus visible for accessibility */
+*:focus-visible {
+  outline: 2px solid #646cff !important;
+  outline-offset: 2px !important;
+}
+
+/* Panel input focus overrides - remove touch highlights, keep keyboard focus */
+.panel-container input:focus:not(:focus-visible),
+.floating-panel input:focus:not(:focus-visible),
+.style-panel__content input:focus:not(:focus-visible),
+.properties-panel__content input:focus:not(:focus-visible),
+.modifiers-panel__content input:focus:not(:focus-visible),
+.modifier-number-input__input:focus:not(:focus-visible),
+.modifier-property-input__number:focus:not(:focus-visible),
+.enhanced-number-input__input:focus:not(:focus-visible),
+.modifier-select-input__select:focus:not(:focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: var(--color-panel-contrast, #e0e0e0) !important;
+}
+
+/* Drag and Drop Tray focus overrides - remove touch highlights, preserve keyboard focus */
+.drag-drop-tray:focus:not(:focus-visible),
+.tray-item:focus:not(:focus-visible),
+.add-button:focus:not(:focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.drag-drop-tray:focus-visible,
+.tray-item:focus-visible,
+.add-button:focus-visible {
+  outline: 2px solid #646cff !important;
+  outline-offset: 2px !important;
+}

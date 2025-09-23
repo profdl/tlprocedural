@@ -106,13 +106,6 @@ export function DragAndDropTray() {
     [editor]
   )
 
-  // Check if any selected shapes are bezier shapes (not in edit mode)
-  const selectedBezierShapes = useMemo(() => {
-    return selectedShapes.filter(shape =>
-      shape.type === 'bezier' &&
-      !('editMode' in shape.props && shape.props.editMode)
-    ) as BezierShape[]
-  }, [selectedShapes])
 
   // Check for any valid shapes to create custom shape from
   const validSelectedShapes = useMemo(() => {
@@ -127,7 +120,6 @@ export function DragAndDropTray() {
   }, [selectedShapes])
 
   const hasValidShapesSelected = validSelectedShapes.length > 0
-  const hasBezierSelected = selectedBezierShapes.length > 0
 
   // Combine default and custom tray items
   const allTrayItems = useMemo(() => {
@@ -183,6 +175,25 @@ export function DragAndDropTray() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // Helper function to clean metadata and ensure it's JSON serializable
+  const cleanMetadata = (meta: any) => {
+    if (!meta || typeof meta !== 'object') return {}
+
+    const cleaned: any = {}
+    for (const [key, value] of Object.entries(meta)) {
+      // Only include JSON serializable values
+      if (value === null ||
+          typeof value === 'string' ||
+          typeof value === 'number' ||
+          typeof value === 'boolean' ||
+          (typeof value === 'object' && value.constructor === Object) ||
+          Array.isArray(value)) {
+        cleaned[key] = value
+      }
+    }
+    return cleaned
+  }
+
   // Handle creating custom shape from selected shapes
   const handleCreateCustomShape = useCallback(() => {
     if (validSelectedShapes.length === 0 || !editor) return
@@ -204,6 +215,7 @@ export function DragAndDropTray() {
     // Convert original selected shapes to instances of the new custom shape
     if (customShapeId) {
       const shapeInstances: any[] = []
+      const instanceId = generateInstanceId()
 
       if (customTrayItem.shapeType === 'multi-shape') {
         // For multi-shape custom shapes, create a single instance group
@@ -221,16 +233,21 @@ export function DragAndDropTray() {
           // Create instances for each shape in the multi-shape
           for (const shape of shapes) {
             const newShapeId = createShapeId()
+            // Remove any potential ID remnants from the template
+            const { id, ...shapeWithoutId } = shape
             const instanceShape = {
-              ...shape,
+              ...shapeWithoutId,
               id: newShapeId,
               x: groupCenterX + shape.x + centerOffsetX,
               y: groupCenterY + shape.y + centerOffsetY,
               meta: {
+                ...cleanMetadata(shape.meta),
                 customShapeId: customShapeId,
-                instanceId: generateInstanceId(),
+                instanceId: instanceId,
                 isCustomShapeInstance: true as const,
-                version: 1
+                version: 1,
+                groupEditMode: false,
+                isGroupChild: true
               }
             }
             shapeInstances.push(instanceShape)
@@ -243,10 +260,12 @@ export function DragAndDropTray() {
           ...originalShape,
           id: createShapeId(),
           meta: {
+            ...cleanMetadata(originalShape.meta),
             customShapeId: customShapeId,
-            instanceId: generateInstanceId(),
+            instanceId: instanceId,
             isCustomShapeInstance: true as const,
-            version: 1
+            version: 1,
+            groupEditMode: false
           }
         }
         shapeInstances.push(instanceShape)
@@ -261,9 +280,41 @@ export function DragAndDropTray() {
         // Create the instances
         editor.createShapes(shapeInstances)
 
-        // Select the new instances
-        const instanceIds = shapeInstances.map(shape => shape.id)
-        editor.setSelectedShapes(instanceIds)
+        // For multi-shape instances, group them
+        if (customTrayItem.shapeType === 'multi-shape' && shapeInstances.length > 1) {
+          const instanceIds = shapeInstances.map(shape => shape.id)
+          const groupId = editor.groupShapes(instanceIds)
+
+          // Add custom metadata to the group
+          if (groupId) {
+            const group = editor.getShape(groupId)
+            if (group) {
+              editor.updateShape({
+                ...group,
+                meta: {
+                  customShapeId: customShapeId,
+                  instanceId: instanceId,
+                  isCustomShapeInstance: true as const,
+                  version: 1,
+                  isMultiShapeGroup: true
+                }
+              })
+            }
+            editor.setSelectedShapes([groupId])
+          } else {
+            // Fallback if grouping fails
+            const instanceIds = shapeInstances.map(shape => shape.id).filter(id => id && typeof id === 'object')
+            if (instanceIds.length > 0) {
+              editor.setSelectedShapes(instanceIds)
+            }
+          }
+        } else {
+          // Select the new instances for single shapes
+          const instanceIds = shapeInstances.map(shape => shape.id).filter(id => id && typeof id === 'object')
+          if (instanceIds.length > 0) {
+            editor.setSelectedShapes(instanceIds)
+          }
+        }
       }, { history: 'record-preserveRedoStack' })
     }
 
@@ -272,7 +323,7 @@ export function DragAndDropTray() {
       : `${validSelectedShapes.length} shapes`
 
     console.log(`Created custom shape from ${shapeDescription}:`, customTrayItem.label)
-  }, [validSelectedShapes, editor, addCustomShape, generateInstanceId])
+  }, [validSelectedShapes, editor, addCustomShape, generateInstanceId, cleanMetadata])
 
   const handlePointerDown = useCallback((e: React.PointerEvent, itemId: string) => {
     e.preventDefault()
@@ -358,25 +409,31 @@ export function DragAndDropTray() {
           const shapes = trayItem.defaultProps?.shapes as any[]
           if (shapes && shapes.length > 0) {
             const createdShapeIds: string[] = []
+            const instanceId = generateInstanceId()
 
             // Calculate center offset for the entire group
             const bounds = trayItem.defaultProps?.originalBounds as any
             const centerOffsetX = bounds ? -bounds.width / 2 : -50
             const centerOffsetY = bounds ? -bounds.height / 2 : -50
 
+            // Create individual shapes first
             for (const shape of shapes) {
               const newShapeId = createShapeId()
+              // Remove any potential ID remnants from the template
+              const { id, ...shapeWithoutId } = shape
               const newShape = {
-                ...shape,
+                ...shapeWithoutId,
                 id: newShapeId,
                 x: pagePoint.x + shape.x + centerOffsetX,
                 y: pagePoint.y + shape.y + centerOffsetY,
-                // Add instance metadata if this is a custom shape
+                // Add instance metadata if this is a custom shape, but mark as grouped
                 meta: isCustomShape ? {
                   customShapeId: trayItem.id,
-                  instanceId: generateInstanceId(),
+                  instanceId: instanceId,
                   isCustomShapeInstance: true as const,
-                  version: (trayItem as any).version
+                  version: (trayItem as any).version,
+                  groupEditMode: false,
+                  isGroupChild: true // Mark as part of a group
                 } : shape.meta
               }
 
@@ -384,8 +441,38 @@ export function DragAndDropTray() {
               createdShapeIds.push(newShapeId)
             }
 
-            // Select all created shapes
-            editor.setSelectedShapes(createdShapeIds)
+            // Group the created shapes and add metadata to the group
+            if (isCustomShape && createdShapeIds.length > 1) {
+              const groupId = editor.groupShapes(createdShapeIds)
+
+              // Add custom metadata to the group to track it as a custom shape instance
+              if (groupId) {
+                const group = editor.getShape(groupId)
+                if (group) {
+                  editor.updateShape({
+                    ...group,
+                    meta: {
+                      customShapeId: trayItem.id,
+                      instanceId: instanceId,
+                      isCustomShapeInstance: true as const,
+                      version: (trayItem as any).version,
+                      isMultiShapeGroup: true
+                    }
+                  })
+                }
+              }
+
+              // Select the group
+              if (groupId) {
+                editor.setSelectedShapes([groupId])
+              }
+            } else {
+              // Fallback: select all created shapes if not grouped
+              const validShapeIds = createdShapeIds.filter(id => id && typeof id === 'object')
+              if (validShapeIds.length > 0) {
+                editor.setSelectedShapes(validShapeIds)
+              }
+            }
           }
         } else {
           // Handle single shapes
@@ -400,12 +487,15 @@ export function DragAndDropTray() {
               customShapeId: trayItem.id,
               instanceId: generateInstanceId(),
               isCustomShapeInstance: true as const,
-              version: (trayItem as any).version
+              version: (trayItem as any).version,
+              groupEditMode: false
             } : undefined
           }
 
           editor.createShape(baseShape)
-          editor.setSelectedShapes([shapeId])
+          if (shapeId && typeof shapeId === 'object') {
+            editor.setSelectedShapes([shapeId])
+          }
         }
       } catch (error) {
         console.error('Failed to create shape:', error)
@@ -456,14 +546,13 @@ export function DragAndDropTray() {
           flexDirection: 'column',
           gap: '8px',
           boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          zIndex: 1000,
+          zIndex: 10,
           userSelect: 'none',
           outline: 'none'
         }}
       >
         {allTrayItems.map((item) => {
           const isSelected = selectedCustomShapeId === item.id
-          const isUserCustomShape = isCustomShape(item.id)
 
           return (
             <div

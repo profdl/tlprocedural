@@ -22,6 +22,8 @@ import { isArrayClone } from './modifiers/utils'
 import { useModifierStore } from '../store/modifierStore'
 import { BezierEditModeService } from './shapes/services/BezierEditModeService'
 import { CustomShapeInstanceManagerComponent } from './CustomShapeInstanceManagerComponent'
+import { GroupEditIndicator } from './GroupEditIndicator'
+import { GroupEditManager } from './GroupEditManager'
 
 import { SineWaveShapeUtil } from './shapes/SineWaveShape'
 import { SineWaveShapeTool } from './shapes/SineWaveTool'
@@ -172,6 +174,8 @@ const components: TLComponents = {
     <>
       <DragAndDropTray />
       <CustomShapeInstanceManagerComponent />
+      <GroupEditManager />
+      <GroupEditIndicator />
     </>
   ),
 }

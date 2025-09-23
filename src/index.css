@@ -28,6 +28,14 @@ body {
   min-width: 320px;
   min-height: 100vh;
   overflow: hidden;
+  /* Disable iOS Chrome tap highlights */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
 #root {
@@ -106,6 +114,26 @@ textarea:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid #646cff !important;
   outline-offset: 2px !important;
+}
+
+/* Disable iOS Chrome tap highlights globally */
+*,
+*:before,
+*:after {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Specifically target interactive elements */
+button,
+input,
+select,
+textarea,
+[role="button"],
+[tabindex],
+a,
+label {
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-touch-callout: none;
 }
 
 /* Hide TLDraw handles for bezier anchor points specifically to prevent double rendering */

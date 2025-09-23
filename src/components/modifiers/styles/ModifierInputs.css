@@ -99,7 +99,13 @@
   transition: all 0.1s ease;
 }
 
-.modifier-number-input__input:focus {
+.modifier-number-input__input:focus:not(:focus-visible) {
+  outline: none;
+  border-color: var(--color-panel-contrast);
+  box-shadow: none;
+}
+
+.modifier-number-input__input:focus-visible {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 1px var(--color-primary);
@@ -135,7 +141,13 @@
   text-align: center;
 }
 
-.modifier-property-input__number:focus {
+.modifier-property-input__number:focus:not(:focus-visible) {
+  outline: none;
+  border-color: var(--color-panel-contrast);
+  box-shadow: none;
+}
+
+.modifier-property-input__number:focus-visible {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 1px var(--color-primary);
@@ -299,10 +311,16 @@
   cursor: text;
 }
 
-.enhanced-number-input__input:focus {
+.enhanced-number-input__input:focus:not(:focus-visible) {
   cursor: text;
   outline: none !important;
   box-shadow: none !important;
+}
+
+.enhanced-number-input__input:focus-visible {
+  cursor: text;
+  outline: 2px solid var(--color-primary) !important;
+  outline-offset: 2px !important;
 }
 
 .enhanced-number-input__unit {
@@ -408,7 +426,12 @@
   border-color: var(--color-text-2);
 }
 
-.modifier-select-input__select:focus {
+.modifier-select-input__select:focus:not(:focus-visible) {
+  border-color: var(--color-panel-contrast);
+  box-shadow: none;
+}
+
+.modifier-select-input__select:focus-visible {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 1px var(--color-primary);
 }
