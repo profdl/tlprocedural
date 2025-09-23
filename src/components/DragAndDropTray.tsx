@@ -198,15 +198,81 @@ export function DragAndDropTray() {
       customTrayItem = combineShapesToCustom(validSelectedShapes, editor)
     }
 
-    // Add to custom shapes
-    addCustomShape(customTrayItem)
+    // Add to custom shapes and get the ID
+    const customShapeId = addCustomShape(customTrayItem)
+
+    // Convert original selected shapes to instances of the new custom shape
+    if (customShapeId) {
+      const shapeInstances: any[] = []
+
+      if (customTrayItem.shapeType === 'multi-shape') {
+        // For multi-shape custom shapes, create a single instance group
+        const shapes = customTrayItem.defaultProps?.shapes as any[]
+        if (shapes && shapes.length > 0) {
+          const bounds = customTrayItem.defaultProps?.originalBounds as any
+          const centerOffsetX = bounds ? -bounds.width / 2 : -50
+          const centerOffsetY = bounds ? -bounds.height / 2 : -50
+
+          // Calculate the center position from the original group
+          const groupBounds = editor.getSelectionPageBounds()
+          const groupCenterX = groupBounds ? groupBounds.x + groupBounds.width / 2 : 0
+          const groupCenterY = groupBounds ? groupBounds.y + groupBounds.height / 2 : 0
+
+          // Create instances for each shape in the multi-shape
+          for (const shape of shapes) {
+            const newShapeId = createShapeId()
+            const instanceShape = {
+              ...shape,
+              id: newShapeId,
+              x: groupCenterX + shape.x + centerOffsetX,
+              y: groupCenterY + shape.y + centerOffsetY,
+              meta: {
+                customShapeId: customShapeId,
+                instanceId: generateInstanceId(),
+                isCustomShapeInstance: true as const,
+                version: 1
+              }
+            }
+            shapeInstances.push(instanceShape)
+          }
+        }
+      } else {
+        // For single shapes, convert the original shape to an instance
+        const originalShape = validSelectedShapes[0]
+        const instanceShape = {
+          ...originalShape,
+          id: createShapeId(),
+          meta: {
+            customShapeId: customShapeId,
+            instanceId: generateInstanceId(),
+            isCustomShapeInstance: true as const,
+            version: 1
+          }
+        }
+        shapeInstances.push(instanceShape)
+      }
+
+      // Delete the original shapes and create the instances
+      editor.run(() => {
+        // Delete original shapes
+        const originalIds = validSelectedShapes.map(shape => shape.id)
+        editor.deleteShapes(originalIds)
+
+        // Create the instances
+        editor.createShapes(shapeInstances)
+
+        // Select the new instances
+        const instanceIds = shapeInstances.map(shape => shape.id)
+        editor.setSelectedShapes(instanceIds)
+      }, { history: 'record-preserveRedoStack' })
+    }
 
     const shapeDescription = validSelectedShapes.length === 1
       ? `${validSelectedShapes[0].type} shape`
       : `${validSelectedShapes.length} shapes`
 
     console.log(`Created custom shape from ${shapeDescription}:`, customTrayItem.label)
-  }, [validSelectedShapes, editor, addCustomShape])
+  }, [validSelectedShapes, editor, addCustomShape, generateInstanceId])
 
   const handlePointerDown = useCallback((e: React.PointerEvent, itemId: string) => {
     e.preventDefault()
