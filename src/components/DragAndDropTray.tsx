@@ -1,5 +1,5 @@
 import { useEditor, createShapeId, Vec, useValue } from 'tldraw'
-import { useState, useRef, useCallback, useMemo } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { useCustomShapes } from './hooks/useCustomShapes'
 import { useCustomShapeInstances } from './hooks/useCustomShapeInstances'
 import { bezierShapeToCustomTrayItem } from './utils/bezierToCustomShape'
@@ -92,10 +92,11 @@ export function DragAndDropTray() {
   const editor = useEditor()
   const [dragState, setDragState] = useState<DragState>({ type: 'idle' })
   const [dragPreview, setDragPreview] = useState<{ x: number; y: number; itemId: string } | null>(null)
+  const [selectedCustomShapeId, setSelectedCustomShapeId] = useState<string | null>(null)
   const trayRef = useRef<HTMLDivElement>(null)
 
   // Custom shapes management
-  const { customShapes, addCustomShape } = useCustomShapes()
+  const { customShapes, addCustomShape, removeCustomShape } = useCustomShapes()
   const { generateInstanceId } = useCustomShapeInstances()
 
   // Monitor selected shapes to detect bezier shapes
@@ -133,6 +134,55 @@ export function DragAndDropTray() {
     return [...defaultTrayItems, ...customShapes]
   }, [customShapes])
 
+  // Helper function to check if an item is a custom shape (user-created)
+  const isCustomShape = useCallback((itemId: string) => {
+    return customShapes.some(shape => shape.id === itemId)
+  }, [customShapes])
+
+  // Handle delete key press
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      console.log('Key pressed:', e.key, 'Selected shape:', selectedCustomShapeId)
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        console.log('Delete/Backspace key detected')
+
+        if (selectedCustomShapeId) {
+          console.log('Shape selected:', selectedCustomShapeId)
+
+          if (isCustomShape(selectedCustomShapeId)) {
+            console.log('Is custom shape, deleting...')
+            e.preventDefault()
+            e.stopPropagation()
+            removeCustomShape(selectedCustomShapeId)
+            setSelectedCustomShapeId(null)
+            console.log('Shape deleted')
+          } else {
+            console.log('Not a custom shape, ignoring')
+          }
+        } else {
+          console.log('No shape selected')
+        }
+      }
+    }
+
+    // Use capture phase to handle before TLDraw
+    document.addEventListener('keydown', handleKeyDown, { capture: true })
+    return () => document.removeEventListener('keydown', handleKeyDown, { capture: true })
+  }, [selectedCustomShapeId, isCustomShape, removeCustomShape])
+
+  // Handle click outside to deselect
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (trayRef.current && !trayRef.current.contains(e.target as Node)) {
+        setSelectedCustomShapeId(null)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   // Handle creating custom shape from selected shapes
   const handleCreateCustomShape = useCallback(() => {
     if (validSelectedShapes.length === 0 || !editor) return
@@ -162,6 +212,21 @@ export function DragAndDropTray() {
     e.preventDefault()
     e.stopPropagation()
 
+    // Handle selection for custom shapes
+    if (isCustomShape(itemId)) {
+      // If clicking on an already selected custom shape, keep it selected
+      // If clicking on a different custom shape, select it
+      setSelectedCustomShapeId(prev => prev === itemId ? itemId : itemId)
+
+      // Focus the tray so it can receive keyboard events
+      setTimeout(() => {
+        trayRef.current?.focus()
+      }, 0)
+    } else {
+      // Clear selection when clicking on pre-made shapes
+      setSelectedCustomShapeId(null)
+    }
+
     setDragState({
       type: 'pointing_item',
       itemId,
@@ -171,7 +236,7 @@ export function DragAndDropTray() {
     const pointerId = e.pointerId
     const element = e.currentTarget as HTMLElement
     element.setPointerCapture(pointerId)
-  }, [setDragState])
+  }, [setDragState, isCustomShape])
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (dragState.type === 'pointing_item' && e.pointerId === dragState.pointerId) {
@@ -300,6 +365,18 @@ export function DragAndDropTray() {
       <div
         ref={trayRef}
         className="drag-drop-tray"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          console.log('Tray keydown:', e.key, 'Selected shape:', selectedCustomShapeId)
+
+          if ((e.key === 'Delete' || e.key === 'Backspace') && selectedCustomShapeId && isCustomShape(selectedCustomShapeId)) {
+            console.log('Tray handling delete for:', selectedCustomShapeId)
+            e.preventDefault()
+            e.stopPropagation()
+            removeCustomShape(selectedCustomShapeId)
+            setSelectedCustomShapeId(null)
+          }
+        }}
         style={{
           position: 'absolute',
           top: '50%',
@@ -314,46 +391,53 @@ export function DragAndDropTray() {
           gap: '8px',
           boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
           zIndex: 1000,
-          userSelect: 'none'
+          userSelect: 'none',
+          outline: 'none'
         }}
       >
-        {allTrayItems.map((item) => (
-          <div
-            key={item.id}
-            data-drag_item_index={item.id}
-            className="tray-item"
-            style={{
-              width: '48px',
-              height: '48px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'grab',
-              borderRadius: '4px',
-              border: '1px solid transparent',
-              backgroundColor: '#f8f9fa',
-              transition: 'all 0.2s ease'
-            }}
-            onPointerDown={(e) => handlePointerDown(e, item.id)}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerLeave={handlePointerLeave}
-            title={item.label}
-          >
+        {allTrayItems.map((item) => {
+          const isSelected = selectedCustomShapeId === item.id
+          const isUserCustomShape = isCustomShape(item.id)
+
+          return (
             <div
+              key={item.id}
+              data-drag_item_index={item.id}
+              className="tray-item"
               style={{
-                width: '20px',
-                height: '20px',
+                width: '48px',
+                height: '48px',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                cursor: 'grab',
+                borderRadius: '4px',
+                border: isSelected ? '2px solid #007acc' : '1px solid transparent',
+                backgroundColor: isSelected ? '#e6f3ff' : '#f8f9fa',
+                transition: 'all 0.2s ease',
+                boxShadow: isSelected ? '0 0 0 1px rgba(0, 122, 204, 0.3)' : 'none'
               }}
-              dangerouslySetInnerHTML={{
-                __html: item.iconSvg.replace(/stroke="currentColor"/g, 'stroke="#333"')
-              }}
-            />
-          </div>
-        ))}
+              onPointerDown={(e) => handlePointerDown(e, item.id)}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerLeave={handlePointerLeave}
+              title={item.label}
+            >
+              <div
+                style={{
+                  width: '20px',
+                  height: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                dangerouslySetInnerHTML={{
+                  __html: item.iconSvg.replace(/stroke="currentColor"/g, 'stroke="#333"')
+                }}
+              />
+            </div>
+          )
+        })}
 
         {/* Add Custom Shape Button - visible when any valid shapes are selected */}
         {hasValidShapesSelected && (
