@@ -282,11 +282,10 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     // If not in edit mode and points changed, also recalculate (for other operations)
     if (!next.props.editMode && prev.props.points !== next.props.points) {
       // Skip bounds recalculation for custom shape instances during live updates
-      // This prevents position shifts when one instance is being edited
+      // The position compensation is handled by useCustomShapeInstances.updateAllInstances
       const isCustomShapeInstance = next.meta?.isCustomShapeInstance === true
       if (isCustomShapeInstance) {
-        // Custom shape instances should accept new points without position changes
-        // Position stability is maintained by not recalculating bounds during live updates
+        // Custom shape instances accept normalized points with manual position compensation
         return next
       }
 

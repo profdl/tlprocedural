@@ -21,6 +21,12 @@ export function useCustomShapeInstanceManager() {
   // Track shape properties to detect live changes during edit mode
   const shapePropsRef = useRef<Map<string, any>>(new Map())
 
+  // Track original bounds when editing begins for proper compensation
+  const originalBoundsRef = useRef<Map<string, { minX: number; minY: number; maxX: number; maxY: number }>>(new Map())
+
+  // Track original instance positions to prevent cumulative compensation
+  const originalInstancePositionsRef = useRef<Map<string, Map<string, { x: number; y: number }>>>(new Map())
+
   // Monitor all shapes for edit mode changes
   const allShapes = useValue(
     'all-shapes-for-instance-manager',
@@ -71,6 +77,13 @@ export function useCustomShapeInstanceManager() {
         handleEditModeExit(bezierShape)
         // Clean up props tracking when exiting edit mode
         shapePropsRef.current.delete(shapeId)
+        // Clean up original bounds tracking
+        originalBoundsRef.current.delete(shapeId)
+        // Clean up original instance positions
+        const customShapeId = bezierShape.meta?.customShapeId as string
+        if (customShapeId) {
+          originalInstancePositionsRef.current.delete(customShapeId)
+        }
       }
 
       // Initialize props tracking when entering edit mode
@@ -84,6 +97,21 @@ export function useCustomShapeInstanceManager() {
           fill: bezierShape.props.fill
         })
         shapePropsRef.current.set(shapeId, initialProps)
+
+        // Store original bounds when entering edit mode
+        const originalBounds = BezierBounds.getAccurateBounds(bezierShape.props.points, bezierShape.props.isClosed)
+        originalBoundsRef.current.set(shapeId, originalBounds)
+
+        // Store original positions of all instances when editing begins
+        const customShapeId = bezierShape.meta?.customShapeId as string
+        if (customShapeId) {
+          const instances = getInstancesForCustomShape(customShapeId)
+          const instancePositions = new Map<string, { x: number; y: number }>()
+          instances.forEach(instance => {
+            instancePositions.set(instance.id, { x: instance.x, y: instance.y })
+          })
+          originalInstancePositionsRef.current.set(customShapeId, instancePositions)
+        }
       }
     })
   }, [allShapes])
@@ -101,8 +129,23 @@ export function useCustomShapeInstanceManager() {
     console.log(`Live update for custom shape instance: ${customShapeId}`)
 
     try {
+      // Get original bounds that were stored when editing began
+      const originalBounds = originalBoundsRef.current.get(shape.id)
+      if (!originalBounds) {
+        console.warn('No original bounds found for shape', shape.id)
+        return
+      }
+
+      // Calculate current bounds from the edited points
+      const currentBounds = BezierBounds.getAccurateBounds(shape.props.points, shape.props.isClosed)
+
+      // Calculate the bounds offset from original to current
+      const boundsOffset = {
+        x: currentBounds.minX - originalBounds.minX,
+        y: currentBounds.minY - originalBounds.minY
+      }
+
       // Normalize the points to ensure they're relative to the shape's origin
-      // This prevents position drift when other instances are at different positions
       const { normalizedPoints } = normalizeBezierPoints(shape.props.points)
 
       // Calculate bounds from normalized points for consistent sizing
@@ -133,10 +176,12 @@ export function useCustomShapeInstanceManager() {
       const otherInstances = allInstances.filter(instance => instance.id !== shape.id)
 
       if (otherInstances.length > 0) {
-        // No bounds offset during live editing - positions should remain stable
+        // Apply position compensation during live editing to maintain instance positions
+        // Pass original positions to prevent cumulative compensation
+        const originalPositions = originalInstancePositionsRef.current.get(customShapeId)
         updateAllInstances(customShapeId, {
           props: liveProps
-        }, shape.id)
+        }, shape.id, boundsOffset, originalPositions)
       }
 
       console.log(`Live updated other instances for: ${customShapeId}`)
@@ -158,25 +203,8 @@ export function useCustomShapeInstanceManager() {
     console.log(`Edit mode ended for custom shape instance: ${customShapeId}`)
 
     try {
-      // Calculate the original bounds from the custom shape definition to track changes
-      const originalBounds = BezierBounds.getAccurateBounds(
-        customShape.defaultProps.points as BezierPoint[],
-        customShape.defaultProps.isClosed as boolean
-      )
-
-      // Calculate the bounds from the current edited points (before normalization)
-      // This matches what BezierBounds.recalculateShapeBounds does
-      const currentBounds = BezierBounds.getAccurateBounds(shape.props.points, shape.props.isClosed)
-
       // Convert the edited shape back to a custom tray item format
       const updatedCustomShape = bezierShapeToCustomTrayItem(shape, customShape.label)
-
-      // Calculate bounds offset for position compensation
-      // This should match the position change that BezierBounds.recalculateShapeBounds applies
-      const boundsOffset = {
-        x: currentBounds.minX - originalBounds.minX,
-        y: currentBounds.minY - originalBounds.minY
-      }
 
       // Update the custom shape definition
       updateCustomShape(customShapeId, {
@@ -184,14 +212,16 @@ export function useCustomShapeInstanceManager() {
         defaultProps: updatedCustomShape.defaultProps
       })
 
-      // Update all other instances with the new properties and position compensation
+      // Update all other instances with the new properties
+      // No position compensation needed - the shape being edited will have its position
+      // adjusted by BezierBounds.recalculateShapeBounds, and other instances should stay put
       const allInstances = getInstancesForCustomShape(customShapeId)
       const otherInstances = allInstances.filter(instance => instance.id !== shape.id)
 
       if (otherInstances.length > 0) {
         updateAllInstances(customShapeId, {
           props: updatedCustomShape.defaultProps
-        }, shape.id, boundsOffset)
+        }, shape.id)
       }
 
       console.log(`Updated custom shape definition and all instances for: ${customShapeId}`)
@@ -208,6 +238,10 @@ export function useCustomShapeInstanceManager() {
     trackedShapeIds.forEach(shapeId => {
       if (!currentShapeIds.has(shapeId)) {
         editStateRef.current.delete(shapeId)
+        shapePropsRef.current.delete(shapeId)
+        originalBoundsRef.current.delete(shapeId)
+        // Clean up original instance positions for any custom shape IDs
+        // Note: We don't have direct access to customShapeId here, so we clean up during edit mode exit
       }
     })
   }, [allShapes])

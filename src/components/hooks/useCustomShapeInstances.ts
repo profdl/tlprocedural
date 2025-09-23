@@ -64,7 +64,7 @@ export function useCustomShapeInstances() {
   }, [])
 
   // Update all instances of a custom shape with new properties
-  const updateAllInstances = useCallback((customShapeId: string, updates: Partial<TLShape>, excludeShapeId?: string, boundsOffset?: { x: number; y: number }) => {
+  const updateAllInstances = useCallback((customShapeId: string, updates: Partial<TLShape>, excludeShapeId?: string, boundsOffset?: { x: number; y: number }, originalPositions?: Map<string, { x: number; y: number }>) => {
     const instances = getInstancesForCustomShape(customShapeId)
     if (instances.length === 0) return
 
@@ -98,11 +98,19 @@ export function useCustomShapeInstances() {
       }
 
       // Apply position compensation if bounds offset is provided
-      if (boundsOffset) {
-        // Compensate for bounds changes by adjusting the instance position
-        // This prevents visual movement when the shape's internal coordinate system shifts
-        updatedShape.x = instance.x - boundsOffset.x
-        updatedShape.y = instance.y - boundsOffset.y
+      if (boundsOffset && originalPositions) {
+        // Get the original position for this instance to prevent cumulative compensation
+        const originalPos = originalPositions.get(instance.id)
+        if (originalPos) {
+          // Compensate for bounds changes by adjusting from the original position
+          // This prevents cumulative/exponential movement during live editing
+          updatedShape.x = originalPos.x + boundsOffset.x
+          updatedShape.y = originalPos.y + boundsOffset.y
+        } else {
+          // Fallback to current position if original not found
+          updatedShape.x = instance.x + boundsOffset.x
+          updatedShape.y = instance.y + boundsOffset.y
+        }
       }
 
       // Apply any other mutable updates (but preserve position and core fields)
