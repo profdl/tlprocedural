@@ -1,5 +1,6 @@
 import type { BezierShape, BezierPoint } from '../shapes/BezierShape'
 import type { CustomTrayItem } from '../hooks/useCustomShapes'
+import { BezierBounds } from '../shapes/services/BezierBounds'
 
 /**
  * Converts a bezier shape to SVG path data for use in thumbnails and recreation
@@ -166,7 +167,11 @@ export function bezierShapeToCustomTrayItem(
 ): Omit<CustomTrayItem, 'id' | 'createdAt'> {
   const { points, isClosed, color, fillColor, strokeWidth, fill } = shape.props
   const { normalizedPoints } = normalizeBezierPoints(points)
-  const bounds = calculateBezierBounds(normalizedPoints)
+
+  // Use accurate bounds calculation that matches the system used in editing
+  const accurateBounds = BezierBounds.getAccurateBounds(normalizedPoints, isClosed)
+  const w = Math.max(1, accurateBounds.maxX - accurateBounds.minX)
+  const h = Math.max(1, accurateBounds.maxY - accurateBounds.minY)
 
   // Generate a default label if none provided
   const defaultLabel = `Custom Bezier ${points.length} pts`
@@ -176,8 +181,8 @@ export function bezierShapeToCustomTrayItem(
     iconSvg: generateBezierThumbnailSvg(points, isClosed),
     shapeType: 'bezier',
     defaultProps: {
-      w: Math.max(bounds.width, 50), // Minimum size for usability
-      h: Math.max(bounds.height, 50),
+      w: Math.max(w, 50), // Minimum size for usability
+      h: Math.max(h, 50),
       points: normalizedPoints,
       isClosed,
       color,

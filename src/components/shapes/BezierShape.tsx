@@ -274,7 +274,8 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
 
   // Recalculate bounds when exiting edit mode or when points change outside edit mode
   override onBeforeUpdate = (prev: BezierShape, next: BezierShape) => {
-    // If transitioning from edit mode to normal mode, recalculate bounds
+    // If transitioning from edit mode to normal mode, ALWAYS recalculate bounds
+    // This includes custom shape instances that are being edited
     if (prev.props.editMode && !next.props.editMode) {
       return BezierBounds.recalculateShapeBounds(next, next.props.points)
     }
