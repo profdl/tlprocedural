@@ -58,6 +58,68 @@ export class GeometryConverter {
   }
 
   /**
+   * Select which shape's style to inherit from in Boolean operations
+   * Different operations have different style inheritance priorities
+   */
+  static selectStyleSourceShape(
+    shapes: TLShape[],
+    operation: 'union' | 'subtract' | 'intersect' | 'exclude'
+  ): TLShape | undefined {
+    if (shapes.length === 0) return undefined
+    if (shapes.length === 1) return shapes[0]
+
+    switch (operation) {
+      case 'union':
+        // For union, use the largest shape's style (most prominent visual result)
+        return shapes.reduce((largest, current) => {
+          const largestArea = this.calculateShapeArea(largest)
+          const currentArea = this.calculateShapeArea(current)
+          return currentArea > largestArea ? current : largest
+        })
+
+      case 'subtract':
+        // For subtraction, use the first shape's style (the shape being subtracted from)
+        return shapes[0]
+
+      case 'intersect':
+        // For intersection, use the first shape's style (conventional choice)
+        return shapes[0]
+
+      case 'exclude':
+        // For exclusion, use the largest remaining shape's style
+        return shapes.reduce((largest, current) => {
+          const largestArea = this.calculateShapeArea(largest)
+          const currentArea = this.calculateShapeArea(current)
+          return currentArea > largestArea ? current : largest
+        })
+
+      default:
+        // Fallback to first shape
+        return shapes[0]
+    }
+  }
+
+  /**
+   * Calculate approximate area of a shape for style inheritance priority
+   */
+  private static calculateShapeArea(shape: TLShape): number {
+    const props = shape.props as { w?: number; h?: number; r?: number }
+
+    // Simple area calculation based on shape type
+    switch (shape.type) {
+      case 'geo':
+      case 'triangle':
+      case 'polygon':
+        return (props.w || 100) * (props.h || 100)
+      case 'circle':
+        const radius = props.r || 50
+        return Math.PI * radius * radius
+      default:
+        return (props.w || 100) * (props.h || 100)
+    }
+  }
+
+  /**
    * Perform boolean operation on multiple shapes
    */
   static performBooleanOperation(
@@ -106,7 +168,8 @@ export class GeometryConverter {
     positionContext?: {
       collectiveBounds?: { centerX: number; centerY: number; width: number; height: number }
       shouldPreserveCollectivePosition?: boolean
-    }
+    },
+    styleSourceShape?: TLShape
   ): {
     type: 'bezier'
     x: number
@@ -133,7 +196,8 @@ export class GeometryConverter {
 
     if (polygon.length === 0) {
       console.log('⚠️ Empty polygon, creating minimal bezier shape')
-      const extractedProps = this.extractShapeProperties(originalShape)
+      const styleSource = styleSourceShape || originalShape
+      const extractedProps = this.extractShapeProperties(styleSource)
 
       return {
         type: 'bezier',
@@ -145,9 +209,9 @@ export class GeometryConverter {
           w: 100,
           h: 100,
           color: extractedProps.color,
-          fillColor: extractedProps.color,
+          fillColor: extractedProps.fillColor,
           strokeWidth: extractedProps.strokeWidth,
-          fill: true,
+          fill: extractedProps.fill,
           points: [],
           isClosed: true
         }
@@ -249,8 +313,9 @@ export class GeometryConverter {
       lastPoint: bezierPoints[bezierPoints.length - 1]
     })
 
-    // Extract color and stroke properties from different shape types
-    const extractedProps = this.extractShapeProperties(originalShape)
+    // Extract complete style properties from specified shape (or fallback to original)
+    const styleSource = styleSourceShape || originalShape
+    const extractedProps = this.extractShapeProperties(styleSource)
 
     const result = {
       type: 'bezier' as const,
@@ -262,9 +327,9 @@ export class GeometryConverter {
         w: polygonW,
         h: polygonH,
         color: extractedProps.color,
-        fillColor: extractedProps.color,
+        fillColor: extractedProps.fillColor,
         strokeWidth: extractedProps.strokeWidth,
-        fill: true,
+        fill: extractedProps.fill,
         points: bezierPoints,
         isClosed: true
       }
@@ -585,47 +650,93 @@ export class GeometryConverter {
   }
 
   /**
-   * Extract color and stroke properties from different shape types
+   * Extract complete style properties from shapes for inheritance in Boolean operations
    */
-  private static extractShapeProperties(shape: TLShape): { color: string; strokeWidth: number } {
+  private static extractShapeProperties(shape: TLShape): {
+    color: string;
+    strokeWidth: number;
+    fill: boolean;
+    fillColor: string;
+    dash: string;
+    size: number;
+  } {
     const props = shape.props as Record<string, unknown>
 
-    // Default values
+    // Default values - use TLDraw's standard defaults
     let color = '#000000'
     let strokeWidth = 2
+    let fill = true
+    let fillColor = '#ffffff'
+    let dash = 'solid'
+    let size = 2
 
-    // Handle different shape types
+    // Handle different shape types with complete style extraction
     switch (shape.type) {
       case 'geo':
         color = (props.color as string) || '#000000'
         strokeWidth = (props.size as number) || 2
+        size = (props.size as number) || 2
+        fill = (props.fill as string) !== 'none'
+        fillColor = fill ? (props.color as string) || '#000000' : '#ffffff'
+        dash = (props.dash as string) || 'solid'
         break
       case 'draw':
       case 'custom-draw':
         color = (props.color as string) || '#000000'
         strokeWidth = (props.strokeWidth as number) || 2
+        size = (props.strokeWidth as number) || 2
+        fill = (props.fill as boolean) || false
+        fillColor = (props.fillColor as string) || (props.color as string) || '#000000'
+        dash = (props.dash as string) || 'solid'
         break
       case 'bezier':
         color = (props.color as string) || '#000000'
         strokeWidth = (props.strokeWidth as number) || 2
+        size = (props.strokeWidth as number) || 2
+        fill = (props.fill as boolean) !== false // default to true for bezier
+        fillColor = (props.fillColor as string) || (props.color as string) || '#000000'
+        dash = (props.dash as string) || 'solid'
         break
       case 'arrow':
         color = (props.color as string) || '#000000'
         strokeWidth = (props.size as number) || 2
+        size = (props.size as number) || 2
+        fill = (props.fill as string) !== 'none'
+        fillColor = fill ? (props.color as string) || '#000000' : '#ffffff'
+        dash = (props.dash as string) || 'solid'
+        break
+      case 'triangle':
+      case 'circle':
+      case 'polygon':
+        // Custom shapes - extract full style properties
+        color = (props.color as string) || '#000000'
+        strokeWidth = (props.strokeWidth as number) || 2
+        size = (props.strokeWidth as number) || 2
+        fill = (props.fill as boolean) !== false
+        fillColor = (props.fillColor as string) || (props.color as string) || '#000000'
+        dash = (props.dash as string) || 'solid'
         break
       default:
-        // Try to extract common properties
-        color = (props.color as string) || (props.fill as string) || '#000000'
+        // Try to extract common properties from unknown shape types
+        color = (props.color as string) || '#000000'
         strokeWidth = (props.strokeWidth as number) || (props.size as number) || (props.thickness as number) || 2
+        size = (props.size as number) || (props.strokeWidth as number) || 2
+        fill = (props.fill as boolean) !== false
+        fillColor = (props.fillColor as string) || (props.fill as string) || (props.color as string) || '#000000'
+        dash = (props.dash as string) || 'solid'
     }
 
-    console.log('🎨 Extracted shape properties:', {
+    console.log('🎨 Extracted complete shape style properties:', {
       originalType: shape.type,
       extractedColor: color,
-      extractedStrokeWidth: strokeWidth
+      extractedStrokeWidth: strokeWidth,
+      extractedFill: fill,
+      extractedFillColor: fillColor,
+      extractedDash: dash,
+      extractedSize: size
     })
 
-    return { color, strokeWidth }
+    return { color, strokeWidth, fill, fillColor, dash, size }
   }
 
   /**

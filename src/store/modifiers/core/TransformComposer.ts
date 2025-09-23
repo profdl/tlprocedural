@@ -1443,8 +1443,8 @@ export class TransformComposer {
       return { create: [], update: [], delete: [] }
     }
 
-    // Always calculate collective bounds for positioning (lightweight operation)
-    const { collectiveBounds } = this.materializeInstancesForGeometry(sourceInstances, virtualState.originalShape)
+    // Materialize instances for geometry operations (used for both bounds and shape creation)
+    const { collectiveBounds, shapes: tempShapes } = this.materializeInstancesForGeometry(sourceInstances, virtualState.originalShape)
 
     // Check cache for geometry computation (expensive operation)
     const cacheKey = deferredBoolean.cacheKey!
@@ -1452,7 +1452,6 @@ export class TransformComposer {
 
     if (!mergedPolygon) {
       // Need to perform geometry computation
-      const { shapes: tempShapes } = this.materializeInstancesForGeometry(sourceInstances, virtualState.originalShape)
 
       console.log('🏗️ Temporary shapes for geometry:', {
         count: tempShapes.length,
@@ -1477,6 +1476,20 @@ export class TransformComposer {
       console.log('♻️ Using cached boolean result with fresh collective bounds')
     }
 
+    // Select style source shape based on Boolean operation type and shape characteristics
+    const styleSourceShape = GeometryConverter.selectStyleSourceShape(tempShapes, deferredBoolean.operation)
+
+    console.log('🎨 Style inheritance for Boolean operation:', {
+      operation: deferredBoolean.operation,
+      availableShapes: tempShapes.length,
+      selectedStyleSource: styleSourceShape ? {
+        id: styleSourceShape.id,
+        type: styleSourceShape.type,
+        color: (styleSourceShape.props as any).color,
+        fillColor: (styleSourceShape.props as any).fillColor
+      } : 'none'
+    })
+
     // Convert polygon to bezier shape for proper rendering of merged geometry
     // Pass collective bounds to preserve position alignment with linear array results
     const bezierShapeData = GeometryConverter.polygonToBezierShape(
@@ -1486,7 +1499,8 @@ export class TransformComposer {
       {
         collectiveBounds,
         shouldPreserveCollectivePosition: true
-      }
+      },
+      styleSourceShape
     )
 
     console.log('📐 Bezier shape data:', bezierShapeData)
