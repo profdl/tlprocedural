@@ -278,21 +278,30 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     if (prev.props.editMode && !next.props.editMode) {
       return BezierBounds.recalculateShapeBounds(next, next.props.points)
     }
-    
+
     // If not in edit mode and points changed, also recalculate (for other operations)
     if (!next.props.editMode && prev.props.points !== next.props.points) {
-      // Use BezierBounds service to check if bounds have changed
+      // Skip bounds recalculation for custom shape instances during live updates
+      // This prevents position shifts when one instance is being edited
+      const isCustomShapeInstance = next.meta?.isCustomShapeInstance === true
+      if (isCustomShapeInstance) {
+        // Custom shape instances should accept new points without position changes
+        // Position stability is maintained by not recalculating bounds during live updates
+        return next
+      }
+
+      // For regular bezier shapes (not custom shape instances), check if bounds changed
       const boundsChanged = BezierBounds.haveBoundsChanged(
-        prev.props.points, 
-        next.props.points, 
+        prev.props.points,
+        next.props.points,
         next.props.isClosed
       )
-      
+
       if (boundsChanged) {
         return BezierBounds.recalculateShapeBounds(next, next.props.points)
       }
     }
-    
+
     return next
   }
 
