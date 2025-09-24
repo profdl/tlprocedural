@@ -8,6 +8,7 @@ interface ModifierActionButtonsProps {
   hasEnabledModifiers: boolean
   onAddModifier: (type: ModifierType) => void
   onApplyModifiers: () => void
+  isMultiShapeSelection?: boolean
 }
 
 /**
@@ -18,7 +19,8 @@ export function ModifierActionButtons({
   selectedShape,
   hasEnabledModifiers,
   onAddModifier,
-  onApplyModifiers
+  onApplyModifiers,
+  isMultiShapeSelection = false
 }: ModifierActionButtonsProps) {
   const handleAddModifier = useCallback((optionId: string) => {
     const typeMap: Record<string, ModifierType> = {
@@ -35,35 +37,44 @@ export function ModifierActionButtons({
   }, [onAddModifier])
 
   // Define modifier options for the AddButton
-  const modifierOptions: AddButtonOption[] = [
-    // Transform/Array Modifiers
-    {
-      id: 'linear',
-      label: 'Linear Array',
-      icon: 'array'
-    },
-    {
-      id: 'circular',
-      label: 'Circular Array',
-      icon: 'circle'
-    },
-    {
-      id: 'grid',
-      label: 'Grid Array',
-      icon: 'grid'
-    },
-    {
-      id: 'mirror',
-      label: 'Mirror',
-      icon: 'mirror'
-    },
-    // Boolean Modifiers
-    {
-      id: 'boolean',
-      label: 'Boolean',
-      icon: 'union'
-    }
-  ]
+  const modifierOptions: AddButtonOption[] = isMultiShapeSelection
+    ? [
+        // For multi-shape selection, only show boolean operations
+        {
+          id: 'boolean',
+          label: 'Boolean Union',
+          icon: 'union'
+        }
+      ]
+    : [
+        // Transform/Array Modifiers (single shape only)
+        {
+          id: 'linear',
+          label: 'Linear Array',
+          icon: 'array'
+        },
+        {
+          id: 'circular',
+          label: 'Circular Array',
+          icon: 'circle'
+        },
+        {
+          id: 'grid',
+          label: 'Grid Array',
+          icon: 'grid'
+        },
+        {
+          id: 'mirror',
+          label: 'Mirror',
+          icon: 'mirror'
+        },
+        // Boolean Modifiers
+        {
+          id: 'boolean',
+          label: 'Boolean',
+          icon: 'union'
+        }
+      ]
 
   return (
     <div className="modifier-controls__buttons">

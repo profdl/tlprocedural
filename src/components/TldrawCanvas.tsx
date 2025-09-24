@@ -42,6 +42,7 @@ import { BezierTool } from './shapes/tools/BezierTool'
 import { RemovePointTool } from './shapes/tools/RemovePointTool'
 import { CustomArrowShapeUtil } from './shapes/ArrowShape'
 import { CustomArrowTool } from './shapes/ArrowTool'
+import { CompoundShapeUtil } from './shapes/CompoundShape'
 
 // Using only custom shapes - no native tldraw shapes
 
@@ -460,14 +461,15 @@ export function TldrawCanvas() {
       <Tldraw 
         components={components}
         shapeUtils={[
-          SineWaveShapeUtil, 
-          TriangleShapeUtil, 
-          PolygonShapeUtil, 
-          CircleShapeUtil, 
-          LineShapeUtil, 
-          CustomDrawShapeUtil, 
+          SineWaveShapeUtil,
+          TriangleShapeUtil,
+          PolygonShapeUtil,
+          CircleShapeUtil,
+          LineShapeUtil,
+          CustomDrawShapeUtil,
           BezierShapeUtil,
-          CustomArrowShapeUtil
+          CustomArrowShapeUtil,
+          CompoundShapeUtil
         ]}
         tools={[
           SineWaveShapeTool, 

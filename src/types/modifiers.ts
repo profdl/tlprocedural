@@ -83,6 +83,8 @@ export interface MirrorSettings {
 export interface BooleanSettings {
   operation: 'union' | 'subtract' | 'intersect' | 'exclude'
   targetShapeId?: TLShapeId // Optional: for operations with another shape
+  targetShapeIds?: TLShapeId[] // Optional: for multi-shape operations
+  isMultiShape?: boolean // Flag to indicate multi-shape boolean operation
 }
 
 

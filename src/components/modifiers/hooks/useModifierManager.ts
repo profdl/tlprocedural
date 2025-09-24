@@ -6,6 +6,7 @@ import { applyRotationToShapes } from '../utils/transformUtils'
 import { useEditor, createShapeId, Vec } from 'tldraw'
 import type { TLShape } from 'tldraw'
 import type { TLModifier, TLModifierId, GroupContext, ModifierType } from '../../../types/modifiers'
+import { CompoundShapeUtil, type CompoundShape } from '../../shapes/CompoundShape'
 
 // Since ModifierActionButtons now sends the correct internal types,
 // we don't need a mapping - just pass through the type directly
@@ -16,6 +17,8 @@ interface UseModifierManagerProps {
 
 interface UseModifierManagerReturn {
   selectedShape: TLShape | undefined
+  selectedShapes: TLShape[]
+  isMultiShapeSelection: boolean
   shapeModifiers: TLModifier[]
   hasEnabledModifiers: boolean
   addModifier: (type: ModifierType) => void
@@ -32,6 +35,9 @@ interface UseModifierManagerReturn {
 export function useModifierManager({ selectedShapes }: UseModifierManagerProps): UseModifierManagerReturn {
   const store = useModifierStore()
   const editor = useEditor()
+
+  // Multi-shape selection detection
+  const isMultiShapeSelection = selectedShapes.length > 1
 
   // Get modifiers for the first selected shape (simplified for now)
   const selectedShape = selectedShapes[0]
@@ -60,10 +66,93 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
     return shapeModifiers.some(modifier => modifier.enabled)
   }, [shapeModifiers])
 
+  // Helper function to create compound shape from multiple selected shapes
+  const createCompoundShape = useCallback((shapes: TLShape[]) => {
+    if (!editor || shapes.length < 2) return null
+
+    // Calculate the relative positions of each shape
+    const shapesWithPositions = shapes.map(shape => ({
+      shape,
+      relativePosition: { x: shape.x, y: shape.y }
+    }))
+
+    // Create compound shape properties using the CompoundShapeUtil helper
+    const compoundProps = CompoundShapeUtil.createFromShapes(shapesWithPositions)
+
+    // Calculate compound shape position (top-left of bounding box)
+    const allX = shapes.map(s => s.x)
+    const allY = shapes.map(s => s.y)
+    const minX = Math.min(...allX)
+    const minY = Math.min(...allY)
+
+    // Create the compound shape
+    const compoundShapeId = createShapeId()
+    const compoundShape: CompoundShape = {
+      id: compoundShapeId,
+      type: 'compound',
+      x: minX,
+      y: minY,
+      rotation: 0,
+      isLocked: false,
+      opacity: 1,
+      parentId: shapes[0].parentId,
+      index: shapes[0].index,
+      typeName: 'shape' as const,
+      props: {
+        ...compoundProps,
+        color: '#000000',
+        fillColor: '#ffffff',
+        strokeWidth: 1,
+        fill: false
+      },
+      meta: {
+        isMultiShapeCompound: true,
+        originalShapeIds: shapes.map(s => s.id)
+      }
+    }
+
+    return { compoundShape, originalShapes: shapes }
+  }, [editor])
+
   const addModifier = useCallback((type: ModifierType) => {
     if (!selectedShape) return
 
-    // Determine the correct shape ID to associate the modifier with
+    // Handle boolean modifiers with multiple shapes selected
+    if (type === 'boolean' && isMultiShapeSelection && editor) {
+      console.log('🔧 Adding boolean modifier to multiple shapes:', selectedShapes.length)
+
+      // Create compound shape containing all selected shapes
+      const compoundResult = createCompoundShape(selectedShapes)
+      if (!compoundResult) {
+        console.error('❌ Failed to create compound shape')
+        return
+      }
+
+      const { compoundShape, originalShapes } = compoundResult
+
+      editor.run(() => {
+        // Delete the original shapes
+        editor.deleteShapes(originalShapes.map(s => s.id))
+
+        // Create the compound shape
+        editor.createShapes([compoundShape])
+
+        // Select the new compound shape
+        editor.select(compoundShape.id)
+
+        // Create boolean modifier for the compound shape with multi-shape settings
+        store.createModifier(compoundShape.id, type, {
+          operation: 'union', // Default operation for multi-shape boolean
+          isMultiShape: true,
+          targetShapeIds: originalShapes.map(s => s.id)
+        })
+      }, { history: 'record' })
+
+      console.log('✅ Multi-shape boolean modifier created successfully')
+      return
+    }
+
+    // Standard single-shape modifier logic
     let targetShapeId = selectedShape.id
 
     // Boolean result shapes should be treated as independent shapes
@@ -80,7 +169,7 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
 
     // Create modifier using existing store method
     store.createModifier(targetShapeId as import('tldraw').TLShapeId, type, {})
-  }, [selectedShape, store])
+  }, [selectedShape, selectedShapes, isMultiShapeSelection, store, editor, createCompoundShape])
 
   const applyModifiers = useCallback(() => {
     if (!selectedShape || !editor) return
@@ -459,6 +548,8 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
 
   return {
     selectedShape,
+    selectedShapes,
+    isMultiShapeSelection,
     shapeModifiers,
     hasEnabledModifiers,
     addModifier,

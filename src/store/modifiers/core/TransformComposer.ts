@@ -10,6 +10,7 @@ import type {
 } from '../../../types/modifiers'
 import { GeometryConverter } from '../utils/GeometryConverter'
 import type { BezierShape } from '../../../components/shapes/BezierShape'
+import type { CompoundShape, ChildShapeData } from '../../../components/shapes/CompoundShape'
 
 // Removed calculateOrbitalPosition - functionality now inline in array processors
 
@@ -1160,6 +1161,67 @@ export class TransformComposer {
     const booleanGroupId = this.generateBooleanGroupId()
     const storageKey = `${booleanGroupId}-instances`
 
+    // Handle CompoundShape for multi-shape boolean operations
+    if (originalShape.type === 'compound' && settings.isMultiShape) {
+      const compoundShape = originalShape as CompoundShape
+      console.log('🔧 Processing multi-shape boolean operation on compound:', {
+        operation: settings.operation,
+        childShapeCount: compoundShape.props.childShapes.length
+      })
+
+      // Extract child shapes from compound and create virtual instances for each
+      const childInstances: VirtualInstance[] = compoundShape.props.childShapes.map((child: ChildShapeData, index: number) => ({
+        sourceShapeId: child.id,
+        transform: Mat.Compose(
+          // Use absolute position: compound position + relative offset
+          Mat.Translate(originalShape.x + child.relativeX, originalShape.y + child.relativeY),
+          Mat.Rotate(child.relativeRotation)
+        ),
+        metadata: {
+          modifierType: 'compound-child',
+          index,
+          virtualId: `${child.id}-compound-child-${index}`,
+          booleanGroupId,
+          booleanRole: 'source' as const,
+          booleanPending: true,
+          childType: child.type,
+          childProps: child.props
+        }
+      }))
+
+      // Store child instances for materialization
+      this.virtualInstanceStorage.set(storageKey, childInstances)
+
+      // Create result instance for the boolean operation
+      const resultInstance: VirtualInstance = {
+        sourceShapeId: originalShape.id,
+        transform: Mat.Identity(), // Position computed during materialization
+        metadata: {
+          modifierType: 'boolean-result',
+          index: 0,
+          virtualId: `${originalShape.id}-boolean-result-${booleanGroupId}`,
+          booleanGroupId,
+          booleanRole: 'result',
+          isMultiShapeBooleanResult: true,
+          deferredBoolean: {
+            inputInstanceIds: childInstances.map(i => i.metadata.virtualId!),
+            operation: settings.operation,
+            computeOnMaterialize: true,
+            cacheKey: this.computeBooleanCacheKey(childInstances, settings.operation, originalShape),
+            storageKey: storageKey
+          }
+        }
+      }
+
+      console.log('✅ Multi-shape boolean setup complete:', {
+        childInstancesCount: childInstances.length,
+        operation: settings.operation,
+        resultInstanceId: resultInstance.metadata.virtualId
+      })
+
+      return [resultInstance]
+    }
+
     // Mark all input instances with boolean metadata for deferred processing
     const markedInstances = instances.map((instance) => ({
       ...instance,
@@ -1576,8 +1638,18 @@ export class TransformComposer {
         console.log('📦 Using stored instances from static storage:', {
           storageKey,
           storedCount: storedInstances.length,
-          inputInstanceIds
+          inputInstanceIds,
+          hasCompoundChildren: storedInstances.some(i => i.metadata.modifierType === 'compound-child')
         })
+
+        // Check if we're dealing with compound shape children that need special handling
+        if (storedInstances.some(i => i.metadata.modifierType === 'compound-child')) {
+          console.log('🔧 Processing compound shape children for boolean operation')
+
+          // Return the compound child instances - they already have proper transforms and metadata
+          return storedInstances
+        }
+
         return storedInstances
       }
     }
@@ -1636,9 +1708,19 @@ export class TransformComposer {
       const scaleX = (instance.metadata.targetScaleX as number) ?? instance.transform.decomposed().scaleX
       const scaleY = (instance.metadata.targetScaleY as number) ?? instance.transform.decomposed().scaleY
 
-      // Calculate scaled dimensions
-      const scaledWidth = shapeBounds.width * scaleX
-      const scaledHeight = shapeBounds.height * scaleY
+      // For compound children, get dimensions from child props
+      let width = shapeBounds.width
+      let height = shapeBounds.height
+
+      if (instance.metadata.modifierType === 'compound-child') {
+        const childProps = instance.metadata.childProps as Record<string, unknown> & { w?: number; h?: number }
+        width = childProps.w || 100
+        height = childProps.h || 100
+      }
+
+      // Calculate scaled dimensions using the correct width/height
+      const scaledWidth = width * scaleX
+      const scaledHeight = height * scaleY
 
       const instanceMinX = x
       const instanceMaxX = x + scaledWidth
@@ -1683,6 +1765,35 @@ export class TransformComposer {
     const shapes = instances.map((instance, index) => {
       const { x, y, scaleX, scaleY } = instance.transform.decomposed()
       const rotation = instance.metadata.targetRotation ?? instance.transform.rotation()
+
+      // Handle compound child instances specially
+      if (instance.metadata.modifierType === 'compound-child') {
+        console.log(`🔧 Processing compound child ${index}:`, {
+          childType: instance.metadata.childType,
+          position: { x, y },
+          rotation: typeof rotation === 'number' ? rotation : 0
+        })
+
+        // Create shape from child metadata
+        const childProps = instance.metadata.childProps as Record<string, unknown> & { w?: number; h?: number }
+        return {
+          id: `temp-compound-child-${index}` as TLShapeId,
+          type: instance.metadata.childType as any,
+          x,
+          y,
+          rotation: typeof rotation === 'number' ? rotation : 0,
+          isLocked: false,
+          opacity: 1,
+          parentId: originalShape.parentId,
+          index: originalShape.index,
+          typeName: 'shape' as const,
+          props: childProps,
+          meta: {
+            isTemporaryForGeometry: true,
+            originalChildId: instance.sourceShapeId
+          }
+        }
+      }
 
       // Extract scale from metadata first (more accurate), fall back to transform decomposition
       const targetScaleX = (instance.metadata.targetScaleX as number) ?? scaleX
