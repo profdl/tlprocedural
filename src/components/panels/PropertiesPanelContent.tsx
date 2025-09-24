@@ -2,6 +2,8 @@ import { useCallback } from 'react'
 import { useEditor, useValue } from 'tldraw'
 import { EnhancedNumberInput } from '../modifiers/ui/EnhancedNumberInput'
 import { applyRotationToShapes } from '../modifiers/utils/transformUtils'
+import type { PolygonShape } from '../shapes/PolygonShape'
+import type { SineWaveShape } from '../shapes/SineWaveShape'
 
 export function PropertiesPanelContent() {
   const editor = useEditor()
@@ -49,6 +51,20 @@ export function PropertiesPanelContent() {
       }
     },
     [selectedShapes, editor]
+  )
+
+  // Detect polygon shapes for sides property
+  const polygonShapes = useValue(
+    'polygon-shapes',
+    () => selectedShapes.filter(shape => shape.type === 'polygon') as PolygonShape[],
+    [selectedShapes]
+  )
+
+  // Detect sine wave shapes for wave properties
+  const sineWaveShapes = useValue(
+    'sine-wave-shapes',
+    () => selectedShapes.filter(shape => shape.type === 'sine-wave') as SineWaveShape[],
+    [selectedShapes]
   )
 
   // Update shape position
@@ -114,6 +130,68 @@ export function PropertiesPanelContent() {
       applyRotationToShapes(editor, [shape.id], deltaRotation)
     })
   }, [selectedShapes, editor])
+
+  // Update polygon sides
+  const updatePolygonSides = useCallback((value: number) => {
+    if (polygonShapes.length === 0) return
+
+    const updatedShapes = polygonShapes.map(shape => ({
+      id: shape.id,
+      type: shape.type,
+      props: { ...shape.props, sides: value }
+    }))
+
+    editor.updateShapes(updatedShapes)
+  }, [polygonShapes, editor])
+
+  // Update sine wave properties
+  const updateSineWaveLength = useCallback((value: number) => {
+    if (sineWaveShapes.length === 0) return
+
+    const updatedShapes = sineWaveShapes.map(shape => ({
+      id: shape.id,
+      type: shape.type,
+      props: { ...shape.props, length: value }
+    }))
+
+    editor.updateShapes(updatedShapes)
+  }, [sineWaveShapes, editor])
+
+  const updateSineWaveAmplitude = useCallback((value: number) => {
+    if (sineWaveShapes.length === 0) return
+
+    const updatedShapes = sineWaveShapes.map(shape => ({
+      id: shape.id,
+      type: shape.type,
+      props: { ...shape.props, amplitude: value }
+    }))
+
+    editor.updateShapes(updatedShapes)
+  }, [sineWaveShapes, editor])
+
+  const updateSineWaveFrequency = useCallback((value: number) => {
+    if (sineWaveShapes.length === 0) return
+
+    const updatedShapes = sineWaveShapes.map(shape => ({
+      id: shape.id,
+      type: shape.type,
+      props: { ...shape.props, frequency: value }
+    }))
+
+    editor.updateShapes(updatedShapes)
+  }, [sineWaveShapes, editor])
+
+  const updateSineWavePhase = useCallback((value: number) => {
+    if (sineWaveShapes.length === 0) return
+
+    const updatedShapes = sineWaveShapes.map(shape => ({
+      id: shape.id,
+      type: shape.type,
+      props: { ...shape.props, phase: value }
+    }))
+
+    editor.updateShapes(updatedShapes)
+  }, [sineWaveShapes, editor])
 
   if (selectedShapes.length === 0) {
     return (
@@ -212,6 +290,93 @@ export function PropertiesPanelContent() {
           />
         </div>
       </div>
+
+      {/* Polygon Sides - only show for polygon shapes */}
+      {polygonShapes.length > 0 && (
+        <div className="modifier-input-row">
+          <label className="modifier-input-row__label">Sides</label>
+          <div className="modifier-input-row__control">
+            <EnhancedNumberInput
+              value={polygonShapes[0].props.sides}
+              min={3}
+              max={12}
+              step={1}
+              precision={0}
+              unit="#"
+              onChange={updatePolygonSides}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Sine Wave Properties - only show for sine wave shapes */}
+      {sineWaveShapes.length > 0 && (
+        <>
+          {/* Length */}
+          <div className="modifier-input-row">
+            <label className="modifier-input-row__label">Length</label>
+            <div className="modifier-input-row__control">
+              <EnhancedNumberInput
+                value={sineWaveShapes[0].props.length}
+                min={50}
+                max={2000}
+                step={5}
+                precision={0}
+                unit="px"
+                onChange={updateSineWaveLength}
+              />
+            </div>
+          </div>
+
+          {/* Amplitude */}
+          <div className="modifier-input-row">
+            <label className="modifier-input-row__label">Amplitude</label>
+            <div className="modifier-input-row__control">
+              <EnhancedNumberInput
+                value={sineWaveShapes[0].props.amplitude}
+                min={2}
+                max={500}
+                step={1}
+                precision={0}
+                unit="px"
+                onChange={updateSineWaveAmplitude}
+              />
+            </div>
+          </div>
+
+          {/* Frequency */}
+          <div className="modifier-input-row">
+            <label className="modifier-input-row__label">Frequency</label>
+            <div className="modifier-input-row__control">
+              <EnhancedNumberInput
+                value={sineWaveShapes[0].props.frequency}
+                min={0.1}
+                max={20}
+                step={0.1}
+                precision={1}
+                unit="Hz"
+                onChange={updateSineWaveFrequency}
+              />
+            </div>
+          </div>
+
+          {/* Phase */}
+          <div className="modifier-input-row">
+            <label className="modifier-input-row__label">Phase</label>
+            <div className="modifier-input-row__control">
+              <EnhancedNumberInput
+                value={sineWaveShapes[0].props.phase}
+                min={0}
+                max={360}
+                step={15}
+                precision={0}
+                unit="°"
+                onChange={updateSineWavePhase}
+              />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

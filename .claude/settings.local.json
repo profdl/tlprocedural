@@ -22,7 +22,8 @@
       "Bash(node:*)",
       "Bash(tsc --noEmit)",
       "WebFetch(domain:tldraw.dev)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(npx eslint:*)"
     ],
     "deny": [],
     "ask": []

@@ -376,3 +376,11 @@ button.modifier-sub-panel__apply-button:disabled,
 .modifier-sub-panel__content {
   padding: 4px;
 }
+
+/* Properties Panel Specific Styles */
+.properties-panel__content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px;
+}
