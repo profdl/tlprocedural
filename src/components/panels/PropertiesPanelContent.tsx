@@ -153,29 +153,6 @@ export function PropertiesPanelContent() {
   }, [polygonShapes, editor])
 
   // Update sine wave properties
-  const updateSineWaveLength = useCallback((value: number) => {
-    if (sineWaveShapes.length === 0) return
-
-    const updatedShapes = sineWaveShapes.map(shape => ({
-      id: shape.id,
-      type: shape.type,
-      props: { ...shape.props, length: value }
-    }))
-
-    editor.updateShapes(updatedShapes)
-  }, [sineWaveShapes, editor])
-
-  const updateSineWaveAmplitude = useCallback((value: number) => {
-    if (sineWaveShapes.length === 0) return
-
-    const updatedShapes = sineWaveShapes.map(shape => ({
-      id: shape.id,
-      type: shape.type,
-      props: { ...shape.props, amplitude: value }
-    }))
-
-    editor.updateShapes(updatedShapes)
-  }, [sineWaveShapes, editor])
 
   const updateSineWaveFrequency = useCallback((value: number) => {
     if (sineWaveShapes.length === 0) return
@@ -320,38 +297,6 @@ export function PropertiesPanelContent() {
       {/* Sine Wave Properties - only show for sine wave shapes */}
       {sineWaveShapes.length > 0 && (
         <>
-          {/* Length */}
-          <div className="modifier-input-row">
-            <label className="modifier-input-row__label" style={{ fontWeight: 'bold' }}>Length</label>
-            <div className="modifier-input-row__control">
-              <EnhancedNumberInput
-                value={sineWaveShapes[0].props.length}
-                min={50}
-                max={2000}
-                step={5}
-                precision={0}
-                unit="px"
-                onChange={updateSineWaveLength}
-              />
-            </div>
-          </div>
-
-          {/* Amplitude */}
-          <div className="modifier-input-row">
-            <label className="modifier-input-row__label" style={{ fontWeight: 'bold' }}>Amplitude</label>
-            <div className="modifier-input-row__control">
-              <EnhancedNumberInput
-                value={sineWaveShapes[0].props.amplitude}
-                min={2}
-                max={500}
-                step={1}
-                precision={0}
-                unit="px"
-                onChange={updateSineWaveAmplitude}
-              />
-            </div>
-          </div>
-
           {/* Frequency */}
           <div className="modifier-input-row">
             <label className="modifier-input-row__label" style={{ fontWeight: 'bold' }}>Frequency</label>

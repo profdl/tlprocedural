@@ -15,23 +15,17 @@ export function SineWaveControls({ shapes }: SineWaveControlsProps) {
 
     const first = shapes[0]
     const common = {
-      length: first.props.length,
-      amplitude: first.props.amplitude,
       frequency: first.props.frequency,
       phase: first.props.phase,
     }
 
     // Check if all shapes have the same values
-    const allSame = shapes.every(shape => 
-      shape.props.length === common.length &&
-      shape.props.amplitude === common.amplitude &&
+    const allSame = shapes.every(shape =>
       shape.props.frequency === common.frequency &&
       shape.props.phase === common.phase
     )
 
     return allSame ? common : {
-      length: undefined,
-      amplitude: undefined,
       frequency: undefined,
       phase: undefined,
     }
@@ -133,26 +127,6 @@ export function SineWaveControls({ shapes }: SineWaveControlsProps) {
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <EnhancedNumberInput
-          label="Length"
-          value={commonValues.length ?? 200}
-          min={50}
-          max={2000}
-          step={5}
-          precision={0}
-          onChange={(value) => updateShapes({ length: value })}
-        />
-        
-        <EnhancedNumberInput
-          label="Amplitude"
-          value={commonValues.amplitude ?? 40}
-          min={2}
-          max={500}
-          step={1}
-          precision={0}
-          onChange={(value) => updateShapes({ amplitude: value })}
-        />
-        
-        <EnhancedNumberInput
           label="Frequency"
           value={commonValues.frequency ?? 1}
           min={0.1}
@@ -161,7 +135,7 @@ export function SineWaveControls({ shapes }: SineWaveControlsProps) {
           precision={1}
           onChange={(value) => updateShapes({ frequency: value })}
         />
-        
+
         <EnhancedNumberInput
           label="Phase"
           value={commonValues.phase ?? 0}
