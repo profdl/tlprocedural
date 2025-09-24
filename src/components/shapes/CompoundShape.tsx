@@ -183,13 +183,14 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
 
     return (
       <ellipse
-        cx={rx}
-        cy={ry}
+        cx={0}
+        cy={0}
         rx={rx}
         ry={ry}
         fill={fill ? (fillColor as string) : 'none'}
         stroke={color as string}
         strokeWidth={strokeWidth as number}
+        transform={`translate(${rx}, ${ry})`}
       />
     )
   }

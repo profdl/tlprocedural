@@ -1174,8 +1174,8 @@ export class TransformComposer {
         sourceShapeId: child.id,
         transform: Mat.Compose(
           // Use absolute position: compound position + relative offset
-          Mat.Translate(originalShape.x + child.relativeX, originalShape.y + child.relativeY),
-          Mat.Rotate(child.relativeRotation)
+          Mat.Translate(originalShape.x + child.relativeX, originalShape.y + child.relativeY)
+          // Note: Rotation removed here to avoid double application - CompoundShape handles rotation in SVG transform
         ),
         metadata: {
           modifierType: 'compound-child',
@@ -1185,7 +1185,8 @@ export class TransformComposer {
           booleanRole: 'source' as const,
           booleanPending: true,
           childType: child.type,
-          childProps: child.props
+          childProps: child.props,
+          childRotation: child.relativeRotation // Store rotation for CompoundShape to use
         }
       }))
 
