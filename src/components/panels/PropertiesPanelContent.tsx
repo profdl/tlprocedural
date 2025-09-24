@@ -2,11 +2,19 @@ import { useCallback } from 'react'
 import { useEditor, useValue } from 'tldraw'
 import { EnhancedNumberInput } from '../modifiers/ui/EnhancedNumberInput'
 import { applyRotationToShapes } from '../modifiers/utils/transformUtils'
+import { useDynamicPanelHeight } from './hooks/useDynamicPanelHeight'
 import type { PolygonShape } from '../shapes/PolygonShape'
 import type { SineWaveShape } from '../shapes/SineWaveShape'
 
 export function PropertiesPanelContent() {
   const editor = useEditor()
+
+  // Dynamic height measurement for this panel
+  const { contentRef } = useDynamicPanelHeight({
+    panelId: 'properties',
+    minHeight: 84, // Increased by 24px: 60 + 24
+    padding: 40    // Increased by 24px: 16 + 24
+  })
 
   // Get selected shapes and their properties
   const selectedShapes = useValue(
@@ -195,7 +203,7 @@ export function PropertiesPanelContent() {
 
   if (selectedShapes.length === 0) {
     return (
-      <div className="panel-empty-state">
+      <div ref={contentRef} className="panel-empty-state">
         <p>Select a shape to view properties</p>
       </div>
     )
@@ -203,14 +211,14 @@ export function PropertiesPanelContent() {
 
   if (!shapeProperties) {
     return (
-      <div className="panel-empty-state">
+      <div ref={contentRef} className="panel-empty-state">
         <p>Multiple shapes with different properties selected</p>
       </div>
     )
   }
 
   return (
-    <div className="properties-panel__content">
+    <div ref={contentRef} className="properties-panel__content">
       {/* X Position */}
       <div className="modifier-input-row">
         <label className="modifier-input-row__label">X Position</label>
@@ -294,7 +302,7 @@ export function PropertiesPanelContent() {
       {/* Polygon Sides - only show for polygon shapes */}
       {polygonShapes.length > 0 && (
         <div className="modifier-input-row">
-          <label className="modifier-input-row__label">Sides</label>
+          <label className="modifier-input-row__label" style={{ fontWeight: 'bold' }}>Sides</label>
           <div className="modifier-input-row__control">
             <EnhancedNumberInput
               value={polygonShapes[0].props.sides}
@@ -314,7 +322,7 @@ export function PropertiesPanelContent() {
         <>
           {/* Length */}
           <div className="modifier-input-row">
-            <label className="modifier-input-row__label">Length</label>
+            <label className="modifier-input-row__label" style={{ fontWeight: 'bold' }}>Length</label>
             <div className="modifier-input-row__control">
               <EnhancedNumberInput
                 value={sineWaveShapes[0].props.length}
@@ -330,7 +338,7 @@ export function PropertiesPanelContent() {
 
           {/* Amplitude */}
           <div className="modifier-input-row">
-            <label className="modifier-input-row__label">Amplitude</label>
+            <label className="modifier-input-row__label" style={{ fontWeight: 'bold' }}>Amplitude</label>
             <div className="modifier-input-row__control">
               <EnhancedNumberInput
                 value={sineWaveShapes[0].props.amplitude}
@@ -346,7 +354,7 @@ export function PropertiesPanelContent() {
 
           {/* Frequency */}
           <div className="modifier-input-row">
-            <label className="modifier-input-row__label">Frequency</label>
+            <label className="modifier-input-row__label" style={{ fontWeight: 'bold' }}>Frequency</label>
             <div className="modifier-input-row__control">
               <EnhancedNumberInput
                 value={sineWaveShapes[0].props.frequency}
@@ -362,7 +370,7 @@ export function PropertiesPanelContent() {
 
           {/* Phase */}
           <div className="modifier-input-row">
-            <label className="modifier-input-row__label">Phase</label>
+            <label className="modifier-input-row__label" style={{ fontWeight: 'bold' }}>Phase</label>
             <div className="modifier-input-row__control">
               <EnhancedNumberInput
                 value={sineWaveShapes[0].props.phase}
