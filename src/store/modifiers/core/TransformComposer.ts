@@ -10,6 +10,8 @@ import type {
 } from '../../../types/modifiers'
 import { ArrayModifierProcessor } from './ArrayModifierProcessor'
 import { BooleanOperationProcessor } from './BooleanOperationProcessor'
+import { ModifierContext } from './ModifierContext'
+import { ModifierErrorHandler, ModifierProcessingError, RecoveryStrategy, ModifierPerformanceMonitor } from './ModifierError'
 
 // Removed calculateOrbitalPosition - functionality now inline in array processors
 
@@ -71,47 +73,87 @@ export class TransformComposer {
     groupContext?: GroupContext,
     editor?: Editor
   ): VirtualModifierState {
-    // Start with identity transform for the original shape
-    const baseTransform = Mat.Identity()
+    // Create context for this processing session
+    const context = new ModifierContext(shape, editor, groupContext)
 
-    // Initialize with single virtual instance representing original
-    let virtualInstances: VirtualInstance[] = [{
-      sourceShapeId: shape.id,
-      transform: Mat.Translate(shape.x, shape.y).multiply(
-        Mat.Rotate(shape.rotation || 0)
-      ),
-      metadata: {
-        modifierType: 'original',
-        index: 0,
-        isOriginal: true,
-        generationLevel: 0,
-        groupId: 'original'
+    // Start performance monitoring
+    const stopTiming = ModifierPerformanceMonitor.startTiming('processModifiers', shape.id)
+
+    try {
+      // Start with identity transform for the original shape
+      const baseTransform = Mat.Identity()
+
+      // Initialize with single virtual instance representing original
+      let virtualInstances: VirtualInstance[] = [{
+        sourceShapeId: shape.id,
+        transform: Mat.Translate(shape.x, shape.y).multiply(
+          Mat.Rotate(shape.rotation || 0)
+        ),
+        metadata: {
+          modifierType: 'original',
+          index: 0,
+          isOriginal: true,
+          generationLevel: 0,
+          groupId: 'original'
+        }
+      }]
+
+      // Process each enabled modifier in sequence
+      const enabledModifiers = modifiers
+        .filter(m => m.enabled)
+        .sort((a, b) => a.order - b.order)
+
+      for (let i = 0; i < enabledModifiers.length; i++) {
+        const modifier = enabledModifiers[i]
+
+        try {
+          const modifierTiming = ModifierPerformanceMonitor.startTiming(modifier.type, shape.id)
+
+          virtualInstances = this.applyModifier(
+            virtualInstances,
+            modifier,
+            shape,
+            groupContext,
+            editor,
+            i + 1 // generation level
+          )
+
+          modifierTiming()
+        } catch (error) {
+          // Handle modifier-specific errors with recovery
+          const result = ModifierErrorHandler.handle(error as Error, {
+            modifier,
+            shape,
+            strategy: RecoveryStrategy.SKIP_MODIFIER
+          })
+
+          if (!result.recovered) {
+            throw new ModifierProcessingError(
+              'Failed to apply modifier',
+              modifier,
+              shape,
+              error as Error
+            )
+          }
+
+          // Continue with previous instances if modifier was skipped
+          console.warn(`Skipped ${modifier.type} modifier due to error`)
+        }
       }
-    }]
 
-    // Process each enabled modifier in sequence
-    const enabledModifiers = modifiers
-      .filter(m => m.enabled)
-      .sort((a, b) => a.order - b.order)
-
-    for (let i = 0; i < enabledModifiers.length; i++) {
-      const modifier = enabledModifiers[i]
-      virtualInstances = this.applyModifier(
+      return {
+        originalShape: shape,
         virtualInstances,
-        modifier,
-        shape,
-        groupContext,
-        editor,
-        i + 1 // generation level
-      )
-    }
-
-    return {
-      originalShape: shape,
-      virtualInstances,
-      baseTransform,
-      metadata: { processedModifiers: enabledModifiers.length },
-      editor
+        baseTransform,
+        metadata: {
+          processedModifiers: enabledModifiers.length,
+          context
+        },
+        editor
+      }
+    } finally {
+      stopTiming()
+      context.clearMetadata()
     }
   }
 

@@ -6,5 +6,17 @@ export {
   extractShapesWithCache,
   validateVirtualState
 } from './ShapeStateManager'
+export { ArrayModifierProcessor } from './ArrayModifierProcessor'
+export { BooleanOperationProcessor } from './BooleanOperationProcessor'
+export { ModifierContext } from './ModifierContext'
+export {
+  ModifierError,
+  ModifierProcessingError,
+  BooleanOperationError,
+  MaterializationError,
+  RecoveryStrategy,
+  ModifierErrorHandler,
+  ModifierPerformanceMonitor
+} from './ModifierError'
 
 export type { Transform } from '../../../types/modifiers' 
