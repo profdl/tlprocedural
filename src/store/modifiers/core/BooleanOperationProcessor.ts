@@ -263,14 +263,16 @@ export class BooleanOperationProcessor {
     // Select style source shape based on Boolean operation type and shape characteristics
     const styleSourceShape = GeometryConverter.selectStyleSourceShape(tempShapes, deferredBoolean.operation)
 
+    const styleSourceProps = styleSourceShape?.props as { color?: string; fillColor?: string } | undefined
+
     console.log('🎨 Style inheritance for Boolean operation:', {
       operation: deferredBoolean.operation,
       availableShapes: tempShapes.length,
       selectedStyleSource: styleSourceShape ? {
         id: styleSourceShape.id,
         type: styleSourceShape.type,
-        color: (styleSourceShape.props as any).color,
-        fillColor: (styleSourceShape.props as any).fillColor
+        color: styleSourceProps?.color,
+        fillColor: styleSourceProps?.fillColor
       } : 'none'
     })
 
@@ -499,11 +501,16 @@ export class BooleanOperationProcessor {
           rotation: typeof rotation === 'number' ? rotation : 0
         })
 
-        // Create shape from child metadata
-        const childProps = instance.metadata.childProps as Record<string, unknown> & { w?: number; h?: number }
+        const childType = instance.metadata.childType as TLShape['type'] | undefined
+        const childProps = instance.metadata.childProps as (Record<string, unknown> & { w?: number; h?: number }) | undefined
+
+        if (!childType || !childProps) {
+          throw new Error('Compound child metadata missing type or props')
+        }
+
         return {
           id: `temp-compound-child-${index}` as TLShapeId,
-          type: instance.metadata.childType as any,
+          type: childType,
           x,
           y,
           rotation: typeof rotation === 'number' ? rotation : 0,

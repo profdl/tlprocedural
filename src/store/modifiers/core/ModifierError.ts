@@ -131,7 +131,7 @@ export class ModifierErrorHandler {
     })
 
     // Log full error in development (check if we're in dev mode)
-    // @ts-ignore - process may not be defined in all environments
+    // @ts-expect-error: process may not be defined in certain environments
     if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
       console.error('Full error details:', error)
     }
@@ -147,7 +147,7 @@ export class ModifierErrorHandler {
         console.warn('⚠️ Using fallback for modifier')
         return { recovered: true, fallback: [] }
 
-      case RecoveryStrategy.RETRY_ONCE:
+      case RecoveryStrategy.RETRY_ONCE: {
         const key = `${context.modifier?.id}-${context.shape?.id}`
         const retries = this.retryCount.get(key) || 0
 
@@ -155,11 +155,12 @@ export class ModifierErrorHandler {
           this.retryCount.set(key, retries + 1)
           console.warn(`⚠️ Retrying modifier (attempt ${retries + 1})`)
           return { recovered: false }
-        } else {
-          console.warn('⚠️ Max retries reached, skipping modifier')
-          this.retryCount.delete(key)
-          return { recovered: true }
         }
+
+        console.warn('⚠️ Max retries reached, skipping modifier')
+        this.retryCount.delete(key)
+        return { recovered: true }
+      }
 
       case RecoveryStrategy.ABORT_PROCESSING:
       default:

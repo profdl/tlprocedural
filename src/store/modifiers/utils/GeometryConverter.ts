@@ -118,9 +118,10 @@ export class GeometryConverter {
       case 'triangle':
       case 'polygon':
         return (props.w || 100) * (props.h || 100)
-      case 'circle':
+      case 'circle': {
         const radius = props.r || 50
         return Math.PI * radius * radius
+      }
       default:
         return (props.w || 100) * (props.h || 100)
     }
