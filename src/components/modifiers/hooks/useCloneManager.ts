@@ -10,6 +10,7 @@ import {
   getGroupChildShapes
 } from '../utils'
 import { applyRotationToShapes } from '../utils/transformUtils'
+import { BEZIER_DEBUG } from '../../shapes/utils/bezierConstants'
 
 interface UseCloneManagerProps {
   shape: TLShape
@@ -238,12 +239,14 @@ function updateBooleanResults(editor: Editor, shape: TLShape) {
   const currentCenterX = shape.x + currentW / 2
   const currentCenterY = shape.y + currentH / 2
 
-  console.log('🔄 Updating boolean results for source shape movement:', {
-    sourceShapeId: shape.id,
-    sourcePosition: { x: shape.x, y: shape.y },
-    sourceCenter: { x: currentCenterX, y: currentCenterY },
-    booleanResultsCount: booleanResults.length
-  })
+  if (BEZIER_DEBUG) {
+    console.log('🔄 Updating boolean results for source shape movement:', {
+      sourceShapeId: shape.id,
+      sourcePosition: { x: shape.x, y: shape.y },
+      sourceCenter: { x: currentCenterX, y: currentCenterY },
+      booleanResultsCount: booleanResults.length
+    })
+  }
 
   editor.run(() => {
     booleanResults.forEach(booleanResult => {
@@ -263,11 +266,13 @@ function updateBooleanResults(editor: Editor, shape: TLShape) {
         y: newY
       })
 
-      console.log('📍 Updated boolean result position:', {
-        booleanResultId: booleanResult.id,
-        oldPosition: { x: booleanResult.x, y: booleanResult.y },
-        newPosition: { x: newX, y: newY }
-      })
+      if (BEZIER_DEBUG) {
+        console.log('📍 Updated boolean result position:', {
+          booleanResultId: booleanResult.id,
+          oldPosition: { x: booleanResult.x, y: booleanResult.y },
+          newPosition: { x: newX, y: newY }
+        })
+      }
     })
   }, { ignoreShapeLock: true, history: 'ignore' })
 }
@@ -306,7 +311,9 @@ const lastTransformComposerCall = new Map<string, { time: number; result: Virtua
  * Update existing clones with new positions and properties
  */
 function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModifier[], existingClones: TLShape[]) {
-  console.log(`[updateExistingClones] Processing ${shape.id} with ${existingClones.length} existing clones`)
+  if (BEZIER_DEBUG) {
+    console.log(`[updateExistingClones] Processing ${shape.id} with ${existingClones.length} existing clones`)
+  }
 
   // Recalculate positions based on current shape state
   // Create group context if needed
@@ -346,10 +353,14 @@ function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModif
 
   let result
   if (lastCall && lastCall.time && (now - lastCall.time) < 100 && lastCall.result) {
-    console.log(`[updateExistingClones] Using cached TransformComposer result for ${shape.id}`)
+    if (BEZIER_DEBUG) {
+      console.log(`[updateExistingClones] Using cached TransformComposer result for ${shape.id}`)
+    }
     result = lastCall.result
   } else {
-    console.log(`[updateExistingClones] Calling TransformComposer.processModifiers for ${shape.id}`)
+    if (BEZIER_DEBUG) {
+      console.log(`[updateExistingClones] Calling TransformComposer.processModifiers for ${shape.id}`)
+    }
     result = TransformComposer.processModifiers(shape, modifiers, groupContext, editor)
     lastTransformComposerCall.set(shape.id, { time: now, result })
   }

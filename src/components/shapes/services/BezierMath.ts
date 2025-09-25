@@ -240,6 +240,99 @@ export class BezierMath {
     return segments.reduce((total, segment) => total + segment.length(), 0)
   }
 
+  /**
+   * Sample a bezier segment into evenly spaced points based on length.
+   */
+  static sampleSegmentPoints(
+    p1: BezierPoint,
+    p2: BezierPoint,
+    options?: {
+      maxSegmentLength?: number
+      minSamples?: number
+      includeStart?: boolean
+      includeEnd?: boolean
+    }
+  ): Array<{ x: number; y: number }> {
+    const {
+      maxSegmentLength = 8,
+      minSamples = 2,
+      includeStart = false,
+      includeEnd = false
+    } = options || {}
+
+    const bezier = this.segmentToBezier(p1, p2)
+    const length = bezier.length()
+    const sampleCount = Math.max(minSamples, Math.ceil(length / maxSegmentLength))
+    const step = 1 / sampleCount
+
+    const sampled: Array<{ x: number; y: number }> = []
+
+    for (let i = 0; i <= sampleCount; i++) {
+      const isStart = i === 0
+      const isEnd = i === sampleCount
+
+      if ((!includeStart && isStart) || (!includeEnd && isEnd)) {
+        continue
+      }
+
+      const t = i * step
+      const point = bezier.get(t)
+      sampled.push({ x: point.x, y: point.y })
+    }
+
+    return sampled
+  }
+
+  /**
+   * Sample an entire bezier path into polygonal points.
+   */
+  static samplePathPoints(
+    points: BezierPoint[],
+    isClosed: boolean,
+    options?: {
+      maxSegmentLength?: number
+      minSamples?: number
+    }
+  ): Array<{ x: number; y: number }> {
+    if (points.length === 0) return []
+
+    const sampled: Array<{ x: number; y: number }> = []
+
+    const segmentOptions = {
+      maxSegmentLength: options?.maxSegmentLength,
+      minSamples: options?.minSamples
+    }
+
+    // Always include the first anchor point
+    sampled.push({ x: points[0].x, y: points[0].y })
+
+    for (let i = 0; i < points.length - 1; i++) {
+      const segmentPoints = this.sampleSegmentPoints(points[i], points[i + 1], {
+        ...segmentOptions,
+        includeStart: false,
+        includeEnd: false
+      })
+      sampled.push(...segmentPoints, { x: points[i + 1].x, y: points[i + 1].y })
+    }
+
+    if (isClosed && points.length > 2) {
+      const closingSegmentSamples = this.sampleSegmentPoints(points[points.length - 1], points[0], {
+        ...segmentOptions,
+        includeStart: false,
+        includeEnd: false
+      })
+      sampled.push(...closingSegmentSamples)
+
+      const first = sampled[0]
+      const last = sampled[sampled.length - 1]
+      if (last.x !== first.x || last.y !== first.y) {
+        sampled.push({ ...first })
+      }
+    }
+
+    return sampled
+  }
+
   // === Vector Utilities ===
 
   /**

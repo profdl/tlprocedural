@@ -1,6 +1,7 @@
 import { type TLShape, type Editor } from 'tldraw'
 import polygonClipping from 'polygon-clipping'
 import type { BezierPoint } from '../../../components/shapes/BezierShape'
+import { BezierMath } from '../../../components/shapes/services/BezierMath'
 
 const ENABLE_GEOMETRY_DEBUG = false
 const geometryDebugLog = (...args: unknown[]) => {
@@ -544,20 +545,26 @@ export class GeometryConverter {
     const { x, y, rotation = 0 } = shape
 
     if (points && Array.isArray(points) && points.length > 0) {
-      // Convert bezier points to polygon points
-      let polygonPoints: Pair[] = points.map((p: BezierPoint) => [x + p.x, y + p.y] as Pair)
+      const sampledPoints = BezierMath.samplePathPoints(points, isClosed, {
+        maxSegmentLength: 6,
+        minSamples: 3
+      })
 
-      // Close the polygon if needed
+      if (sampledPoints.length === 0) {
+        return this.boundingBoxToPolygon(shape)
+      }
+
+      let polygonPoints: Pair[] = sampledPoints.map(({ x: px, y: py }) => [x + px, y + py])
+
+      // Ensure closed ring for closed shapes
       if (isClosed && polygonPoints.length > 2) {
-        // Only close if not already closed
         const first = polygonPoints[0]
         const last = polygonPoints[polygonPoints.length - 1]
         if (first[0] !== last[0] || first[1] !== last[1]) {
-          polygonPoints.push(first)
+          polygonPoints.push([...first] as Pair)
         }
       }
 
-      // Apply rotation if needed
       if (rotation !== 0) {
         const centerX = x + w / 2
         const centerY = y + h / 2

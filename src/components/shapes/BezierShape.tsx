@@ -12,6 +12,7 @@ import { BezierPath } from './components/BezierPath'
 import { BezierControlPoints } from './components/BezierControlPoints'
 import { BezierHoverPreview } from './components/BezierHoverPreview'
 import { LRUCache } from '../../utils/LRUCache'
+import { bezierPointsToPath } from './utils/bezierPathHelpers'
 
 export interface BezierPoint {
   x: number
@@ -105,7 +106,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     const flipTransform = this.getFlipTransform(shape)
     
     // Convert points to SVG path (only if we have 2+ points)
-    const pathData = points.length >= 2 ? this.pointsToPath(points, isClosed) : ''
+    const pathData = points.length >= 2 ? bezierPointsToPath(points, isClosed) : ''
 
     return (
       <HTMLContainer style={{ cursor: editMode ? 'crosshair' : 'default' }}>
@@ -144,46 +145,6 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
         </svg>
       </HTMLContainer>
     )
-  }
-
-  private pointsToPath(points: BezierPoint[], isClosed: boolean): string {
-    if (points.length === 0) return ''
-    
-    const commands: string[] = []
-    const firstPoint = points[0]
-    commands.push(`M ${firstPoint.x} ${firstPoint.y}`)
-    
-    for (let i = 1; i < points.length; i++) {
-      const prevPoint = points[i - 1]
-      const currPoint = points[i]
-      
-      if (prevPoint.cp2 && currPoint.cp1) {
-        // Cubic Bézier curve
-        commands.push(`C ${prevPoint.cp2.x} ${prevPoint.cp2.y} ${currPoint.cp1.x} ${currPoint.cp1.y} ${currPoint.x} ${currPoint.y}`)
-      } else if (prevPoint.cp2) {
-        // Quadratic Bézier curve (using only outgoing control point)
-        commands.push(`Q ${prevPoint.cp2.x} ${prevPoint.cp2.y} ${currPoint.x} ${currPoint.y}`)
-      } else if (currPoint.cp1) {
-        // Quadratic Bézier curve (using only incoming control point)
-        commands.push(`Q ${currPoint.cp1.x} ${currPoint.cp1.y} ${currPoint.x} ${currPoint.y}`)
-      } else {
-        // Straight line
-        commands.push(`L ${currPoint.x} ${currPoint.y}`)
-      }
-    }
-    
-    if (isClosed && points.length > 2) {
-      // Close the path with appropriate curve if needed
-      const lastPoint = points[points.length - 1]
-      const firstPoint = points[0]
-      
-      if (lastPoint.cp2 && firstPoint.cp1) {
-        commands.push(`C ${lastPoint.cp2.x} ${lastPoint.cp2.y} ${firstPoint.cp1.x} ${firstPoint.cp1.y} ${firstPoint.x} ${firstPoint.y}`)
-      }
-      commands.push('Z')
-    }
-    
-    return commands.join(' ')
   }
 
   override indicator(shape: BezierShape) {
