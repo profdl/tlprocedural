@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { useEditor, useValue, type TLShape } from 'tldraw'
+import type { Editor } from 'tldraw'
 import { useCustomShapes } from './useCustomShapes'
 
 export interface CustomShapeInstanceMetadata {
@@ -15,7 +16,9 @@ export interface CustomShapeInstanceMetadata {
  */
 export function useCustomShapeInstances() {
   const editor = useEditor()
-  const { customShapes, updateCustomShape, getCustomShape } = useCustomShapes()
+  const { updateCustomShape, getCustomShape } = useCustomShapes()
+
+  type ShapeUpdate = Parameters<Editor['updateShapes']>[0][number]
 
   // Get all shapes from the editor with reactive updates
   const allShapes = useValue(
@@ -71,33 +74,40 @@ export function useCustomShapeInstances() {
     const customShape = getCustomShape(customShapeId)
     if (!customShape) return
 
-    // Filter out immutable fields to prevent TLDraw errors
-    const { type, id, parentId, index, ...mutableUpdates } = updates as any
+    const mutableUpdates: Partial<TLShape> = { ...updates }
+    delete mutableUpdates.type
+    delete mutableUpdates.id
+    delete mutableUpdates.parentId
+    delete mutableUpdates.index
 
     // Filter out the excluded shape (typically the one being edited)
     const instancesToUpdate = excludeShapeId
       ? instances.filter(instance => instance.id !== excludeShapeId)
       : instances
 
-    const shapeUpdates = instancesToUpdate.map(instance => {
-      // Start with the complete instance shape
-      const updatedShape = { ...instance }
+    const propsUpdate = mutableUpdates.props
+    const otherUpdates: Partial<TLShape> = { ...mutableUpdates }
+    delete otherUpdates.props
+    delete otherUpdates.x
+    delete otherUpdates.y
 
-      // Update the metadata version
-      updatedShape.meta = {
-        ...instance.meta,
-        version: customShape.version
-      }
-
-      // If props are being updated, merge them properly
-      if (mutableUpdates.props) {
-        updatedShape.props = {
-          ...instance.props,
-          ...mutableUpdates.props
+    const shapeUpdates: ShapeUpdate[] = instancesToUpdate.map(instance => {
+      const updatedShape: ShapeUpdate = {
+        id: instance.id,
+        type: instance.type,
+        meta: {
+          ...instance.meta,
+          version: customShape.version
         }
       }
 
-      // Apply position compensation if bounds offset is provided
+      if (propsUpdate) {
+        updatedShape.props = {
+          ...instance.props,
+          ...propsUpdate
+        }
+      }
+
       if (boundsOffset && originalPositions) {
         // Get the original position for this instance to prevent cumulative compensation
         const originalPos = originalPositions.get(instance.id)
@@ -111,11 +121,25 @@ export function useCustomShapeInstances() {
           updatedShape.x = instance.x + boundsOffset.x
           updatedShape.y = instance.y + boundsOffset.y
         }
+      } else if (typeof mutableUpdates.x === 'number' || typeof mutableUpdates.y === 'number') {
+        if (typeof mutableUpdates.x === 'number') {
+          updatedShape.x = mutableUpdates.x
+        }
+        if (typeof mutableUpdates.y === 'number') {
+          updatedShape.y = mutableUpdates.y
+        }
       }
 
-      // Apply any other mutable updates (but preserve position and core fields)
-      const { props: _, type: __, id: ___, parentId: ____, index: _____, x: ______, y: _______, ...otherUpdates } = mutableUpdates
-      Object.assign(updatedShape, otherUpdates)
+      if (otherUpdates.meta) {
+        updatedShape.meta = {
+          ...updatedShape.meta,
+          ...otherUpdates.meta
+        }
+      }
+
+      const remainingUpdates: Partial<TLShape> = { ...otherUpdates }
+      delete remainingUpdates.meta
+      Object.assign(updatedShape, remainingUpdates)
 
       return updatedShape
     })
@@ -185,7 +209,7 @@ export function useCustomShapeInstances() {
     })
 
     // Apply updates
-    Object.entries(updatesByCustomShapeId).forEach(([customShapeId, items]) => {
+    Object.values(updatesByCustomShapeId).forEach(items => {
       const customShape = items[0].customShape!
 
       // Create shape updates based on the custom shape definition

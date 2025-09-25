@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
+import React, { createContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import { setCustomShapesRegistry } from './CustomShapesRegistry'
 
 export interface CustomTrayItem {
@@ -21,7 +21,7 @@ interface CustomShapesContextType {
   getCustomShape: (id: string) => CustomTrayItem | undefined
 }
 
-const CustomShapesContext = createContext<CustomShapesContextType | null>(null)
+export const CustomShapesContext = createContext<CustomShapesContextType | null>(null)
 
 const STORAGE_KEY = 'tldraw-custom-shapes'
 
@@ -35,6 +35,15 @@ interface CustomShapesProviderProps {
  */
 export function CustomShapesProvider({ children }: CustomShapesProviderProps) {
   const [customShapes, setCustomShapes] = useState<CustomTrayItem[]>([])
+
+  // Save custom shapes to localStorage whenever they change
+  const saveToStorage = useCallback((shapes: CustomTrayItem[]) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(shapes))
+    } catch (error) {
+      console.warn('Failed to save custom shapes to storage:', error)
+    }
+  }, [])
 
   // Load custom shapes from localStorage on mount
   useEffect(() => {
@@ -107,21 +116,12 @@ export function CustomShapesProvider({ children }: CustomShapesProviderProps) {
     } catch (error) {
       console.warn('Failed to load custom shapes from storage:', error)
     }
-  }, [])
+  }, [saveToStorage])
 
   // Keep the non-React registry in sync for tools that run outside React context
   useEffect(() => {
     setCustomShapesRegistry(customShapes)
   }, [customShapes])
-
-  // Save custom shapes to localStorage whenever they change
-  const saveToStorage = useCallback((shapes: CustomTrayItem[]) => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(shapes))
-    } catch (error) {
-      console.warn('Failed to save custom shapes to storage:', error)
-    }
-  }, [])
 
   // Add a new custom shape
   const addCustomShape = useCallback((shape: Omit<CustomTrayItem, 'id' | 'createdAt' | 'version' | 'lastModified'>) => {
@@ -206,10 +206,4 @@ export function CustomShapesProvider({ children }: CustomShapesProviderProps) {
  * Hook for accessing custom shapes context
  * Must be used within a CustomShapesProvider
  */
-export function useCustomShapes(): CustomShapesContextType {
-  const context = useContext(CustomShapesContext)
-  if (!context) {
-    throw new Error('useCustomShapes must be used within a CustomShapesProvider')
-  }
-  return context
-}
+// The hook lives in src/components/hooks/useCustomShapes.ts to keep this file component-only.

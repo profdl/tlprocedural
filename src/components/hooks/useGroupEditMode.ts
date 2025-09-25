@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useEditor } from 'tldraw'
+import type { Editor, TLShape, TLShapeId } from 'tldraw'
 import { useCustomShapes } from './useCustomShapes'
 
 /**
@@ -14,18 +15,28 @@ export function useGroupEditMode() {
   const groupEditStateRef = useRef<{
     customShapeId: string
     instanceId: string
-    shapeIds: string[]
+    shapeIds: TLShapeId[]
   } | null>(null)
+
+  type ShapeUpdate = Parameters<Editor['updateShapes']>[0][number]
 
   const enterGroupEditMode = useCallback((instanceShapeId: string, customShapeId: string) => {
     if (!editor) return
 
     // Find all shapes that belong to this custom shape instance
     const allShapes = editor.getCurrentPageShapes()
+    const instanceShape = allShapes.find(shape => shape.id === instanceShapeId)
+    const instanceMeta = instanceShape?.meta
+    const instanceId = typeof instanceMeta?.instanceId === 'string' ? instanceMeta.instanceId : null
+
+    if (!instanceId) {
+      console.warn('Instance metadata missing for shape:', instanceShapeId)
+      return
+    }
+
     const instanceShapes = allShapes.filter(shape => {
       const shapeMeta = shape.meta
-      return shapeMeta?.customShapeId === customShapeId &&
-             shapeMeta?.instanceId === allShapes.find(s => s.id === instanceShapeId)?.meta?.instanceId
+      return shapeMeta?.customShapeId === customShapeId && shapeMeta?.instanceId === instanceId
     })
 
     if (instanceShapes.length === 0) {
@@ -34,8 +45,9 @@ export function useGroupEditMode() {
     }
 
     // Update metadata to indicate group edit mode
-    const shapeUpdates = instanceShapes.map(shape => ({
-      ...shape,
+    const shapeUpdates: ShapeUpdate[] = instanceShapes.map(shape => ({
+      id: shape.id,
+      type: shape.type,
       meta: {
         ...shape.meta,
         groupEditMode: true,
@@ -52,7 +64,7 @@ export function useGroupEditMode() {
     // Store the current group edit state
     groupEditStateRef.current = {
       customShapeId,
-      instanceId: allShapes.find(s => s.id === instanceShapeId)?.meta?.instanceId as string,
+      instanceId,
       shapeIds: instanceShapes.map(s => s.id)
     }
 
@@ -65,19 +77,24 @@ export function useGroupEditMode() {
     const { customShapeId, shapeIds } = groupEditStateRef.current
 
     // Update metadata to exit group edit mode
-    const shapeUpdates = shapeIds.map(shapeId => {
-      const shape = editor.getShape(shapeId as any)
-      if (!shape) return null
+    const shapeUpdates: ShapeUpdate[] = []
 
-      const { groupEditInstanceId, ...restMeta } = shape.meta || {}
-      return {
-        ...shape,
+    shapeIds.forEach(shapeId => {
+      const shape = editor.getShape(shapeId)
+      if (!shape) return
+
+      const metaWithoutGroupInstance = { ...(shape.meta ?? {}) }
+      delete (metaWithoutGroupInstance as Record<string, unknown>).groupEditInstanceId
+
+      shapeUpdates.push({
+        id: shape.id,
+        type: shape.type,
         meta: {
-          ...restMeta,
+          ...metaWithoutGroupInstance,
           groupEditMode: false
         }
-      }
-    }).filter(Boolean)
+      })
+    })
 
     if (shapeUpdates.length > 0) {
       editor.run(() => {
@@ -109,7 +126,7 @@ export function useGroupEditMode() {
 
           // Check if this is a custom shape instance
           const isCustomShapeInstance = shape.meta?.isCustomShapeInstance === true
-          const customShapeId = shape.meta?.customShapeId as string
+          const customShapeId = typeof shape.meta?.customShapeId === 'string' ? shape.meta.customShapeId : null
 
           if (!isCustomShapeInstance || !customShapeId) return
 
@@ -148,9 +165,12 @@ export function useGroupEditMode() {
 
   // Listen for clicks outside the group to exit edit mode
   useEffect(() => {
-    if (!editor || !groupEditStateRef.current) return
+    if (!editor) return
 
     const handleClick = (event: Event) => {
+      const currentGroup = groupEditStateRef.current
+      if (!currentGroup) return
+
       const target = event.target as HTMLElement
       const shapeElement = target.closest('[data-shape-id]')
 
@@ -164,8 +184,7 @@ export function useGroupEditMode() {
       if (!shapeId) return
 
       // Check if the clicked shape is part of the current group
-      const currentGroup = groupEditStateRef.current
-      if (currentGroup && !currentGroup.shapeIds.includes(shapeId)) {
+      if (!currentGroup.shapeIds.includes(shapeId as TLShapeId)) {
         // Clicked on a shape outside the current group - exit edit mode
         exitGroupEditMode()
       }
@@ -177,13 +196,13 @@ export function useGroupEditMode() {
     return () => {
       canvas.removeEventListener('click', handleClick)
     }
-  }, [editor, exitGroupEditMode, groupEditStateRef.current])
+  }, [editor, exitGroupEditMode])
 
   // Get the current group edit state
   const currentGroupEditState = groupEditStateRef.current
 
   // Check if a specific shape is in group edit mode
-  const isShapeInGroupEditMode = useCallback((shapeId: string) => {
+  const isShapeInGroupEditMode = useCallback((shapeId: TLShapeId) => {
     return currentGroupEditState?.shapeIds.includes(shapeId) || false
   }, [currentGroupEditState])
 

@@ -1,10 +1,17 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useEditor, useValue } from 'tldraw'
 import { useCustomShapeInstances } from './useCustomShapeInstances'
 import { useCustomShapes } from './useCustomShapes'
 import { bezierShapeToCustomTrayItem, normalizeBezierPoints } from '../utils/bezierToCustomShape'
 import { BezierBounds } from '../shapes/services/BezierBounds'
-import type { BezierShape, BezierPoint } from '../shapes/BezierShape'
+import type { BezierShape } from '../shapes/BezierShape'
+
+interface BoundsSnapshot {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+}
 
 /**
  * Manager hook that monitors custom shape instance editing and propagates changes
@@ -19,10 +26,10 @@ export function useCustomShapeInstanceManager() {
   const editStateRef = useRef<Map<string, boolean>>(new Map())
 
   // Track shape properties to detect live changes during edit mode
-  const shapePropsRef = useRef<Map<string, any>>(new Map())
+  const shapePropsRef = useRef<Map<string, string>>(new Map())
 
   // Track original bounds when editing begins for proper compensation
-  const originalBoundsRef = useRef<Map<string, { minX: number; minY: number; maxX: number; maxY: number }>>(new Map())
+  const originalBoundsRef = useRef<Map<string, BoundsSnapshot>>(new Map())
 
   // Track original instance positions to prevent cumulative compensation
   const originalInstancePositionsRef = useRef<Map<string, Map<string, { x: number; y: number }>>>(new Map())
@@ -34,90 +41,8 @@ export function useCustomShapeInstanceManager() {
     [editor]
   )
 
-  useEffect(() => {
-    // Process all custom shape instances for state changes
-    allShapes.forEach(shape => {
-      // Only handle bezier shapes that are custom shape instances
-      if (shape.type !== 'bezier' || !shape.meta?.isCustomShapeInstance) {
-        return
-      }
-
-      const bezierShape = shape as BezierShape
-      const shapeId = shape.id
-      const isInEditMode = bezierShape.props.editMode === true
-      const wasInEditMode = editStateRef.current.get(shapeId) === true
-
-      // Update current edit state
-      editStateRef.current.set(shapeId, isInEditMode)
-
-      // Handle live property changes during edit mode
-      if (isInEditMode) {
-        const currentProps = JSON.stringify({
-          points: bezierShape.props.points,
-          isClosed: bezierShape.props.isClosed,
-          color: bezierShape.props.color,
-          fillColor: bezierShape.props.fillColor,
-          strokeWidth: bezierShape.props.strokeWidth,
-          fill: bezierShape.props.fill
-        })
-
-        const previousProps = shapePropsRef.current.get(shapeId)
-
-        if (previousProps && previousProps !== currentProps) {
-          // Properties changed during edit mode - update other instances live
-          handleLivePropertyChange(bezierShape)
-        }
-
-        // Store current props for next comparison
-        shapePropsRef.current.set(shapeId, currentProps)
-      }
-
-      // Detect transition from edit mode to normal mode
-      if (wasInEditMode && !isInEditMode) {
-        handleEditModeExit(bezierShape)
-        // Clean up props tracking when exiting edit mode
-        shapePropsRef.current.delete(shapeId)
-        // Clean up original bounds tracking
-        originalBoundsRef.current.delete(shapeId)
-        // Clean up original instance positions
-        const customShapeId = bezierShape.meta?.customShapeId as string
-        if (customShapeId) {
-          originalInstancePositionsRef.current.delete(customShapeId)
-        }
-      }
-
-      // Initialize props tracking when entering edit mode
-      if (!wasInEditMode && isInEditMode) {
-        const initialProps = JSON.stringify({
-          points: bezierShape.props.points,
-          isClosed: bezierShape.props.isClosed,
-          color: bezierShape.props.color,
-          fillColor: bezierShape.props.fillColor,
-          strokeWidth: bezierShape.props.strokeWidth,
-          fill: bezierShape.props.fill
-        })
-        shapePropsRef.current.set(shapeId, initialProps)
-
-        // Store original bounds when entering edit mode
-        const originalBounds = BezierBounds.getAccurateBounds(bezierShape.props.points, bezierShape.props.isClosed)
-        originalBoundsRef.current.set(shapeId, originalBounds)
-
-        // Store original positions of all instances when editing begins
-        const customShapeId = bezierShape.meta?.customShapeId as string
-        if (customShapeId) {
-          const instances = getInstancesForCustomShape(customShapeId)
-          const instancePositions = new Map<string, { x: number; y: number }>()
-          instances.forEach(instance => {
-            instancePositions.set(instance.id, { x: instance.x, y: instance.y })
-          })
-          originalInstancePositionsRef.current.set(customShapeId, instancePositions)
-        }
-      }
-    })
-  }, [allShapes])
-
-  const handleLivePropertyChange = (shape: BezierShape) => {
-    const customShapeId = shape.meta?.customShapeId as string
+  const handleLivePropertyChange = useCallback((shape: BezierShape) => {
+    const customShapeId = typeof shape.meta?.customShapeId === 'string' ? shape.meta.customShapeId : null
     if (!customShapeId) return
 
     const customShape = getCustomShape(customShapeId)
@@ -188,10 +113,10 @@ export function useCustomShapeInstanceManager() {
     } catch (error) {
       console.error(`Failed to live update custom shape ${customShapeId}:`, error)
     }
-  }
+  }, [getCustomShape, getInstancesForCustomShape, updateAllInstances])
 
-  const handleEditModeExit = (shape: BezierShape) => {
-    const customShapeId = shape.meta?.customShapeId as string
+  const handleEditModeExit = useCallback((shape: BezierShape) => {
+    const customShapeId = typeof shape.meta?.customShapeId === 'string' ? shape.meta.customShapeId : null
     if (!customShapeId) return
 
     const customShape = getCustomShape(customShapeId)
@@ -228,7 +153,84 @@ export function useCustomShapeInstanceManager() {
     } catch (error) {
       console.error(`Failed to update custom shape ${customShapeId}:`, error)
     }
-  }
+  }, [getCustomShape, updateCustomShape, getInstancesForCustomShape, updateAllInstances])
+
+  useEffect(() => {
+    // Process all custom shape instances for state changes
+    allShapes.forEach(shape => {
+      if (shape.type !== 'bezier' || shape.meta?.isCustomShapeInstance !== true) {
+        return
+      }
+
+      const bezierShape = shape as BezierShape
+      const shapeId = shape.id
+      const isInEditMode = bezierShape.props.editMode === true
+      const wasInEditMode = editStateRef.current.get(shapeId) === true
+
+      editStateRef.current.set(shapeId, isInEditMode)
+
+      if (isInEditMode) {
+        const currentProps = JSON.stringify({
+          points: bezierShape.props.points,
+          isClosed: bezierShape.props.isClosed,
+          color: bezierShape.props.color,
+          fillColor: bezierShape.props.fillColor,
+          strokeWidth: bezierShape.props.strokeWidth,
+          fill: bezierShape.props.fill
+        })
+
+        const previousProps = shapePropsRef.current.get(shapeId)
+
+        if (previousProps && previousProps !== currentProps) {
+          handleLivePropertyChange(bezierShape)
+        }
+
+        shapePropsRef.current.set(shapeId, currentProps)
+      }
+
+      if (wasInEditMode && !isInEditMode) {
+        handleEditModeExit(bezierShape)
+        shapePropsRef.current.delete(shapeId)
+        originalBoundsRef.current.delete(shapeId)
+        const customShapeId = typeof bezierShape.meta?.customShapeId === 'string'
+          ? bezierShape.meta.customShapeId
+          : null
+        if (customShapeId) {
+          originalInstancePositionsRef.current.delete(customShapeId)
+        }
+      }
+
+      if (!wasInEditMode && isInEditMode) {
+        const initialProps = JSON.stringify({
+          points: bezierShape.props.points,
+          isClosed: bezierShape.props.isClosed,
+          color: bezierShape.props.color,
+          fillColor: bezierShape.props.fillColor,
+          strokeWidth: bezierShape.props.strokeWidth,
+          fill: bezierShape.props.fill
+        })
+        shapePropsRef.current.set(shapeId, initialProps)
+
+        const originalBounds = BezierBounds.getAccurateBounds(
+          bezierShape.props.points,
+          bezierShape.props.isClosed
+        )
+        originalBoundsRef.current.set(shapeId, originalBounds)
+
+        const customShapeId = typeof bezierShape.meta?.customShapeId === 'string'
+          ? bezierShape.meta.customShapeId
+          : null
+        if (customShapeId) {
+          const instances = getInstancesForCustomShape(customShapeId)
+          const instancePositions = new Map<string, { x: number; y: number }>()
+          instances.forEach(instance => {
+            instancePositions.set(instance.id, { x: instance.x, y: instance.y })
+          })
+          originalInstancePositionsRef.current.set(customShapeId, instancePositions)
+        }
+      }
+    })
+  }, [allShapes, getInstancesForCustomShape, handleEditModeExit, handleLivePropertyChange])
 
   // Cleanup edit state tracking for deleted shapes
   useEffect(() => {

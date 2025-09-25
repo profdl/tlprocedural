@@ -1,5 +1,12 @@
 import { useEditor, useValue } from 'tldraw'
 import { useGroupEditMode } from './hooks/useGroupEditMode'
+import type { TLShape, Box } from 'tldraw'
+
+interface ShapeInEdit {
+  id: string
+  bounds: Box
+  shape: TLShape
+}
 
 /**
  * Component that renders visual indicators for shapes in group edit mode
@@ -14,7 +21,7 @@ export function GroupEditIndicator() {
     'shapes-in-group-edit',
     () => {
       const allShapes = editor.getCurrentPageShapes()
-      const shapesInEdit: Array<{ id: string; bounds: any; shape: any }> = []
+      const shapesInEdit: ShapeInEdit[] = []
 
       // Add shapes from custom group edit mode (keyboard shortcut triggered)
       if (currentGroupEditState) {
@@ -61,7 +68,7 @@ export function GroupEditIndicator() {
       {shapesInGroupEdit.map(({ id, bounds }) => {
         // Convert page bounds to screen coordinates
         const topLeft = editor.pageToScreen({ x: bounds.x, y: bounds.y })
-        const bottomRight = editor.pageToScreen({ x: bounds.x + bounds.w, y: bounds.y + bounds.h })
+        const bottomRight = editor.pageToScreen({ x: bounds.x + bounds.width, y: bounds.y + bounds.height })
 
         return (
           <div
@@ -87,22 +94,9 @@ export function GroupEditIndicator() {
         style={{ zIndex: 1001 }}
       >
         {isInNativeGroupEdit
-          ? "Group Edit Mode - Double-click outside or press ESC to exit"
-          : "Group Edit Mode - Press ESC to exit or double-click on multi-shape groups"}
+          ? 'Group Edit Mode - Double-click outside or press ESC to exit'
+          : 'Group Edit Mode - Press ESC to exit or double-click on multi-shape groups'}
       </div>
     </div>
   )
-}
-
-/**
- * Hook version for programmatic access to group edit state
- */
-export function useGroupEditIndicator() {
-  const { currentGroupEditState, isShapeInGroupEditMode } = useGroupEditMode()
-
-  return {
-    isGroupEditActive: !!currentGroupEditState,
-    currentGroupEditState,
-    isShapeInGroupEditMode
-  }
 }

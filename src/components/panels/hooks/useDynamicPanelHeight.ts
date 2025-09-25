@@ -38,11 +38,9 @@ export function useDynamicPanelHeight({
     if (!contentRef.current) return
 
     // Create ResizeObserver to watch for content changes
-    resizeObserverRef.current = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        // Use requestAnimationFrame to avoid layout thrashing
-        requestAnimationFrame(measureAndUpdateHeight)
-      }
+    resizeObserverRef.current = new ResizeObserver(() => {
+      // Use requestAnimationFrame to avoid layout thrashing
+      requestAnimationFrame(measureAndUpdateHeight)
     })
 
     // Start observing the content element
