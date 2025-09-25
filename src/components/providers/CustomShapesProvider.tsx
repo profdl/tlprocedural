@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
+import { setCustomShapesRegistry } from './CustomShapesRegistry'
 
 export interface CustomTrayItem {
   id: string
@@ -107,6 +108,11 @@ export function CustomShapesProvider({ children }: CustomShapesProviderProps) {
       console.warn('Failed to load custom shapes from storage:', error)
     }
   }, [])
+
+  // Keep the non-React registry in sync for tools that run outside React context
+  useEffect(() => {
+    setCustomShapesRegistry(customShapes)
+  }, [customShapes])
 
   // Save custom shapes to localStorage whenever they change
   const saveToStorage = useCallback((shapes: CustomTrayItem[]) => {

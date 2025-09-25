@@ -1,4 +1,5 @@
 import { StateNode, TLClickEventInfo, TLKeyboardEventInfo } from 'tldraw'
+import { getCustomShapeFromRegistry } from '../providers/CustomShapesRegistry'
 
 /**
  * Tool for handling group edit mode on custom shape instances
@@ -23,8 +24,7 @@ export class GroupEditTool extends StateNode {
     }
 
     // Get the custom shape definition to check if it's multi-shape
-    const customShapes = this.getCustomShapes()
-    const customShape = customShapes?.find(shape => shape.id === customShapeId)
+    const customShape = getCustomShapeFromRegistry(customShapeId)
 
     if (!customShape || customShape.shapeType !== 'multi-shape') {
       // For single shapes, let the default editing behavior handle it
@@ -122,16 +122,6 @@ export class GroupEditTool extends StateNode {
     this.clearGroupEditState()
 
     console.log('Exited group edit mode for custom shape:', customShapeId)
-  }
-
-  /**
-   * Get custom shapes from the global state
-   * This should be connected to the useCustomShapes hook
-   */
-  private getCustomShapes() {
-    // TODO: Connect to the actual custom shapes store
-    // For now, we'll access it through a global reference
-    return (window as any).__customShapes || []
   }
 
   /**

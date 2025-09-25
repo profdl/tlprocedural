@@ -2,6 +2,13 @@ import { type TLShape, type Editor } from 'tldraw'
 import polygonClipping from 'polygon-clipping'
 import type { BezierPoint } from '../../../components/shapes/BezierShape'
 
+const ENABLE_GEOMETRY_DEBUG = false
+const geometryDebugLog = (...args: unknown[]) => {
+  if (ENABLE_GEOMETRY_DEBUG) {
+    console.log(...args)
+  }
+}
+
 // polygon-clipping library types
 export type Pair = [number, number]
 export type Ring = Pair[]
@@ -187,7 +194,7 @@ export class GeometryConverter {
       isClosed: boolean
     }
   } {
-    console.log('🔧 Converting polygon to bezier shape:', {
+    geometryDebugLog('🔧 Converting polygon to bezier shape:', {
       polygonLength: polygon.length,
       originalShapeId: originalShape.id,
       originalShape: originalShape.type,
@@ -195,7 +202,7 @@ export class GeometryConverter {
     })
 
     if (polygon.length === 0) {
-      console.log('⚠️ Empty polygon, creating minimal bezier shape')
+      geometryDebugLog('⚠️ Empty polygon, creating minimal bezier shape')
       const styleSource = styleSourceShape || originalShape
       const extractedProps = this.extractShapeProperties(styleSource)
 
@@ -221,14 +228,14 @@ export class GeometryConverter {
     // Get the first polygon (main shape) - ignore holes for now
     const firstPolygon = polygon[0]
     if (!firstPolygon || firstPolygon.length === 0) {
-      console.log('⚠️ No first polygon found')
+      geometryDebugLog('⚠️ No first polygon found')
       return this.polygonToBezierShape([], originalShape)
     }
 
     // Get the outer ring (first ring is always outer boundary)
     const outerRing = firstPolygon[0]
     if (!outerRing || outerRing.length < 3) {
-      console.log('⚠️ Invalid outer ring')
+      geometryDebugLog('⚠️ Invalid outer ring')
       return this.polygonToBezierShape([], originalShape)
     }
 
@@ -250,7 +257,7 @@ export class GeometryConverter {
       // Use collective bounds center for boolean operations on modifier results
       referenceCenterX = positionContext.collectiveBounds.centerX
       referenceCenterY = positionContext.collectiveBounds.centerY
-      console.log('📍 Using collective bounds center for positioning:', {
+      geometryDebugLog('📍 Using collective bounds center for positioning:', {
         referenceCenterX,
         referenceCenterY,
         collectiveBounds: positionContext.collectiveBounds
@@ -289,7 +296,7 @@ export class GeometryConverter {
     const targetX = referenceCenterX - polygonW / 2
     const targetY = referenceCenterY - polygonH / 2
 
-    console.log('📐 Position calculation:', {
+    geometryDebugLog('📐 Position calculation:', {
       polygon: { minX, maxX, minY, maxY, centerX: polygonCenterX, centerY: polygonCenterY },
       positionMethod: positionContext?.shouldPreserveCollectivePosition
         ? 'collective bounds'
@@ -307,7 +314,7 @@ export class GeometryConverter {
       // No control points - straight lines between vertices
     }))
 
-    console.log('🎯 Created bezier points:', {
+    geometryDebugLog('🎯 Created bezier points:', {
       pointsCount: bezierPoints.length,
       firstPoint: bezierPoints[0],
       lastPoint: bezierPoints[bezierPoints.length - 1]
@@ -335,7 +342,7 @@ export class GeometryConverter {
       }
     }
 
-    console.log('✨ Created bezier shape with preserved position:', {
+    geometryDebugLog('✨ Created bezier shape with preserved position:', {
       type: result.type,
       position: { x: result.x, y: result.y },
       dimensions: { w: result.w, h: result.h },
@@ -347,27 +354,27 @@ export class GeometryConverter {
   }
 
   static polygonToShapeProps(polygon: PolygonCoordinates, originalShape: TLShape): Record<string, unknown> {
-    console.log('🔧 Converting polygon to shape props:', {
+    geometryDebugLog('🔧 Converting polygon to shape props:', {
       polygonLength: polygon.length,
       originalShapeId: originalShape.id,
       originalPosition: { x: originalShape.x, y: originalShape.y }
     })
 
     if (polygon.length === 0) {
-      console.log('⚠️ Empty polygon, returning original props')
+      geometryDebugLog('⚠️ Empty polygon, returning original props')
       return originalShape.props as Record<string, unknown>
     }
 
     // Get first polygon, first ring (outer boundary)
     const firstPolygon = polygon[0]
     if (!firstPolygon || firstPolygon.length === 0) {
-      console.log('⚠️ No first polygon, returning original props')
+      geometryDebugLog('⚠️ No first polygon, returning original props')
       return originalShape.props as Record<string, unknown>
     }
 
     const ring = firstPolygon[0]
     if (!ring || ring.length === 0) {
-      console.log('⚠️ No ring data, returning original props')
+      geometryDebugLog('⚠️ No ring data, returning original props')
       return originalShape.props as Record<string, unknown>
     }
 
@@ -379,7 +386,7 @@ export class GeometryConverter {
     const minY = Math.min(...ys)
     const maxY = Math.max(...ys)
 
-    console.log('📐 Polygon bounding box calculated:', {
+    geometryDebugLog('📐 Polygon bounding box calculated:', {
       minX, maxX, minY, maxY,
       width: maxX - minX,
       height: maxY - minY,
@@ -403,7 +410,7 @@ export class GeometryConverter {
       renderAsPath: true, // Flag for custom rendering
     }
 
-    console.log('✨ Converted shape properties:', result)
+    geometryDebugLog('✨ Converted shape properties:', result)
     return result
   }
 
@@ -726,7 +733,7 @@ export class GeometryConverter {
         dash = (props.dash as string) || 'solid'
     }
 
-    console.log('🎨 Extracted complete shape style properties:', {
+    geometryDebugLog('🎨 Extracted complete shape style properties:', {
       originalType: shape.type,
       extractedColor: color,
       extractedStrokeWidth: strokeWidth,

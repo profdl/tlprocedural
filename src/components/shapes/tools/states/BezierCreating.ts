@@ -10,6 +10,58 @@ import { type BezierShape, type BezierPoint } from '../../BezierShape'
 import { BEZIER_THRESHOLDS, BEZIER_HANDLES } from '../../utils/bezierConstants'
 import { DEFAULT_SHAPE_PROPS } from '../../constants/defaultShapeProps'
 
+interface DragHandleOptions {
+  startPoint: Vec
+  currentPoint: Vec
+  dragDistance: number
+  threshold: number
+  isCtrlPressed: boolean
+  isShiftPressed: boolean
+  constrainAngle: (offset: Vec) => Vec
+}
+
+interface DragHandleResult {
+  cp1?: Vec
+  cp2?: Vec
+  hasHandles: boolean
+}
+
+function computeDragHandles({
+  startPoint,
+  currentPoint,
+  dragDistance,
+  threshold,
+  isCtrlPressed,
+  isShiftPressed,
+  constrainAngle
+}: DragHandleOptions): DragHandleResult {
+  if (dragDistance <= threshold) {
+    return { hasHandles: false }
+  }
+
+  let offset = Vec.Sub(currentPoint, startPoint)
+
+  if (isShiftPressed) {
+    offset = constrainAngle(offset)
+  }
+
+  if (isCtrlPressed) {
+    const controlPoint2 = Vec.Add(startPoint, offset)
+    return {
+      cp2: controlPoint2,
+      hasHandles: true
+    }
+  }
+
+  const controlPoint1 = Vec.Add(startPoint, Vec.Neg(offset))
+  const controlPoint2 = Vec.Add(startPoint, offset)
+  return {
+    cp1: controlPoint1,
+    cp2: controlPoint2,
+    hasHandles: true
+  }
+}
+
 export class BezierCreating extends StateNode {
   static override id = 'creating'
 
@@ -216,77 +268,44 @@ export class BezierCreating extends StateNode {
   private handleFirstPointDrag(currentPoint: Vec) {
     const firstPoint = this.points[0]
     const startPoint = this.startPoint!
-    
-    // Only create handles if drag distance exceeds threshold
-    if (this.dragDistance > this.CORNER_POINT_THRESHOLD) {
-      // Calculate control points for curve
-      let offset = Vec.Sub(currentPoint, startPoint)
-      const isCtrlPressed = this.editor.inputs.ctrlKey
-      const isShiftPressed = this.editor.inputs.shiftKey
-      
-      // Apply angle constraint if Shift is pressed
-      if (isShiftPressed) {
-        offset = this.constrainAngle(offset)
-      }
-      
-      if (isCtrlPressed) {
-        // Ctrl key: create asymmetric handles - only outgoing handle for first point
-        const controlPoint2 = Vec.Add(startPoint, offset)
-        firstPoint.cp1 = undefined // No incoming handle for first point
-        firstPoint.cp2 = { x: controlPoint2.x, y: controlPoint2.y }
-      } else {
-        // Default: symmetric handles
-        const controlPoint1 = Vec.Add(startPoint, Vec.Neg(offset))
-        const controlPoint2 = Vec.Add(startPoint, offset)
-        firstPoint.cp1 = { x: controlPoint1.x, y: controlPoint1.y }
-        firstPoint.cp2 = { x: controlPoint2.x, y: controlPoint2.y }
-      }
-      
+
+    const handles = computeDragHandles({
+      startPoint,
+      currentPoint,
+      dragDistance: this.dragDistance,
+      threshold: this.CORNER_POINT_THRESHOLD,
+      isCtrlPressed: this.editor.inputs.ctrlKey,
+      isShiftPressed: this.editor.inputs.shiftKey,
+      constrainAngle: this.constrainAngle.bind(this)
+    })
+
+    firstPoint.cp1 = handles.cp1 ? { x: handles.cp1.x, y: handles.cp1.y } : undefined
+    firstPoint.cp2 = handles.cp2 ? { x: handles.cp2.x, y: handles.cp2.y } : undefined
+
+    if (handles.hasHandles) {
       this.initialDragOccurred = true
-    } else {
-      // Small drag distance: create corner point (no handles)
-      firstPoint.cp1 = undefined
-      firstPoint.cp2 = undefined
     }
   }
 
   private handleNormalPointDrag(currentPoint: Vec) {
     const lastPoint = this.points[this.points.length - 1]
     const startPoint = this.startPoint!
-    
-    // Only create handles if drag distance exceeds threshold
-    if (this.dragDistance > this.CORNER_POINT_THRESHOLD) {
-      // Calculate control points for curve
-      let offset = Vec.Sub(currentPoint, startPoint)
-      const isCtrlPressed = this.editor.inputs.ctrlKey
-      const isShiftPressed = this.editor.inputs.shiftKey
-      
-      // Apply angle constraint if Shift is pressed
-      if (isShiftPressed) {
-        offset = this.constrainAngle(offset)
-      }
-      
-      if (isCtrlPressed) {
-        // Ctrl key: create asymmetric handles - only outgoing handle
-        const controlPoint2 = Vec.Add(startPoint, offset)
-        lastPoint.cp1 = undefined // No incoming handle
-        lastPoint.cp2 = { x: controlPoint2.x, y: controlPoint2.y }
-      } else {
-        // Default: symmetric handles
-        const controlPoint1 = Vec.Add(startPoint, Vec.Neg(offset))
-        const controlPoint2 = Vec.Add(startPoint, offset)
-        lastPoint.cp1 = { x: controlPoint1.x, y: controlPoint1.y }
-        lastPoint.cp2 = { x: controlPoint2.x, y: controlPoint2.y }
-      }
-      
-      // Mark that initial drag occurred for first point
-      if (this.points.length === 1) {
-        this.initialDragOccurred = true
-      }
-    } else {
-      // Small drag distance: create corner point (no handles)
-      lastPoint.cp1 = undefined
-      lastPoint.cp2 = undefined
+
+    const handles = computeDragHandles({
+      startPoint,
+      currentPoint,
+      dragDistance: this.dragDistance,
+      threshold: this.CORNER_POINT_THRESHOLD,
+      isCtrlPressed: this.editor.inputs.ctrlKey,
+      isShiftPressed: this.editor.inputs.shiftKey,
+      constrainAngle: this.constrainAngle.bind(this)
+    })
+
+    lastPoint.cp1 = handles.cp1 ? { x: handles.cp1.x, y: handles.cp1.y } : undefined
+    lastPoint.cp2 = handles.cp2 ? { x: handles.cp2.x, y: handles.cp2.y } : undefined
+
+    if (handles.hasHandles && this.points.length === 1) {
+      this.initialDragOccurred = true
     }
   }
 

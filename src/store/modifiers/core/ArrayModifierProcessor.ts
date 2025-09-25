@@ -46,21 +46,20 @@ export class ArrayModifierProcessor {
       }
     }
 
-    // Calculate bounds from all instances
-    let minX = Infinity, maxX = -Infinity
-    let minY = Infinity, maxY = -Infinity
+    let minX = Infinity
+    let maxX = -Infinity
+    let minY = Infinity
+    let maxY = -Infinity
+
+    const halfWidth = shapeBounds.width / 2
+    const halfHeight = shapeBounds.height / 2
 
     instances.forEach(instance => {
-      const { x, y } = instance.transform.point()
-      const instanceMinX = x
-      const instanceMaxX = x + shapeBounds.width
-      const instanceMinY = y
-      const instanceMaxY = y + shapeBounds.height
-
-      minX = Math.min(minX, instanceMinX)
-      maxX = Math.max(maxX, instanceMaxX)
-      minY = Math.min(minY, instanceMinY)
-      maxY = Math.max(maxY, instanceMaxY)
+      const bounds = this.getInstanceBounds(instance, halfWidth, halfHeight)
+      minX = Math.min(minX, bounds.minX)
+      maxX = Math.max(maxX, bounds.maxX)
+      minY = Math.min(minY, bounds.minY)
+      maxY = Math.max(maxY, bounds.maxY)
     })
 
     const width = maxX - minX
@@ -71,6 +70,38 @@ export class ArrayModifierProcessor {
     return {
       center: { x: centerX, y: centerY },
       bounds: { width, height }
+    }
+  }
+
+  /**
+   * Calculate the axis-aligned bounds for a virtual instance, accounting for rotation & scale.
+   */
+  private static getInstanceBounds(
+    instance: VirtualInstance,
+    halfWidth: number,
+    halfHeight: number
+  ): { minX: number; maxX: number; minY: number; maxY: number } {
+    const decomposed = instance.transform.decomposed()
+    const scaleX = (instance.metadata.targetScaleX as number) ?? decomposed.scaleX ?? 1
+    const scaleY = (instance.metadata.targetScaleY as number) ?? decomposed.scaleY ?? 1
+    const rotation = (instance.metadata.targetRotation as number) ?? decomposed.rotation ?? 0
+
+    const scaledHalfWidth = Math.abs(halfWidth * scaleX)
+    const scaledHalfHeight = Math.abs(halfHeight * scaleY)
+
+    const cos = Math.abs(Math.cos(rotation))
+    const sin = Math.abs(Math.sin(rotation))
+
+    const extentX = scaledHalfWidth * cos + scaledHalfHeight * sin
+    const extentY = scaledHalfWidth * sin + scaledHalfHeight * cos
+
+    const center = Mat.applyToPoint(instance.transform, { x: halfWidth, y: halfHeight })
+
+    return {
+      minX: center.x - extentX,
+      maxX: center.x + extentX,
+      minY: center.y - extentY,
+      maxY: center.y + extentY
     }
   }
 
