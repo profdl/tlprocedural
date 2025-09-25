@@ -14,38 +14,45 @@ export function generateBezierThumbnailSvg(points: BezierPoint[], isClosed: bool
   const { normalizedPoints } = normalizeBezierPointsInternal(points)
   const bounds = BezierBounds.getAccurateBounds(normalizedPoints, isClosed)
 
-  if (bounds.width === 0 || bounds.height === 0) {
+  const width = Math.max(0, bounds.maxX - bounds.minX)
+  const height = Math.max(0, bounds.maxY - bounds.minY)
+
+  if (width === 0 || height === 0 || Number.isNaN(width) || Number.isNaN(height)) {
     // Fallback for degenerate shapes - use standard 24x24 viewBox
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/></svg>`
   }
 
   // Scale and center the bezier path to fit within a 24x24 viewBox (with padding)
   const padding = 2
-  const targetSize = 24 - (padding * 2) // 20x20 drawing area within 24x24 viewBox
+  const targetSize = 24 - padding * 2 // 20x20 drawing area within 24x24 viewBox
 
   // Calculate scale factors to fit the shape in the target area
-  const scaleX = bounds.width > 0 ? targetSize / bounds.width : 1
-  const scaleY = bounds.height > 0 ? targetSize / bounds.height : 1
+  const scaleX = width > 0 ? targetSize / width : 1
+  const scaleY = height > 0 ? targetSize / height : 1
   const scale = Math.min(scaleX, scaleY) // Use uniform scaling to preserve aspect ratio
 
   // Calculate centering offsets
-  const scaledWidth = bounds.width * scale
-  const scaledHeight = bounds.height * scale
-  const offsetX = padding + (targetSize - scaledWidth) / 2
-  const offsetY = padding + (targetSize - scaledHeight) / 2
+  const scaledWidth = width * scale
+  const scaledHeight = height * scale
+  const offsetX = padding + (targetSize - scaledWidth) / 2 - bounds.minX * scale
+  const offsetY = padding + (targetSize - scaledHeight) / 2 - bounds.minY * scale
 
   // Transform the points to fit the 24x24 viewBox
   const transformedPoints = normalizedPoints.map(point => ({
     x: point.x * scale + offsetX,
     y: point.y * scale + offsetY,
-    cp1: point.cp1 ? {
-      x: point.cp1.x * scale + offsetX,
-      y: point.cp1.y * scale + offsetY
-    } : undefined,
-    cp2: point.cp2 ? {
-      x: point.cp2.x * scale + offsetX,
-      y: point.cp2.y * scale + offsetY
-    } : undefined
+    cp1: point.cp1
+      ? {
+          x: point.cp1.x * scale + offsetX,
+          y: point.cp1.y * scale + offsetY
+        }
+      : undefined,
+    cp2: point.cp2
+      ? {
+          x: point.cp2.x * scale + offsetX,
+          y: point.cp2.y * scale + offsetY
+        }
+      : undefined
   }))
 
   const pathData = bezierPointsToPath(transformedPoints, isClosed)

@@ -3,7 +3,7 @@ import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import type { Editor, TLShapeId } from 'tldraw'
 import { useCustomShapes } from './hooks/useCustomShapes'
 import { useCustomShapeInstances } from './hooks/useCustomShapeInstances'
-import { bezierShapeToCustomTrayItem } from './utils/bezierToCustomShape'
+import { bezierShapeToCustomTrayItem, generateBezierThumbnailSvg } from './utils/bezierToCustomShape'
 import { combineShapesToCustom } from './utils/multiShapeToCustomShape'
 import type { BezierShape } from './shapes/BezierShape'
 
@@ -231,6 +231,24 @@ export function DragAndDropTray() {
     } else {
       // For multiple shapes or non-bezier shapes, use the multi-shape converter
       customTrayItem = combineShapesToCustom(validSelectedShapes, editor)
+    }
+
+    if (!customTrayItem.iconSvg || customTrayItem.iconSvg.trim().length === 0) {
+      if (customTrayItem.shapeType === 'bezier') {
+        const bezierDefaults = customTrayItem.defaultProps as Partial<BezierShape['props']> | undefined
+        const points = bezierDefaults?.points
+        if (Array.isArray(points) && points.length > 0) {
+          customTrayItem = {
+            ...customTrayItem,
+            iconSvg: generateBezierThumbnailSvg(points, !!bezierDefaults?.isClosed)
+          }
+        }
+      } else {
+        customTrayItem = {
+          ...customTrayItem,
+          iconSvg: lucideIcons.polygon
+        }
+      }
     }
 
     // Add to custom shapes and get the ID
