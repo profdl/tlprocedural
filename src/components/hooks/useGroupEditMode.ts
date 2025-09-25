@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useEditor } from 'tldraw'
-import type { Editor, TLShape, TLShapeId } from 'tldraw'
+import type { Editor, TLShapeId } from 'tldraw'
 import { useCustomShapes } from './useCustomShapes'
 
 /**

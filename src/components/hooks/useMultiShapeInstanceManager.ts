@@ -1,12 +1,52 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { useEditor, useValue } from 'tldraw'
 import { useCustomShapeInstances } from './useCustomShapeInstances'
 import { useCustomShapes } from './useCustomShapes'
 import { bezierShapeToCustomTrayItem, normalizeBezierPoints } from '../utils/bezierToCustomShape'
 import { combineShapesToCustom } from '../utils/multiShapeToCustomShape'
 import { BezierBounds } from '../shapes/services/BezierBounds'
-import type { BezierShape, BezierPoint } from '../shapes/BezierShape'
-import type { TLShape } from 'tldraw'
+import type { BezierShape } from '../shapes/BezierShape'
+import type { TLShape, Editor } from 'tldraw'
+
+interface BoundsSnapshot {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+}
+
+interface ShapePosition {
+  x: number
+  y: number
+}
+
+interface TemplateShapeData {
+  type?: TLShape['type']
+  props?: Record<string, unknown>
+  x?: number
+  y?: number
+}
+
+interface TemplateProps {
+  shapes?: TemplateShapeData[]
+  [key: string]: unknown
+}
+
+type ShapeUpdate = Parameters<Editor['updateShapes']>[0][number]
+
+function extractCustomShapeId(shape: TLShape): string | null {
+  const value = shape.meta?.customShapeId
+  return typeof value === 'string' ? value : null
+}
+
+function extractInstanceId(shape: TLShape): string | null {
+  const value = shape.meta?.instanceId
+  return typeof value === 'string' ? value : null
+}
+
+function isMultiShapeTemplate(props: TemplateProps): props is TemplateProps & { shapes: TemplateShapeData[] } {
+  return Array.isArray(props.shapes)
+}
 
 /**
  * Enhanced manager hook that monitors custom shape instance editing for all shape types
@@ -21,16 +61,31 @@ export function useMultiShapeInstanceManager() {
   const editStateRef = useRef<Map<string, boolean>>(new Map())
 
   // Track shape properties to detect live changes during edit mode
-  const shapePropsRef = useRef<Map<string, any>>(new Map())
+  const shapePropsRef = useRef<Map<string, string>>(new Map())
 
   // Track original bounds when editing begins for proper compensation (bezier shapes only)
-  const originalBoundsRef = useRef<Map<string, { minX: number; minY: number; maxX: number; maxY: number }>>(new Map())
+  const originalBoundsRef = useRef<Map<string, BoundsSnapshot>>(new Map())
 
   // Track original instance positions to prevent cumulative compensation
-  const originalInstancePositionsRef = useRef<Map<string, Map<string, { x: number; y: number }>>>(new Map())
+  const originalInstancePositionsRef = useRef<Map<string, Map<string, ShapePosition>>>(new Map())
 
   // Track group edit mode - when true, changes to any shape in a group will sync to all instances
   const groupEditModeRef = useRef<Map<string, boolean>>(new Map())
+
+  const storeOriginalInstancePositions = useCallback((customShapeId: string) => {
+    const instances = getInstancesForCustomShape(customShapeId)
+    const instancePositions = new Map<string, ShapePosition>()
+    instances.forEach(instance => {
+      instancePositions.set(instance.id, { x: instance.x, y: instance.y })
+    })
+    originalInstancePositionsRef.current.set(customShapeId, instancePositions)
+  }, [getInstancesForCustomShape])
+
+  const cleanupShapeTracking = useCallback((shapeId: string, customShapeId: string) => {
+    shapePropsRef.current.delete(shapeId)
+    originalBoundsRef.current.delete(shapeId)
+    originalInstancePositionsRef.current.delete(customShapeId)
+  }, [])
 
   // Monitor all shapes for edit mode changes
   const allShapes = useValue(
@@ -74,9 +129,12 @@ export function useMultiShapeInstanceManager() {
     const parentGroup = parentGroupId ? editor.getShape(parentGroupId) : null
 
     // Check if this is a custom shape group being edited
-    if (parentGroup?.meta?.isMultiShapeGroup && parentGroup?.meta?.customShapeId) {
-      const customShapeId = parentGroup.meta.customShapeId as string
-      const instanceId = parentGroup.meta.instanceId as string
+    if (parentGroup?.meta?.isMultiShapeGroup) {
+      const customShapeId = extractCustomShapeId(parentGroup)
+      const instanceId = extractInstanceId(parentGroup)
+      if (!customShapeId || !instanceId) {
+        return
+      }
 
       console.log(`Detected TLDraw group editing for custom shape: ${customShapeId}`)
 
@@ -85,12 +143,13 @@ export function useMultiShapeInstanceManager() {
       const childShapes = allShapes.filter(shape => shape.parentId === parentGroup.id)
 
       // Update metadata to indicate native group editing is active
-      const updatedShapes = childShapes.map(shape => ({
-        ...shape!,
+      const updatedShapes: ShapeUpdate[] = childShapes.map(shape => ({
+        id: shape.id,
+        type: shape.type,
         meta: {
-          ...shape!.meta,
+          ...shape.meta,
           groupEditMode: true,
-          nativeGroupEdit: true // Flag to distinguish from keyboard shortcut editing
+          nativeGroupEdit: true
         }
       }))
 
@@ -98,7 +157,7 @@ export function useMultiShapeInstanceManager() {
         editor.updateShapes(updatedShapes)
       }
     }
-  }, [editor, isEditingCustomShapeGroup, editingShapeId, allShapes])
+  }, [editor, isEditingCustomShapeGroup, editingShapeId])
 
   // Handle exiting TLDraw's native group editing
   useEffect(() => {
@@ -113,8 +172,9 @@ export function useMultiShapeInstanceManager() {
       console.log('Exiting TLDraw native group editing')
 
       // Clear native group edit flags
-      const updatedShapes = shapesInNativeGroupEdit.map(shape => ({
-        ...shape,
+      const updatedShapes: ShapeUpdate[] = shapesInNativeGroupEdit.map(shape => ({
+        id: shape.id,
+        type: shape.type,
         meta: {
           ...shape.meta,
           groupEditMode: false,
@@ -127,20 +187,20 @@ export function useMultiShapeInstanceManager() {
       // Trigger final synchronization for each custom shape that was being edited
       const customShapeIds = new Set(
         shapesInNativeGroupEdit
-          .map(shape => shape.meta?.customShapeId as string)
-          .filter(Boolean)
+          .map(extractCustomShapeId)
+          .filter((id): id is string => !!id)
       )
 
       customShapeIds.forEach(customShapeId => {
         const representativeShape = shapesInNativeGroupEdit.find(
-          shape => shape.meta?.customShapeId === customShapeId
+          shape => extractCustomShapeId(shape) === customShapeId
         )
         if (representativeShape) {
           handleGroupEditModeExit(representativeShape, customShapeId)
         }
       })
     }
-  }, [editor, isEditingCustomShapeGroup, allShapes])
+  }, [allShapes, editor, handleGroupEditModeExit, isEditingCustomShapeGroup])
 
   useEffect(() => {
     // Process all custom shape instances for state changes
@@ -151,7 +211,10 @@ export function useMultiShapeInstanceManager() {
       }
 
       const shapeId = shape.id
-      const customShapeId = shape.meta?.customShapeId as string
+      const customShapeId = extractCustomShapeId(shape)
+      if (!customShapeId) {
+        return
+      }
       const isInGroupEditMode = shape.meta?.groupEditMode === true
       const isInNativeGroupEdit = shape.meta?.nativeGroupEdit === true
 
@@ -178,12 +241,12 @@ export function useMultiShapeInstanceManager() {
         groupEditModeRef.current.delete(shapeId)
       }
     })
-  }, [allShapes])
+  }, [allShapes, handleBezierShapeChanges, handleGenericShapeChanges])
 
   /**
    * Handle bezier shape changes (existing logic with group edit mode support)
    */
-  const handleBezierShapeChanges = (shape: BezierShape, customShapeId: string, isInGroupEditMode: boolean) => {
+  const handleBezierShapeChanges = useCallback((shape: BezierShape, customShapeId: string, isInGroupEditMode: boolean) => {
     const shapeId = shape.id
     const isInEditMode = shape.props.editMode === true || isInGroupEditMode
     const wasInEditMode = editStateRef.current.get(shapeId) === true
@@ -235,12 +298,12 @@ export function useMultiShapeInstanceManager() {
     if (!wasInEditMode && isInEditMode) {
       initializeShapeTracking(shape, customShapeId)
     }
-  }
+  }, [cleanupShapeTracking, handleEditModeExit, handleGroupEditModeExit, handleGroupLivePropertyChange, handleLivePropertyChange, initializeShapeTracking])
 
   /**
    * Handle generic shape changes (non-bezier shapes in group edit mode)
    */
-  const handleGenericShapeChanges = (shape: TLShape, customShapeId: string, isInGroupEditMode: boolean) => {
+  const handleGenericShapeChanges = useCallback((shape: TLShape, customShapeId: string, isInGroupEditMode: boolean) => {
     if (!isInGroupEditMode) return
 
     const shapeId = shape.id
@@ -279,16 +342,16 @@ export function useMultiShapeInstanceManager() {
     if (!wasInEditMode && isInGroupEditMode) {
       initializeShapeTracking(shape, customShapeId)
     }
-  }
+  }, [cleanupShapeTracking, handleGroupEditModeExit, handleGroupLivePropertyChange, initializeShapeTracking])
 
   /**
    * Initialize tracking when a shape enters edit mode
    */
-  const initializeShapeTracking = (shape: TLShape, customShapeId: string) => {
+  const initializeShapeTracking = useCallback((shape: TLShape, customShapeId: string) => {
     const shapeId = shape.id
 
     // Initialize props tracking
-    let initialProps: any
+    let initialProps: string
     if (shape.type === 'bezier') {
       const bezierShape = shape as BezierShape
       initialProps = JSON.stringify({
@@ -318,28 +381,14 @@ export function useMultiShapeInstanceManager() {
     shapePropsRef.current.set(shapeId, initialProps)
 
     // Store original positions of all instances when editing begins
-    const instances = getInstancesForCustomShape(customShapeId)
-    const instancePositions = new Map<string, { x: number; y: number }>()
-    instances.forEach(instance => {
-      instancePositions.set(instance.id, { x: instance.x, y: instance.y })
-    })
-    originalInstancePositionsRef.current.set(customShapeId, instancePositions)
-  }
-
-  /**
-   * Clean up tracking when a shape exits edit mode
-   */
-  const cleanupShapeTracking = (shapeId: string, customShapeId: string) => {
-    shapePropsRef.current.delete(shapeId)
-    originalBoundsRef.current.delete(shapeId)
-    originalInstancePositionsRef.current.delete(customShapeId)
-  }
+    storeOriginalInstancePositions(customShapeId)
+  }, [storeOriginalInstancePositions])
 
   /**
    * Handle live property changes for bezier shapes (existing logic)
    */
-  const handleLivePropertyChange = (shape: BezierShape) => {
-    const customShapeId = shape.meta?.customShapeId as string
+  const handleLivePropertyChange = useCallback((shape: BezierShape) => {
+    const customShapeId = extractCustomShapeId(shape)
     if (!customShapeId) return
 
     const customShape = getCustomShape(customShapeId)
@@ -351,31 +400,25 @@ export function useMultiShapeInstanceManager() {
     console.log(`Live update for bezier custom shape instance: ${customShapeId}`)
 
     try {
-      // Get original bounds that were stored when editing began
       const originalBounds = originalBoundsRef.current.get(shape.id)
       if (!originalBounds) {
         console.warn('No original bounds found for shape', shape.id)
         return
       }
 
-      // Calculate current bounds from the edited points
       const currentBounds = BezierBounds.getAccurateBounds(shape.props.points, shape.props.isClosed)
 
-      // Calculate the bounds offset from original to current
       const boundsOffset = {
         x: currentBounds.minX - originalBounds.minX,
         y: currentBounds.minY - originalBounds.minY
       }
 
-      // Normalize the points to ensure they're relative to the shape's origin
       const { normalizedPoints } = normalizeBezierPoints(shape.props.points)
 
-      // Calculate bounds from normalized points for consistent sizing
       const normalizedBounds = BezierBounds.getAccurateBounds(normalizedPoints, shape.props.isClosed)
       const w = Math.max(1, normalizedBounds.maxX - normalizedBounds.minX)
       const h = Math.max(1, normalizedBounds.maxY - normalizedBounds.minY)
 
-      // Create properties update from the currently edited shape
       const liveProps = {
         w,
         h,
@@ -391,28 +434,81 @@ export function useMultiShapeInstanceManager() {
         hoverSegmentIndex: undefined
       }
 
-      // Update all OTHER instances (not the one being edited)
       const allInstances = getInstancesForCustomShape(customShapeId)
       const otherInstances = allInstances.filter(instance => instance.id !== shape.id)
 
       if (otherInstances.length > 0) {
-        // Apply position compensation during live editing
         const originalPositions = originalInstancePositionsRef.current.get(customShapeId)
-        updateAllInstances(customShapeId, {
-          props: liveProps
-        }, shape.id, boundsOffset, originalPositions)
+        updateAllInstances(customShapeId, { props: liveProps }, shape.id, boundsOffset, originalPositions)
       }
 
       console.log(`Live updated other bezier instances for: ${customShapeId}`)
     } catch (error) {
       console.error(`Failed to live update bezier custom shape ${customShapeId}:`, error)
     }
-  }
+  }, [getCustomShape, getInstancesForCustomShape, updateAllInstances])
 
   /**
    * Handle live property changes for group edit mode (multi-shape or any shape type)
    */
-  const handleGroupLivePropertyChange = (shape: TLShape, customShapeId: string) => {
+  const createUpdatedTemplateFromGroup = useCallback((groupShapes: TLShape[], label: string) => {
+    if (groupShapes.length === 1 && groupShapes[0].type === 'bezier') {
+      return bezierShapeToCustomTrayItem(groupShapes[0] as BezierShape, label)
+    }
+
+    return combineShapesToCustom(groupShapes, editor, label)
+  }, [editor])
+
+  const updateInstanceGroupFromTemplate = useCallback((instanceShapes: TLShape[], templateProps: TemplateProps) => {
+    const updates: ShapeUpdate[] = []
+
+    if (!isMultiShapeTemplate(templateProps)) {
+      if (instanceShapes.length === 1) {
+        const shape = instanceShapes[0]
+        const singleShapeTemplate: Record<string, unknown> = { ...templateProps }
+        delete singleShapeTemplate.shapes
+        updates.push({
+          id: shape.id,
+          type: shape.type,
+          props: {
+            ...shape.props,
+            ...singleShapeTemplate
+          }
+        })
+      }
+    } else {
+      templateProps.shapes.forEach((templateShape, index) => {
+        const instanceShape = instanceShapes[index]
+        if (!instanceShape) return
+
+        const update: ShapeUpdate = {
+          id: instanceShape.id,
+          type: instanceShape.type
+        }
+
+        if (templateShape.props) {
+          update.props = {
+            ...instanceShape.props,
+            ...templateShape.props
+          }
+        }
+
+        const templateX = typeof templateShape.x === 'number' ? templateShape.x : 0
+        const templateY = typeof templateShape.y === 'number' ? templateShape.y : 0
+
+        update.x = instanceShape.x + templateX
+        update.y = instanceShape.y + templateY
+
+        updates.push(update)
+      })
+    }
+
+    if (updates.length > 0) {
+      editor.updateShapes(updates)
+    }
+  }, [editor])
+
+  const handleGroupLivePropertyChange = useCallback((shape: TLShape, customShapeId: string) => {
     const customShape = getCustomShape(customShapeId)
     if (!customShape) {
       console.warn(`Custom shape definition not found for ID: ${customShapeId}`)
@@ -424,10 +520,14 @@ export function useMultiShapeInstanceManager() {
     try {
       // Get all shapes that belong to this instance group
       const allShapes = editor.getCurrentPageShapes()
-      const instanceId = shape.meta?.instanceId as string
+      const instanceId = extractInstanceId(shape)
+      if (!instanceId) {
+        console.warn('No instance id found for shape during group update')
+        return
+      }
       const groupShapes = allShapes.filter(s =>
-        s.meta?.customShapeId === customShapeId &&
-        s.meta?.instanceId === instanceId &&
+        extractCustomShapeId(s) === customShapeId &&
+        extractInstanceId(s) === instanceId &&
         s.meta?.groupEditMode === true
       )
 
@@ -449,89 +549,31 @@ export function useMultiShapeInstanceManager() {
       const allInstances = getInstancesForCustomShape(customShapeId)
       const otherInstanceIds = new Set(
         allInstances
-          .filter(instance => instance.meta?.instanceId !== instanceId)
-          .map(instance => instance.meta?.instanceId as string)
+          .map(instance => extractInstanceId(instance))
+          .filter((id): id is string => !!id && id !== instanceId)
       )
 
       // For each other instance, update all its shapes
       otherInstanceIds.forEach(otherInstanceId => {
         const otherInstanceShapes = allShapes.filter(s =>
-          s.meta?.customShapeId === customShapeId &&
-          s.meta?.instanceId === otherInstanceId
+          extractCustomShapeId(s) === customShapeId &&
+          extractInstanceId(s) === otherInstanceId
         )
 
-        updateInstanceGroupFromTemplate(otherInstanceShapes, updatedTemplateData.defaultProps, customShapeId)
+        updateInstanceGroupFromTemplate(otherInstanceShapes, updatedTemplateData.defaultProps)
       })
 
       console.log(`Group live updated other instances for: ${customShapeId}`)
     } catch (error) {
       console.error(`Failed to group live update custom shape ${customShapeId}:`, error)
     }
-  }
-
-  /**
-   * Create updated template data from the current group state
-   */
-  const createUpdatedTemplateFromGroup = (groupShapes: TLShape[], label: string) => {
-    if (groupShapes.length === 1 && groupShapes[0].type === 'bezier') {
-      // Single bezier shape
-      return bezierShapeToCustomTrayItem(groupShapes[0] as BezierShape, label)
-    } else {
-      // Multi-shape group
-      return combineShapesToCustom(groupShapes, editor, label)
-    }
-  }
-
-  /**
-   * Update an instance group from the template data
-   */
-  const updateInstanceGroupFromTemplate = (instanceShapes: TLShape[], templateProps: any, customShapeId: string) => {
-    if (!templateProps.shapes) {
-      // Single shape template
-      if (instanceShapes.length === 1) {
-        const shape = instanceShapes[0]
-        const updatedShape = {
-          ...shape,
-          props: {
-            ...shape.props,
-            ...templateProps
-          }
-        }
-        editor.updateShape(updatedShape)
-      }
-    } else {
-      // Multi-shape template
-      const templateShapes = templateProps.shapes as TLShape[]
-
-      // Match instance shapes to template shapes by type and index
-      templateShapes.forEach((templateShape, index) => {
-        const instanceShape = instanceShapes.find(s =>
-          s.type === templateShape.type
-          // Could add more sophisticated matching logic here
-        )
-
-        if (instanceShape) {
-          const updatedShape = {
-            ...instanceShape,
-            props: {
-              ...instanceShape.props,
-              ...templateShape.props
-            },
-            // Maintain instance position but update relative positioning if needed
-            x: instanceShape.x + (templateShape.x || 0),
-            y: instanceShape.y + (templateShape.y || 0)
-          }
-          editor.updateShape(updatedShape)
-        }
-      })
-    }
-  }
+  }, [createUpdatedTemplateFromGroup, editor, getCustomShape, getInstancesForCustomShape, updateCustomShape, updateInstanceGroupFromTemplate])
 
   /**
    * Handle edit mode exit for bezier shapes (existing logic)
    */
-  const handleEditModeExit = (shape: BezierShape) => {
-    const customShapeId = shape.meta?.customShapeId as string
+  const handleEditModeExit = useCallback((shape: BezierShape) => {
+    const customShapeId = extractCustomShapeId(shape)
     if (!customShapeId) return
 
     const customShape = getCustomShape(customShapeId)
@@ -543,50 +585,49 @@ export function useMultiShapeInstanceManager() {
     console.log(`Edit mode ended for bezier custom shape instance: ${customShapeId}`)
 
     try {
-      // Convert the edited shape back to a custom tray item format
       const updatedCustomShape = bezierShapeToCustomTrayItem(shape, customShape.label)
 
-      // Update the custom shape definition
       updateCustomShape(customShapeId, {
         iconSvg: updatedCustomShape.iconSvg,
         defaultProps: updatedCustomShape.defaultProps
       })
 
-      // Update all other instances with the new properties
       const allInstances = getInstancesForCustomShape(customShapeId)
       const otherInstances = allInstances.filter(instance => instance.id !== shape.id)
 
       if (otherInstances.length > 0) {
-        updateAllInstances(customShapeId, {
-          props: updatedCustomShape.defaultProps
-        }, shape.id)
+        updateAllInstances(customShapeId, { props: updatedCustomShape.defaultProps }, shape.id)
       }
 
       console.log(`Updated bezier custom shape definition and all instances for: ${customShapeId}`)
     } catch (error) {
       console.error(`Failed to update bezier custom shape ${customShapeId}:`, error)
     }
-  }
+  }, [getCustomShape, getInstancesForCustomShape, updateAllInstances, updateCustomShape])
 
   /**
    * Handle group edit mode exit (multi-shape or any shape type)
    */
-  const handleGroupEditModeExit = (shape: TLShape, customShapeId: string) => {
+  const handleGroupEditModeExit = useCallback((shape: TLShape, customShapeId: string) => {
     const customShape = getCustomShape(customShapeId)
     if (!customShape) {
       console.warn(`Custom shape definition not found for ID: ${customShapeId}`)
       return
     }
 
+    const instanceId = extractInstanceId(shape)
+    if (!instanceId) {
+      console.warn('No instance id found for shape during group exit')
+      return
+    }
+
     console.log(`Group edit mode ended for custom shape instance: ${customShapeId}`)
 
     try {
-      // Get all shapes that were in this group edit session
       const allShapes = editor.getCurrentPageShapes()
-      const instanceId = shape.meta?.instanceId as string
       const groupShapes = allShapes.filter(s =>
-        s.meta?.customShapeId === customShapeId &&
-        s.meta?.instanceId === instanceId
+        extractCustomShapeId(s) === customShapeId &&
+        extractInstanceId(s) === instanceId
       )
 
       if (groupShapes.length === 0) {
@@ -594,37 +635,34 @@ export function useMultiShapeInstanceManager() {
         return
       }
 
-      // Create the final updated template
       const updatedTemplateData = createUpdatedTemplateFromGroup(groupShapes, customShape.label)
 
-      // Update the custom shape definition
       updateCustomShape(customShapeId, {
         iconSvg: updatedTemplateData.iconSvg,
         defaultProps: updatedTemplateData.defaultProps
       })
 
-      // Update all other instances with the final group structure
       const allInstances = getInstancesForCustomShape(customShapeId)
       const otherInstanceIds = new Set(
         allInstances
-          .filter(instance => instance.meta?.instanceId !== instanceId)
-          .map(instance => instance.meta?.instanceId as string)
+          .map(instance => extractInstanceId(instance))
+          .filter((id): id is string => !!id && id !== instanceId)
       )
 
       otherInstanceIds.forEach(otherInstanceId => {
         const otherInstanceShapes = allShapes.filter(s =>
-          s.meta?.customShapeId === customShapeId &&
-          s.meta?.instanceId === otherInstanceId
+          extractCustomShapeId(s) === customShapeId &&
+          extractInstanceId(s) === otherInstanceId
         )
 
-        updateInstanceGroupFromTemplate(otherInstanceShapes, updatedTemplateData.defaultProps, customShapeId)
+        updateInstanceGroupFromTemplate(otherInstanceShapes, updatedTemplateData.defaultProps)
       })
 
       console.log(`Updated custom shape definition and all instances after group edit: ${customShapeId}`)
     } catch (error) {
       console.error(`Failed to update custom shape after group edit ${customShapeId}:`, error)
     }
-  }
+  }, [createUpdatedTemplateFromGroup, editor, getCustomShape, getInstancesForCustomShape, updateCustomShape, updateInstanceGroupFromTemplate])
 
   return {
     // Expose some utilities if needed

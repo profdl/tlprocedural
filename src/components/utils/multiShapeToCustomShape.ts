@@ -1,6 +1,7 @@
 import type { TLShape, Editor } from 'tldraw'
 import type { CustomTrayItem } from '../hooks/useCustomShapes'
-import type { BezierShape, BezierPoint } from '../shapes/BezierShape'
+import type { BezierShape } from '../shapes/BezierShape'
+import type { PolygonShape } from '../shapes/PolygonShape'
 import { bezierPointsToPath } from './bezierToCustomShape'
 
 /**
@@ -35,11 +36,11 @@ export function combineShapesToCustom(
       w: Math.max(combinedBounds.width, 50), // Minimum size for usability
       h: Math.max(combinedBounds.height, 50),
       shapes: shapes.map(shape => {
-        // Remove the ID to prevent conflicts when creating instances
-        const { id, ...shapeWithoutId } = shape
+        const shapeWithoutId = { ...shape }
+        delete (shapeWithoutId as { id?: TLShape['id'] }).id
+
         return {
           ...shapeWithoutId,
-          // Store relative position within the combined bounds
           x: shape.x - combinedBounds.x,
           y: shape.y - combinedBounds.y
         }
@@ -218,7 +219,8 @@ function convertCircleToPath(width: number, height: number): string {
  * Convert polygon to SVG path
  */
 function convertPolygonToPath(shape: TLShape, width: number, height: number): string {
-  const sides = (shape.props as any).sides || 6
+  const polygon = shape as PolygonShape
+  const sides = typeof polygon.props?.sides === 'number' ? polygon.props.sides : 6
   const centerX = width / 2
   const centerY = height / 2
   const radius = Math.min(width, height) / 2

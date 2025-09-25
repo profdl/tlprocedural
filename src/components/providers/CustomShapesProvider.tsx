@@ -1,27 +1,10 @@
-import React, { createContext, useState, useEffect, useCallback, ReactNode } from 'react'
+import React, { useState, useEffect, useCallback, type ReactNode } from 'react'
 import { setCustomShapesRegistry } from './CustomShapesRegistry'
-
-export interface CustomTrayItem {
-  id: string
-  label: string
-  iconSvg: string
-  shapeType: string
-  defaultProps: Record<string, unknown>
-  createdAt: number
-  version: number
-  lastModified: number
-}
-
-interface CustomShapesContextType {
-  customShapes: CustomTrayItem[]
-  addCustomShape: (shape: Omit<CustomTrayItem, 'id' | 'createdAt' | 'version' | 'lastModified'>) => string
-  updateCustomShape: (id: string, updates: Partial<Omit<CustomTrayItem, 'id' | 'createdAt' | 'version' | 'lastModified'>>) => void
-  removeCustomShape: (id: string) => void
-  clearCustomShapes: () => void
-  getCustomShape: (id: string) => CustomTrayItem | undefined
-}
-
-export const CustomShapesContext = createContext<CustomShapesContextType | null>(null)
+import {
+  CustomShapesContext,
+  type CustomShapesContextType,
+  type CustomTrayItem
+} from './CustomShapesContext'
 
 const STORAGE_KEY = 'tldraw-custom-shapes'
 

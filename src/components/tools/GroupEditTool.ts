@@ -1,5 +1,14 @@
 import { StateNode, TLClickEventInfo, TLKeyboardEventInfo } from 'tldraw'
+import type { Editor, TLShapeId } from 'tldraw'
 import { getCustomShapeFromRegistry } from '../providers/CustomShapesRegistry'
+
+interface GroupEditState {
+  customShapeId: string
+  instanceShapeId: TLShapeId
+  shapeIds: TLShapeId[]
+}
+
+type ShapeUpdate = Parameters<Editor['updateShapes']>[0][number]
 
 /**
  * Tool for handling group edit mode on custom shape instances
@@ -17,7 +26,8 @@ export class GroupEditTool extends StateNode {
 
     // Check if this is a custom shape instance
     const isCustomShapeInstance = hitShape.meta?.isCustomShapeInstance === true
-    const customShapeId = hitShape.meta?.customShapeId as string
+    const metaCustomShapeId = hitShape.meta?.customShapeId
+    const customShapeId = typeof metaCustomShapeId === 'string' ? metaCustomShapeId : null
 
     if (!isCustomShapeInstance || !customShapeId) {
       return
@@ -45,14 +55,23 @@ export class GroupEditTool extends StateNode {
   /**
    * Enter group edit mode for a multi-shape custom shape instance
    */
-  private enterGroupEditMode(instanceShapeId: string, customShapeId: string) {
+  private enterGroupEditMode(instanceShapeId: TLShapeId, customShapeId: string) {
     const editor = this.editor
 
     // Find all shapes that belong to this custom shape instance
     const allShapes = editor.getCurrentPageShapes()
+    const representativeShape = allShapes.find(shape => shape.id === instanceShapeId)
+    const instanceId = typeof representativeShape?.meta?.instanceId === 'string'
+      ? representativeShape.meta.instanceId
+      : null
+
+    if (!instanceId) {
+      console.warn('No instance metadata found for shape:', instanceShapeId)
+      return
+    }
+
     const instanceShapes = allShapes.filter(shape =>
-      shape.meta?.customShapeId === customShapeId &&
-      shape.meta?.instanceId === allShapes.find(s => s.id === instanceShapeId)?.meta?.instanceId
+      shape.meta?.customShapeId === customShapeId && shape.meta?.instanceId === instanceId
     )
 
     if (instanceShapes.length === 0) {
@@ -61,8 +80,9 @@ export class GroupEditTool extends StateNode {
     }
 
     // Update metadata to indicate group edit mode
-    const shapeUpdates = instanceShapes.map(shape => ({
-      ...shape,
+    const shapeUpdates: ShapeUpdate[] = instanceShapes.map(shape => ({
+      id: shape.id,
+      type: shape.type,
       meta: {
         ...shape.meta,
         groupEditMode: true,
@@ -77,7 +97,8 @@ export class GroupEditTool extends StateNode {
     }, { history: 'record-preserveRedoStack' })
 
     // Store the current group edit state
-    this.setGroupEditState(customShapeId, instanceShapeId, instanceShapes.map(s => s.id))
+    const shapeIds = instanceShapes.map(shape => shape.id as TLShapeId)
+    this.setGroupEditState(customShapeId, instanceShapeId, shapeIds)
 
     console.log('Entered group edit mode for custom shape:', customShapeId)
   }
@@ -92,23 +113,26 @@ export class GroupEditTool extends StateNode {
       return
     }
 
-    const { customShapeId, instanceShapeId, shapeIds } = groupEditState
+    const { customShapeId, shapeIds } = groupEditState
     const editor = this.editor
 
     // Update metadata to exit group edit mode
-    const shapeUpdates = shapeIds.map(shapeId => {
-      const shape = editor.getShape(shapeId)
-      if (!shape) return null
+    const shapeUpdates: ShapeUpdate[] = []
 
-      return {
-        ...shape,
+    shapeIds.forEach(shapeId => {
+      const shape = editor.getShape(shapeId)
+      if (!shape) return
+
+      shapeUpdates.push({
+        id: shape.id,
+        type: shape.type,
         meta: {
           ...shape.meta,
           groupEditMode: false,
           groupEditInstanceId: undefined
         }
-      }
-    }).filter(Boolean)
+      })
+    })
 
     if (shapeUpdates.length > 0) {
       editor.run(() => {
@@ -127,24 +151,26 @@ export class GroupEditTool extends StateNode {
   /**
    * Store group edit state in the editor's instance state
    */
-  private setGroupEditState(customShapeId: string, instanceShapeId: string, shapeIds: string[]) {
+  private setGroupEditState(customShapeId: string, instanceShapeId: TLShapeId, shapeIds: TLShapeId[]) {
     const instanceState = this.editor.getInstanceState()
+    const nextState: GroupEditState = {
+      customShapeId,
+      instanceShapeId,
+      shapeIds
+    }
+
     this.editor.updateInstanceState({
       ...instanceState,
-      groupEditState: {
-        customShapeId,
-        instanceShapeId,
-        shapeIds
-      }
+      groupEditState: nextState
     })
   }
 
   /**
    * Get the current group edit state
    */
-  private getGroupEditState() {
-    const instanceState = this.editor.getInstanceState()
-    return (instanceState as any).groupEditState || null
+  private getGroupEditState(): GroupEditState | null {
+    const instanceState = this.editor.getInstanceState() as unknown as { groupEditState?: GroupEditState | null }
+    return instanceState.groupEditState ?? null
   }
 
   /**

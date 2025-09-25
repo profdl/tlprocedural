@@ -1,10 +1,12 @@
 import { useEditor, useValue } from 'tldraw'
 import { useGroupEditMode } from './hooks/useGroupEditMode'
-import type { TLShape, Box } from 'tldraw'
+import type { Editor, TLShape, TLShapeId } from 'tldraw'
+
+type ShapeBounds = NonNullable<ReturnType<Editor['getShapePageBounds']>>
 
 interface ShapeInEdit {
-  id: string
-  bounds: Box
+  id: TLShapeId
+  bounds: ShapeBounds
   shape: TLShape
 }
 
@@ -68,7 +70,7 @@ export function GroupEditIndicator() {
       {shapesInGroupEdit.map(({ id, bounds }) => {
         // Convert page bounds to screen coordinates
         const topLeft = editor.pageToScreen({ x: bounds.x, y: bounds.y })
-        const bottomRight = editor.pageToScreen({ x: bounds.x + bounds.width, y: bounds.y + bounds.height })
+        const bottomRight = editor.pageToScreen({ x: bounds.x + bounds.w, y: bounds.y + bounds.h })
 
         return (
           <div

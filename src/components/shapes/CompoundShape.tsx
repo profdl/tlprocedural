@@ -1,4 +1,5 @@
-import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLShapeId } from 'tldraw'
+import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLShapeId, type TLShape } from 'tldraw'
+import type { BezierPoint } from './BezierShape'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 
 /**
@@ -11,6 +12,41 @@ export interface ChildShapeData {
   relativeY: number
   relativeRotation: number // Rotation relative to compound shape
   props: Record<string, unknown> // Shape-specific properties
+}
+
+interface DrawPoint {
+  x: number
+  y: number
+}
+
+interface DrawSegment {
+  points: DrawPoint[]
+}
+
+function isPointArray(value: unknown): value is DrawPoint[] {
+  return Array.isArray(value) && value.every(point =>
+    point &&
+    typeof point === 'object' &&
+    typeof (point as Partial<DrawPoint>).x === 'number' &&
+    typeof (point as Partial<DrawPoint>).y === 'number'
+  )
+}
+
+function isDrawSegmentArray(value: unknown): value is DrawSegment[] {
+  return Array.isArray(value) && value.every(segment =>
+    segment &&
+    typeof segment === 'object' &&
+    isPointArray((segment as Partial<DrawSegment>).points)
+  )
+}
+
+function isBezierPointArray(value: unknown): value is BezierPoint[] {
+  return Array.isArray(value) && value.every(point =>
+    point &&
+    typeof point === 'object' &&
+    typeof (point as Partial<BezierPoint>).x === 'number' &&
+    typeof (point as Partial<BezierPoint>).y === 'number'
+  )
 }
 
 /**
@@ -63,7 +99,7 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
   }
 
   override component(shape: CompoundShape) {
-    const { w, h, color, fillColor, strokeWidth, fill, childShapes, boundingBoxVisible } = shape.props
+    const { w, h, color, strokeWidth, childShapes, boundingBoxVisible } = shape.props
 
     // Get flip transform from the FlippableShapeUtil
     const flipTransform = this.getFlipTransform(shape)
@@ -147,18 +183,17 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
 
   private renderDrawShape(props: Record<string, unknown>): JSX.Element {
     const { segments, color, strokeWidth } = props
-    if (!segments || !Array.isArray(segments)) {
-      return <g /> // Empty group for invalid draw shape
+    if (!isDrawSegmentArray(segments)) {
+      return <g />
     }
 
-    // Convert draw segments to path data
     let pathData = ''
-    segments.forEach((segment: any, index: number) => {
-      if (segment.points && segment.points.length > 0) {
-        const firstPoint = segment.points[0]
+    segments.forEach((segment, index) => {
+      if (segment.points.length > 0) {
+        const [firstPoint, ...remainingPoints] = segment.points
         pathData += `${index === 0 ? 'M' : 'L'} ${firstPoint.x} ${firstPoint.y}`
 
-        segment.points.slice(1).forEach((point: any) => {
+        remainingPoints.forEach(point => {
           pathData += ` L ${point.x} ${point.y}`
         })
       }
@@ -216,13 +251,11 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
   private renderPolygonShape(props: Record<string, unknown>): JSX.Element {
     const { points, color, fillColor, fill, strokeWidth } = props
 
-    if (!points || !Array.isArray(points)) {
-      return <g /> // Empty group for invalid polygon
+    if (!isPointArray(points)) {
+      return <g />
     }
 
-    const pointsString = (points as Array<{ x: number; y: number }>)
-      .map(p => `${p.x},${p.y}`)
-      .join(' ')
+    const pointsString = points.map(p => `${p.x},${p.y}`).join(' ')
 
     return (
       <polygon
@@ -237,13 +270,12 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
   private renderBezierShape(props: Record<string, unknown>): JSX.Element {
     const { points, color, fillColor, fill, strokeWidth, isClosed } = props
 
-    if (!points || !Array.isArray(points)) {
-      return <g /> // Empty group for invalid bezier
+    if (!isBezierPointArray(points)) {
+      return <g />
     }
 
-    // Convert bezier points to path data
     let pathData = ''
-    (points as Array<any>).forEach((point, index) => {
+    points.forEach((point, index) => {
       if (index === 0) {
         pathData += `M ${point.x} ${point.y}`
       } else {
@@ -274,23 +306,26 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
   }
 
   private renderFallbackShape(props: Record<string, unknown>): JSX.Element {
-    const { w = 50, h = 50, color = '#999', strokeWidth = 1 } = props
+    const width = typeof props.w === 'number' ? props.w : 50
+    const height = typeof props.h === 'number' ? props.h : 50
+    const strokeColor = typeof props.color === 'string' ? props.color : '#999'
+    const stroke = typeof props.strokeWidth === 'number' ? props.strokeWidth : 1
 
     // Render a simple rectangle with an X for unknown shapes
     return (
       <g>
         <rect
-          width={w as number}
-          height={h as number}
+          width={width}
+          height={height}
           fill="none"
-          stroke={color as string}
-          strokeWidth={strokeWidth as number}
+          stroke={strokeColor}
+          strokeWidth={stroke}
           strokeDasharray="2,2"
         />
         <path
-          d={`M 0 0 L ${w} ${h} M ${w} 0 L 0 ${h}`}
-          stroke={color as string}
-          strokeWidth={(strokeWidth as number) / 2}
+          d={`M 0 0 L ${width} ${height} M ${width} 0 L 0 ${height}`}
+          stroke={strokeColor}
+          strokeWidth={stroke / 2}
           opacity={0.5}
         />
       </g>
@@ -300,15 +335,17 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
   /**
    * Create compound shape from multiple selected shapes
    */
-  static createFromShapes(shapes: Array<{ shape: any; relativePosition: { x: number; y: number } }>): Omit<CompoundShape['props'], keyof typeof FlippableShapeUtil.prototype.getCommonDefaultProps> {
+  static createFromShapes(shapes: Array<{ shape: TLShape; relativePosition: { x: number; y: number } }>): Pick<CompoundShape['props'], 'w' | 'h' | 'childShapes' | 'boundingBoxVisible'> {
     // Calculate overall bounds
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
 
     shapes.forEach(({ shape, relativePosition }) => {
       const shapeMinX = relativePosition.x
       const shapeMinY = relativePosition.y
-      const shapeMaxX = relativePosition.x + (shape.props?.w || 0)
-      const shapeMaxY = relativePosition.y + (shape.props?.h || 0)
+      const shapeWidth = typeof shape.props?.w === 'number' ? shape.props.w : 0
+      const shapeHeight = typeof shape.props?.h === 'number' ? shape.props.h : 0
+      const shapeMaxX = relativePosition.x + shapeWidth
+      const shapeMaxY = relativePosition.y + shapeHeight
 
       minX = Math.min(minX, shapeMinX)
       minY = Math.min(minY, shapeMinY)
@@ -325,8 +362,8 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
       type: shape.type,
       relativeX: relativePosition.x - minX,
       relativeY: relativePosition.y - minY,
-      relativeRotation: shape.rotation || 0,
-      props: shape.props || {}
+      relativeRotation: shape.rotation ?? 0,
+      props: shape.props ?? {}
     }))
 
     return {

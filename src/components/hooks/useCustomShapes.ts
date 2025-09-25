@@ -1,5 +1,5 @@
 import { useContext } from 'react'
-import { CustomShapesContext, type CustomTrayItem } from '../providers/CustomShapesProvider'
+import { CustomShapesContext, type CustomTrayItem } from '../providers/CustomShapesContext'
 
 export { type CustomTrayItem }
 
