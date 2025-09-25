@@ -159,191 +159,6 @@ export function useMultiShapeInstanceManager() {
     }
   }, [editor, isEditingCustomShapeGroup, editingShapeId])
 
-  // Handle exiting TLDraw's native group editing
-  useEffect(() => {
-    if (isEditingCustomShapeGroup) return // Still editing
-
-    // Find any shapes that were in native group edit mode and clean them up
-    const shapesInNativeGroupEdit = allShapes.filter(shape =>
-      shape.meta?.nativeGroupEdit === true
-    )
-
-    if (shapesInNativeGroupEdit.length > 0) {
-      console.log('Exiting TLDraw native group editing')
-
-      // Clear native group edit flags
-      const updatedShapes: ShapeUpdate[] = shapesInNativeGroupEdit.map(shape => ({
-        id: shape.id,
-        type: shape.type,
-        meta: {
-          ...shape.meta,
-          groupEditMode: false,
-          nativeGroupEdit: false
-        }
-      }))
-
-      editor.updateShapes(updatedShapes)
-
-      // Trigger final synchronization for each custom shape that was being edited
-      const customShapeIds = new Set(
-        shapesInNativeGroupEdit
-          .map(extractCustomShapeId)
-          .filter((id): id is string => !!id)
-      )
-
-      customShapeIds.forEach(customShapeId => {
-        const representativeShape = shapesInNativeGroupEdit.find(
-          shape => extractCustomShapeId(shape) === customShapeId
-        )
-        if (representativeShape) {
-          handleGroupEditModeExit(representativeShape, customShapeId)
-        }
-      })
-    }
-  }, [allShapes, editor, handleGroupEditModeExit, isEditingCustomShapeGroup])
-
-  useEffect(() => {
-    // Process all custom shape instances for state changes
-    allShapes.forEach(shape => {
-      // Only handle shapes that are custom shape instances
-      if (!shape.meta?.isCustomShapeInstance) {
-        return
-      }
-
-      const shapeId = shape.id
-      const customShapeId = extractCustomShapeId(shape)
-      if (!customShapeId) {
-        return
-      }
-      const isInGroupEditMode = shape.meta?.groupEditMode === true
-      const isInNativeGroupEdit = shape.meta?.nativeGroupEdit === true
-
-      // Update group edit mode tracking (both custom and native)
-      groupEditModeRef.current.set(shapeId, isInGroupEditMode || isInNativeGroupEdit)
-
-      // Handle different shape types differently
-      if (shape.type === 'bezier') {
-        handleBezierShapeChanges(shape as BezierShape, customShapeId, isInGroupEditMode || isInNativeGroupEdit)
-      } else {
-        handleGenericShapeChanges(shape, customShapeId, isInGroupEditMode || isInNativeGroupEdit)
-      }
-    })
-
-    // Clean up tracking for deleted shapes
-    const currentShapeIds = new Set(allShapes.map(s => s.id))
-    const trackedShapeIds = Array.from(editStateRef.current.keys())
-
-    trackedShapeIds.forEach(shapeId => {
-      if (!currentShapeIds.has(shapeId)) {
-        editStateRef.current.delete(shapeId)
-        shapePropsRef.current.delete(shapeId)
-        originalBoundsRef.current.delete(shapeId)
-        groupEditModeRef.current.delete(shapeId)
-      }
-    })
-  }, [allShapes, handleBezierShapeChanges, handleGenericShapeChanges])
-
-  /**
-   * Handle bezier shape changes (existing logic with group edit mode support)
-   */
-  const handleBezierShapeChanges = useCallback((shape: BezierShape, customShapeId: string, isInGroupEditMode: boolean) => {
-    const shapeId = shape.id
-    const isInEditMode = shape.props.editMode === true || isInGroupEditMode
-    const wasInEditMode = editStateRef.current.get(shapeId) === true
-
-    // Update current edit state
-    editStateRef.current.set(shapeId, isInEditMode)
-
-    // Handle live property changes during edit mode
-    if (isInEditMode) {
-      const currentProps = JSON.stringify({
-        points: shape.props.points,
-        isClosed: shape.props.isClosed,
-        color: shape.props.color,
-        fillColor: shape.props.fillColor,
-        strokeWidth: shape.props.strokeWidth,
-        fill: shape.props.fill,
-        x: shape.x,
-        y: shape.y,
-        rotation: shape.rotation
-      })
-
-      const previousProps = shapePropsRef.current.get(shapeId)
-
-      if (previousProps && previousProps !== currentProps) {
-        // Properties changed during edit mode - update other instances live
-        if (isInGroupEditMode) {
-          handleGroupLivePropertyChange(shape, customShapeId)
-        } else {
-          handleLivePropertyChange(shape)
-        }
-      }
-
-      // Store current props for next comparison
-      shapePropsRef.current.set(shapeId, currentProps)
-    }
-
-    // Detect transition from edit mode to normal mode
-    if (wasInEditMode && !isInEditMode) {
-      if (isInGroupEditMode) {
-        handleGroupEditModeExit(shape, customShapeId)
-      } else {
-        handleEditModeExit(shape)
-      }
-      // Clean up tracking state
-      cleanupShapeTracking(shapeId, customShapeId)
-    }
-
-    // Initialize tracking when entering edit mode
-    if (!wasInEditMode && isInEditMode) {
-      initializeShapeTracking(shape, customShapeId)
-    }
-  }, [cleanupShapeTracking, handleEditModeExit, handleGroupEditModeExit, handleGroupLivePropertyChange, handleLivePropertyChange, initializeShapeTracking])
-
-  /**
-   * Handle generic shape changes (non-bezier shapes in group edit mode)
-   */
-  const handleGenericShapeChanges = useCallback((shape: TLShape, customShapeId: string, isInGroupEditMode: boolean) => {
-    if (!isInGroupEditMode) return
-
-    const shapeId = shape.id
-    const wasInEditMode = editStateRef.current.get(shapeId) === true
-
-    // Update current edit state
-    editStateRef.current.set(shapeId, isInGroupEditMode)
-
-    // Handle live property changes during group edit mode
-    if (isInGroupEditMode) {
-      const currentProps = JSON.stringify({
-        ...shape.props,
-        x: shape.x,
-        y: shape.y,
-        rotation: shape.rotation
-      })
-
-      const previousProps = shapePropsRef.current.get(shapeId)
-
-      if (previousProps && previousProps !== currentProps) {
-        // Properties changed during group edit mode - update other instances
-        handleGroupLivePropertyChange(shape, customShapeId)
-      }
-
-      // Store current props for next comparison
-      shapePropsRef.current.set(shapeId, currentProps)
-    }
-
-    // Detect transition from group edit mode to normal mode
-    if (wasInEditMode && !isInGroupEditMode) {
-      handleGroupEditModeExit(shape, customShapeId)
-      cleanupShapeTracking(shapeId, customShapeId)
-    }
-
-    // Initialize tracking when entering group edit mode
-    if (!wasInEditMode && isInGroupEditMode) {
-      initializeShapeTracking(shape, customShapeId)
-    }
-  }, [cleanupShapeTracking, handleGroupEditModeExit, handleGroupLivePropertyChange, initializeShapeTracking])
-
   /**
    * Initialize tracking when a shape enters edit mode
    */
@@ -663,6 +478,184 @@ export function useMultiShapeInstanceManager() {
       console.error(`Failed to update custom shape after group edit ${customShapeId}:`, error)
     }
   }, [createUpdatedTemplateFromGroup, editor, getCustomShape, getInstancesForCustomShape, updateCustomShape, updateInstanceGroupFromTemplate])
+
+  /**
+   * Handle bezier shape changes (existing logic with group edit mode support)
+   */
+  const handleBezierShapeChanges = useCallback((shape: BezierShape, customShapeId: string, isInGroupEditMode: boolean) => {
+    const shapeId = shape.id
+    const isInEditMode = shape.props.editMode === true || isInGroupEditMode
+    const wasInEditMode = editStateRef.current.get(shapeId) === true
+
+    // Update current edit state
+    editStateRef.current.set(shapeId, isInEditMode)
+
+    // Handle live property changes during edit mode
+    if (isInEditMode) {
+      const currentProps = JSON.stringify({
+        points: shape.props.points,
+        isClosed: shape.props.isClosed,
+        color: shape.props.color,
+        fillColor: shape.props.fillColor,
+        strokeWidth: shape.props.strokeWidth,
+        fill: shape.props.fill,
+        x: shape.x,
+        y: shape.y,
+        rotation: shape.rotation
+      })
+
+      const previousProps = shapePropsRef.current.get(shapeId)
+
+      if (previousProps && previousProps !== currentProps) {
+        // Properties changed during edit mode - update other instances live
+        if (isInGroupEditMode) {
+          handleGroupLivePropertyChange(shape, customShapeId)
+        } else {
+          handleLivePropertyChange(shape)
+        }
+      }
+
+      // Store current props for next comparison
+      shapePropsRef.current.set(shapeId, currentProps)
+    }
+
+    // Detect transition from edit mode to normal mode
+    if (wasInEditMode && !isInEditMode) {
+      if (isInGroupEditMode) {
+        handleGroupEditModeExit(shape, customShapeId)
+      } else {
+        handleEditModeExit(shape)
+      }
+      // Clean up tracking state
+      cleanupShapeTracking(shapeId, customShapeId)
+    }
+
+    // Initialize tracking when entering edit mode
+    if (!wasInEditMode && isInEditMode) {
+      initializeShapeTracking(shape, customShapeId)
+    }
+  }, [cleanupShapeTracking, handleEditModeExit, handleGroupEditModeExit, handleGroupLivePropertyChange, handleLivePropertyChange, initializeShapeTracking])
+
+  /**
+   * Handle generic shape changes (non-bezier shapes in group edit mode)
+   */
+  const handleGenericShapeChanges = useCallback((shape: TLShape, customShapeId: string, isInGroupEditMode: boolean) => {
+    if (!isInGroupEditMode) return
+
+    const shapeId = shape.id
+    const wasInEditMode = editStateRef.current.get(shapeId) === true
+
+    // Update current edit state
+    editStateRef.current.set(shapeId, isInGroupEditMode)
+
+    // Handle live property changes during group edit mode
+    if (isInGroupEditMode) {
+      const currentProps = JSON.stringify({
+        ...shape.props,
+        x: shape.x,
+        y: shape.y,
+        rotation: shape.rotation
+      })
+
+      const previousProps = shapePropsRef.current.get(shapeId)
+
+      if (previousProps && previousProps !== currentProps) {
+        // Properties changed during group edit mode - update other instances
+        handleGroupLivePropertyChange(shape, customShapeId)
+      }
+
+      // Store current props for next comparison
+      shapePropsRef.current.set(shapeId, currentProps)
+    }
+
+    // Detect transition from group edit mode to normal mode
+    if (wasInEditMode && !isInGroupEditMode) {
+      handleGroupEditModeExit(shape, customShapeId)
+      cleanupShapeTracking(shapeId, customShapeId)
+    }
+
+    // Initialize tracking when entering group edit mode
+    if (!wasInEditMode && isInGroupEditMode) {
+      initializeShapeTracking(shape, customShapeId)
+    }
+  }, [cleanupShapeTracking, handleGroupEditModeExit, handleGroupLivePropertyChange, initializeShapeTracking])
+
+  // Process all custom shape instances for state changes and cleanup tracking
+  useEffect(() => {
+    allShapes.forEach(shape => {
+      if (!shape.meta?.isCustomShapeInstance) {
+        return
+      }
+
+      const shapeId = shape.id
+      const customShapeId = extractCustomShapeId(shape)
+      if (!customShapeId) {
+        return
+      }
+      const isInGroupEditMode = shape.meta?.groupEditMode === true
+      const isInNativeGroupEdit = shape.meta?.nativeGroupEdit === true
+
+      groupEditModeRef.current.set(shapeId, isInGroupEditMode || isInNativeGroupEdit)
+
+      if (shape.type === 'bezier') {
+        handleBezierShapeChanges(shape as BezierShape, customShapeId, isInGroupEditMode || isInNativeGroupEdit)
+      } else {
+        handleGenericShapeChanges(shape, customShapeId, isInGroupEditMode || isInNativeGroupEdit)
+      }
+    })
+
+    const currentShapeIds = new Set(allShapes.map(s => s.id))
+    const trackedShapeIds = Array.from(editStateRef.current.keys())
+
+    trackedShapeIds.forEach(shapeId => {
+      if (!currentShapeIds.has(shapeId)) {
+        editStateRef.current.delete(shapeId)
+        shapePropsRef.current.delete(shapeId)
+        originalBoundsRef.current.delete(shapeId)
+        groupEditModeRef.current.delete(shapeId)
+      }
+    })
+  }, [allShapes, handleBezierShapeChanges, handleGenericShapeChanges])
+
+  // Handle exiting TLDraw's native group editing
+  useEffect(() => {
+    if (isEditingCustomShapeGroup) return
+
+    const shapesInNativeGroupEdit = allShapes.filter(shape =>
+      shape.meta?.nativeGroupEdit === true
+    )
+
+    if (shapesInNativeGroupEdit.length > 0) {
+      console.log('Exiting TLDraw native group editing')
+
+      const updatedShapes: ShapeUpdate[] = shapesInNativeGroupEdit.map(shape => ({
+        id: shape.id,
+        type: shape.type,
+        meta: {
+          ...shape.meta,
+          groupEditMode: false,
+          nativeGroupEdit: false
+        }
+      }))
+
+      editor.updateShapes(updatedShapes)
+
+      const customShapeIds = new Set(
+        shapesInNativeGroupEdit
+          .map(extractCustomShapeId)
+          .filter((id): id is string => !!id)
+      )
+
+      customShapeIds.forEach(customShapeId => {
+        const representativeShape = shapesInNativeGroupEdit.find(
+          shape => extractCustomShapeId(shape) === customShapeId
+        )
+        if (representativeShape) {
+          handleGroupEditModeExit(representativeShape, customShapeId)
+        }
+      })
+    }
+  }, [allShapes, editor, handleGroupEditModeExit, isEditingCustomShapeGroup])
 
   return {
     // Expose some utilities if needed
