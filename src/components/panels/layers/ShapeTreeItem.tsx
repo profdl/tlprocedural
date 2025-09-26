@@ -224,24 +224,40 @@ export function ShapeTreeItem({
       BezierState.exitEditMode(editingBezierShape, editor)
     }
 
-    // Select the shape
-    editor.select(shapeId)
+    // Handle multi-selection with shift key
+    if (e.shiftKey) {
+      const currentSelectedIds = editor.getSelectedShapeIds()
 
-    // Only move camera if shape is out of view
-    const shapeBounds = editor.getShapePageBounds(shapeId)
-    if (shapeBounds) {
-      const viewportBounds = editor.getViewportPageBounds()
+      if (currentSelectedIds.includes(shapeId)) {
+        // Deselect if already selected
+        const newSelection = currentSelectedIds.filter(id => id !== shapeId)
+        editor.setSelectedShapes(newSelection)
+      } else {
+        // Add to selection
+        editor.setSelectedShapes([...currentSelectedIds, shapeId])
+      }
+    } else {
+      // Single selection (replace current selection)
+      editor.select(shapeId)
+    }
 
-      // Check if shape is completely outside the viewport
-      const isOutOfView = (
-        shapeBounds.x + shapeBounds.width < viewportBounds.x ||
-        shapeBounds.x > viewportBounds.x + viewportBounds.width ||
-        shapeBounds.y + shapeBounds.height < viewportBounds.y ||
-        shapeBounds.y > viewportBounds.y + viewportBounds.height
-      )
+    // Only move camera if shape is out of view and it's a single selection
+    if (!e.shiftKey) {
+      const shapeBounds = editor.getShapePageBounds(shapeId)
+      if (shapeBounds) {
+        const viewportBounds = editor.getViewportPageBounds()
 
-      if (isOutOfView) {
-        editor.zoomToSelection()
+        // Check if shape is completely outside the viewport
+        const isOutOfView = (
+          shapeBounds.x + shapeBounds.width < viewportBounds.x ||
+          shapeBounds.x > viewportBounds.x + viewportBounds.width ||
+          shapeBounds.y + shapeBounds.height < viewportBounds.y ||
+          shapeBounds.y > viewportBounds.y + viewportBounds.height
+        )
+
+        if (isOutOfView) {
+          editor.zoomToSelection()
+        }
       }
     }
   }

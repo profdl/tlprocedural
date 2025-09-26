@@ -44,6 +44,7 @@
 .shape-tree-item--selected {
   background-color: var(--color-selected);
   color: var(--color-selected-contrast);
+  border-left: 3px solid var(--color-accent);
 }
 
 .shape-tree-item--selected:hover {

@@ -1,4 +1,5 @@
 import { useEditor, useValue } from 'tldraw'
+import { useEffect } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -43,6 +44,39 @@ export function LayersPanelContent() {
     () => editor.getSelectedShapeIds(),
     [editor]
   )
+
+  // Handle keyboard events for deletion
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check if Delete or Backspace is pressed
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const selected = editor.getSelectedShapeIds()
+        if (selected.length > 0) {
+          // Prevent default browser behavior
+          e.preventDefault()
+
+          // Filter out shapes that are modifier clones (shouldn't be deleted directly)
+          const allShapes = editor.getCurrentPageShapes()
+          const shapesToDelete = selected.filter(id => {
+            const shape = allShapes.find(s => s.id === id)
+            return shape && (!shape.meta?.stackProcessed || shape.meta?.appliedFromModifier)
+          })
+
+          if (shapesToDelete.length > 0) {
+            editor.deleteShapes(shapesToDelete)
+          }
+        }
+      }
+    }
+
+    // Add event listener to document
+    document.addEventListener('keydown', handleKeyDown)
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [editor])
 
   // Handle drag end event to reorder shapes
   function handleDragEnd(event: DragEndEvent) {
