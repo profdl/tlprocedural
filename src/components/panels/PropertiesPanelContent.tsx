@@ -1,10 +1,54 @@
 import { useCallback } from 'react'
 import { useEditor, useValue } from 'tldraw'
+import type { Editor, TLShape } from 'tldraw'
 import { EnhancedNumberInput } from '../modifiers/ui/EnhancedNumberInput'
 import { applyRotationToShapes } from '../modifiers/utils/transformUtils'
 import { useDynamicPanelHeight } from './hooks/useDynamicPanelHeight'
 import type { PolygonShape } from '../shapes/PolygonShape'
 import type { SineWaveShape } from '../shapes/SineWaveShape'
+
+type StableShapeMetrics = {
+  x: number
+  y: number
+  width: number
+  height: number
+  rotation: number
+}
+
+const roundTo = (value: number, precision = 2) => {
+  const factor = 10 ** precision
+  const rounded = Math.round(value * factor) / factor
+  return Object.is(rounded, -0) ? 0 : rounded
+}
+
+const getStableShapeMetrics = (editor: Editor, shape: TLShape): StableShapeMetrics | null => {
+  const transform = editor.getShapePageTransform(shape)
+  const geometry = editor.getShapeGeometry(shape)
+
+  if (!transform || !geometry) {
+    return null
+  }
+
+  const localBounds = geometry.bounds
+  const { scaleX, scaleY } = transform.decompose()
+  const effectiveWidth = localBounds.width * Math.abs(scaleX || 1)
+  const effectiveHeight = localBounds.height * Math.abs(scaleY || 1)
+
+  const localCenter = {
+    x: localBounds.minX + localBounds.width / 2,
+    y: localBounds.minY + localBounds.height / 2
+  }
+
+  const pageCenter = transform.applyToPoint(localCenter)
+
+  return {
+    x: pageCenter.x - effectiveWidth / 2,
+    y: pageCenter.y - effectiveHeight / 2,
+    width: effectiveWidth,
+    height: effectiveHeight,
+    rotation: shape.rotation || 0
+  }
+}
 
 export function PropertiesPanelContent() {
   const editor = useEditor()
@@ -30,32 +74,31 @@ export function PropertiesPanelContent() {
       if (selectedShapes.length === 0) return null
 
       const firstShape = selectedShapes[0]
-      const bounds = editor.getShapePageBounds(firstShape.id)
+      const firstMetrics = getStableShapeMetrics(editor, firstShape)
 
-      if (!bounds) return null
+      if (!firstMetrics) return null
 
-      // Check if all shapes have the same values
       const allSame = selectedShapes.every(shape => {
-        const shapeBounds = editor.getShapePageBounds(shape.id)
-        if (!shapeBounds) return false
+        const metrics = getStableShapeMetrics(editor, shape)
+        if (!metrics) return false
 
         return (
-          Math.abs(shapeBounds.x - bounds.x) < 0.01 &&
-          Math.abs(shapeBounds.y - bounds.y) < 0.01 &&
-          Math.abs(shapeBounds.width - bounds.width) < 0.01 &&
-          Math.abs(shapeBounds.height - bounds.height) < 0.01 &&
-          Math.abs((shape.rotation || 0) - (firstShape.rotation || 0)) < 0.01
+          Math.abs(metrics.x - firstMetrics.x) < 0.01 &&
+          Math.abs(metrics.y - firstMetrics.y) < 0.01 &&
+          Math.abs(metrics.width - firstMetrics.width) < 0.01 &&
+          Math.abs(metrics.height - firstMetrics.height) < 0.01 &&
+          Math.abs(metrics.rotation - firstMetrics.rotation) < 0.01
         )
       })
 
       if (!allSame) return null
 
       return {
-        x: Math.round(bounds.x * 100) / 100,
-        y: Math.round(bounds.y * 100) / 100,
-        width: Math.round(bounds.width * 100) / 100,
-        height: Math.round(bounds.height * 100) / 100,
-        rotation: Math.round(((firstShape.rotation || 0) * 180 / Math.PI) * 100) / 100
+        x: roundTo(firstMetrics.x),
+        y: roundTo(firstMetrics.y),
+        width: roundTo(firstMetrics.width),
+        height: roundTo(firstMetrics.height),
+        rotation: roundTo((firstMetrics.rotation * 180) / Math.PI, 2)
       }
     },
     [selectedShapes, editor]
@@ -80,18 +123,18 @@ export function PropertiesPanelContent() {
     if (selectedShapes.length === 0) return
 
     selectedShapes.forEach(shape => {
-      const bounds = editor.getShapePageBounds(shape.id)
-      if (!bounds) return
+      const metrics = getStableShapeMetrics(editor, shape)
+      if (!metrics) return
 
-      const newPosition = {
-        x: axis === 'x' ? value : bounds.x,
-        y: axis === 'y' ? value : bounds.y
-      }
+      const currentPosition = axis === 'x' ? metrics.x : metrics.y
+      const delta = value - currentPosition
+      if (Math.abs(delta) < 1e-4) return
 
       editor.updateShape({
-        ...shape,
-        x: shape.x + (newPosition.x - bounds.x),
-        y: shape.y + (newPosition.y - bounds.y)
+        id: shape.id,
+        type: shape.type,
+        x: axis === 'x' ? shape.x + delta : shape.x,
+        y: axis === 'y' ? shape.y + delta : shape.y
       })
     })
   }, [selectedShapes, editor])
@@ -101,12 +144,13 @@ export function PropertiesPanelContent() {
     if (selectedShapes.length === 0 || value <= 0) return
 
     selectedShapes.forEach(shape => {
-      const bounds = editor.getShapePageBounds(shape.id)
-      if (!bounds) return
+      const metrics = getStableShapeMetrics(editor, shape)
+      if (!metrics) return
 
-      const scale = dimension === 'width'
-        ? value / bounds.width
-        : value / bounds.height
+      const currentSize = dimension === 'width' ? metrics.width : metrics.height
+      if (currentSize === 0) return
+
+      const scale = value / currentSize
 
       // For now, we'll update the shape's props if it has w/h
       // This is a simplified approach - proper scaling would need shape-specific handling
