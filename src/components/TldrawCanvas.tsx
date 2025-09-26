@@ -38,6 +38,7 @@ import { LineTool } from './shapes/tools/LineTool'
 import { DrawShapeUtil as CustomDrawShapeUtil } from './shapes/DrawShape'
 import { DrawTool as CustomDrawTool } from './shapes/tools/DrawTool'
 import { BezierShapeUtil } from './shapes/BezierShape'
+import type { BezierShape } from './shapes/BezierShape'
 import { BezierTool } from './shapes/tools/BezierTool'
 import { RemovePointTool } from './shapes/tools/RemovePointTool'
 import { CustomArrowShapeUtil } from './shapes/ArrowShape'
@@ -448,12 +449,137 @@ export function TldrawCanvas() {
     // This replaces the previously complex inline logic with a clean service pattern
     const bezierEditModeService = new BezierEditModeService(editor)
 
+    // Track the most recent bezier shape in edit mode so we can restore the session after
+    // switching tools (e.g. select -> pen). This lets users keep sculpting without losing
+    // their anchor handles or selections.
+    let lastBezierEditShapeId: TLShapeId | null = null
+    const cachedPointSelections = new Map<TLShapeId, number[]>()
+    let lastEditModeExit: { id: TLShapeId; timestamp: number } | null = null
+
+    const cacheSelection = (shape: BezierShape) => {
+      const selection = shape.props.selectedPointIndices
+      if (Array.isArray(selection) && selection.length > 0) {
+        cachedPointSelections.set(shape.id, [...selection])
+      } else {
+        cachedPointSelections.delete(shape.id)
+      }
+    }
+
+    const findEditingBezierShape = () => {
+      const shapes = editor.getCurrentPageShapes()
+      return shapes.find((shape) =>
+        shape.type === 'bezier' && 'editMode' in shape.props && shape.props.editMode
+      ) as BezierShape | undefined
+    }
+
+    const restoreBezierEditMode = (shapeId: TLShapeId) => {
+      Promise.resolve().then(() => {
+        const shape = editor.getShape(shapeId) as BezierShape | undefined
+        if (!shape || shape.type !== 'bezier') return
+        if (shape.props.editMode) {
+          cacheSelection(shape)
+          lastBezierEditShapeId = shape.id
+          return
+        }
+
+        const cachedSelection = cachedPointSelections.get(shapeId)
+        editor.updateShape({
+          id: shape.id,
+          type: 'bezier',
+          props: {
+            ...shape.props,
+            editMode: true,
+            ...(cachedSelection && cachedSelection.length > 0
+              ? { selectedPointIndices: cachedSelection }
+              : {}),
+          },
+        })
+        lastBezierEditShapeId = shape.id
+      })
+    }
+
+    const cleanupBezierEditModePersistence = editor.store.listen((entry) => {
+      const updates = Object.values(entry.changes.updated) as Array<[any, any]>
+
+      for (const [from, to] of updates) {
+        if (to?.typeName === 'shape' && to?.type === 'bezier') {
+          const prevShape = from as BezierShape | undefined
+          const nextShape = to as BezierShape
+
+          const wasInEditMode = Boolean(prevShape?.props?.editMode)
+          const isInEditMode = Boolean(nextShape.props?.editMode)
+
+          if (isInEditMode) {
+            lastBezierEditShapeId = nextShape.id
+            cacheSelection(nextShape)
+            continue
+          }
+
+          if (wasInEditMode && !isInEditMode) {
+            if (prevShape) {
+              cacheSelection(prevShape)
+            } else {
+              cachedPointSelections.delete(nextShape.id)
+            }
+
+            lastEditModeExit = { id: nextShape.id, timestamp: Date.now() }
+          }
+        }
+      }
+
+      const removals = Object.values(entry.changes.removed) as any[]
+      for (const record of removals) {
+        if (record?.typeName === 'shape' && record?.type === 'bezier') {
+          cachedPointSelections.delete(record.id as TLShapeId)
+          if (lastBezierEditShapeId === record.id) {
+            lastBezierEditShapeId = null
+          }
+          if (lastEditModeExit?.id === record.id) {
+            lastEditModeExit = null
+          }
+        }
+      }
+    }, { scope: 'all' })
+
+    const originalSetCurrentTool = editor.setCurrentTool.bind(editor)
+    editor.setCurrentTool = ((id: string, info: any = {}) => {
+      const result = originalSetCurrentTool(id, info)
+
+      if (id === 'bezier') {
+        const activationTime = Date.now()
+        Promise.resolve().then(() => {
+          const editingShape = findEditingBezierShape()
+          if (editingShape) {
+            cacheSelection(editingShape)
+            lastBezierEditShapeId = editingShape.id
+            return
+          }
+
+          const lastExit = lastEditModeExit
+          const shouldRestoreFromLastExit =
+            lastExit !== null && activationTime >= lastExit.timestamp && activationTime - lastExit.timestamp < 250
+
+          const candidateShapeId = shouldRestoreFromLastExit
+            ? lastExit.id
+            : lastBezierEditShapeId
+
+          if (candidateShapeId) {
+            restoreBezierEditMode(candidateShapeId)
+          }
+        })
+      }
+
+      return result
+    }) as Editor['setCurrentTool']
+
     // Return cleanup function
     return () => {
       cleanupKeepArrayClonesLocked()
       cleanupDeleteHandler()
       cleanupSelection()
       cleanupSnapControl()
+      editor.setCurrentTool = originalSetCurrentTool as Editor['setCurrentTool']
+      cleanupBezierEditModePersistence()
       bezierEditModeService.destroy()
     }
   }
