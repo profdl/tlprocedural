@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useCallback } from 'react'
 import { useEditor, type TLShape, type TLShapePartial, type Editor, Vec } from 'tldraw'
-import { TransformComposer, extractShapesFromState, type VirtualModifierState } from '../../../store/modifiers'
+import { TransformComposer, extractShapesFromState } from '../../../store/modifiers'
 import type { TLModifier, GroupContext } from '../../../types/modifiers'
 import {
   getOriginalShapeId,
@@ -304,9 +304,6 @@ function cleanupGroupClones(editor: Editor, shape: TLShape) {
 }
 
 
-// Track last processing time to prevent rapid successive TransformComposer calls
-const lastTransformComposerCall = new Map<string, { time: number; result: VirtualModifierState }>()
-
 /**
  * Update existing clones with new positions and properties
  */
@@ -346,24 +343,10 @@ function updateExistingClones(editor: Editor, shape: TLShape, modifiers: TLModif
     }
   }
 
-  // These variables were used for caching but are not currently needed
-
-  const now = Date.now()
-  const lastCall = lastTransformComposerCall.get(shape.id)
-
-  let result
-  if (lastCall && lastCall.time && (now - lastCall.time) < 100 && lastCall.result) {
-    if (BEZIER_DEBUG) {
-      console.log(`[updateExistingClones] Using cached TransformComposer result for ${shape.id}`)
-    }
-    result = lastCall.result
-  } else {
-    if (BEZIER_DEBUG) {
-      console.log(`[updateExistingClones] Calling TransformComposer.processModifiers for ${shape.id}`)
-    }
-    result = TransformComposer.processModifiers(shape, modifiers, groupContext, editor)
-    lastTransformComposerCall.set(shape.id, { time: now, result })
+  if (BEZIER_DEBUG) {
+    console.log(`[updateExistingClones] Calling TransformComposer.processModifiers for ${shape.id}`)
   }
+  const result = TransformComposer.processModifiers(shape, modifiers, groupContext, editor)
 
   const updatedShapes = extractShapesFromState(result)
 
