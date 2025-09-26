@@ -496,11 +496,22 @@ export class GeometryConverter {
    * Convert circle shape to polygon
    */
   private static circleShapeToPolygon(shape: TLShape): PolygonCoordinates {
-    const props = shape.props as { r?: number }
-    const { r = 50 } = props
-    const { x, y } = shape
+    const props = shape.props as { w?: number; h?: number; r?: number }
+    const { x, y, rotation = 0 } = shape
 
-    return [[this.ellipseToPoints(x - r, y - r, r * 2, r * 2, 32)]]
+    // Prefer explicit width/height; fall back to radius if provided
+    const width = typeof props.w === 'number' ? props.w : typeof props.r === 'number' ? props.r * 2 : 100
+    const height = typeof props.h === 'number' ? props.h : typeof props.r === 'number' ? props.r * 2 : 100
+
+    let points = this.ellipseToPoints(x, y, width, height, 32)
+
+    if (rotation !== 0) {
+      const centerX = x + width / 2
+      const centerY = y + height / 2
+      points = points.map(([px, py]) => this.rotatePoint(px, py, centerX, centerY, rotation))
+    }
+
+    return [[points]]
   }
 
   /**

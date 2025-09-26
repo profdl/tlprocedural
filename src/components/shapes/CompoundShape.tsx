@@ -96,7 +96,8 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
       throw new Error('Child shape must be a JSON object')
     }
 
-    const { id, type, relativeX, relativeY, relativeRotation, props } = value
+    const childObject = value as JsonObject
+    const { id, type, relativeX, relativeY, relativeRotation, props } = childObject
 
     if (typeof id !== 'string' || !id.startsWith('shape:')) {
       throw new Error('Child shape id must be a TLShapeId string')
@@ -108,18 +109,11 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
       throw new Error('Child shape relative transform must be numeric')
     }
 
-    const childProps = isJsonObject(props) ? props : {} as JsonObject
-
-    const child: ChildShapeData = {
-      id: id as TLShapeId,
-      type,
-      relativeX,
-      relativeY,
-      relativeRotation,
-      props: childProps
+    if (!isJsonObject(props)) {
+      childObject.props = {} as JsonObject
     }
 
-    return child
+    return childObject as unknown as ChildShapeData
   })
 
   static override props: RecordProps<CompoundShape> = {
