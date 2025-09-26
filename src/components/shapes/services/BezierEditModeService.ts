@@ -3,6 +3,7 @@ import { type BezierPoint, type BezierShape } from '../BezierShape'
 import { BezierState } from './BezierState'
 import { BezierBounds } from './BezierBounds'
 import { bezierLog } from '../utils/bezierConstants'
+import type { JsonObject } from '@tldraw/utils'
 
 /**
  * Service for managing global bezier edit mode interactions
@@ -22,6 +23,7 @@ export class BezierEditModeService {
     initialPoints: BezierPoint[]
     isClosed: boolean
   } | null = null
+  private altKeyActiveForEditMode = false
 
   constructor(editor: Editor) {
     this.editor = editor
@@ -38,22 +40,25 @@ export class BezierEditModeService {
     const handlePointerMove = (e: PointerEvent) => this.handlePointerMove(e)
     const handlePointerUp = () => this.handlePointerUp()
     const handleKeyDown = (e: KeyboardEvent) => this.handleKeyDown(e)
+    const handleKeyUp = (e: KeyboardEvent) => this.handleKeyUp(e)
 
-    container.addEventListener('pointerdown', handlePointerDown, { capture: false })
+    container.addEventListener('pointerdown', handlePointerDown, { capture: true })
     container.addEventListener('pointermove', handlePointerMove, { capture: false })
     container.addEventListener('pointerup', handlePointerUp, { capture: false })
     container.addEventListener('pointerleave', handlePointerUp, { capture: false })
     container.addEventListener('pointercancel', handlePointerUp, { capture: false })
     container.addEventListener('keydown', handleKeyDown, { capture: false })
+    container.addEventListener('keyup', handleKeyUp, { capture: false })
 
     // Store cleanup functions
     this.cleanupFunctions.push(() => {
-      container.removeEventListener('pointerdown', handlePointerDown, { capture: false })
+      container.removeEventListener('pointerdown', handlePointerDown, { capture: true })
       container.removeEventListener('pointermove', handlePointerMove, { capture: false })
       container.removeEventListener('pointerup', handlePointerUp, { capture: false })
       container.removeEventListener('pointerleave', handlePointerUp, { capture: false })
       container.removeEventListener('pointercancel', handlePointerUp, { capture: false })
       container.removeEventListener('keydown', handleKeyDown, { capture: false })
+      container.removeEventListener('keyup', handleKeyUp, { capture: false })
     })
 
     bezierLog('Service', 'BezierEditModeService initialized')
@@ -95,6 +100,10 @@ export class BezierEditModeService {
     }
 
     if (interactionContext.clickingOnHandle) {
+      if (this.editor.inputs.altKey && currentToolId === 'select') {
+        this.setAltKeyActive(true)
+        this.editor.inputs.altKey = false
+      }
       BezierState.clearSegmentSelection(editingBezierShape, this.editor)
       if (currentToolId === 'bezier') {
         this.editor.setCursor({ type: 'pointer' })
@@ -331,6 +340,17 @@ export class BezierEditModeService {
     const editingBezierShape = this.findEditingBezierShape()
     if (!editingBezierShape) return
 
+    if (e.key === 'Alt') {
+      if (this.editor.getCurrentToolId() === 'select') {
+        this.setAltKeyActive(true)
+        this.editor.inputs.altKey = false
+        e.preventDefault()
+        e.stopPropagation()
+        e.stopImmediatePropagation()
+      }
+      return
+    }
+
     const bezierProps = editingBezierShape.props as {
       editMode?: boolean
       selectedPointIndices?: number[]
@@ -350,6 +370,33 @@ export class BezierEditModeService {
         this.exitEditMode(editingBezierShape)
         break
     }
+  }
+
+  private handleKeyUp(e: KeyboardEvent) {
+    if (e.key !== 'Alt') return
+    if (!this.altKeyActiveForEditMode) return
+
+    this.setAltKeyActive(false)
+  }
+
+  private setAltKeyActive(active: boolean) {
+    if (this.altKeyActiveForEditMode === active) {
+      return
+    }
+
+    this.altKeyActiveForEditMode = active
+
+    const instanceState = this.editor.getInstanceState()
+    const prevMeta = (instanceState.meta ?? {}) as JsonObject
+    const nextMeta = { ...prevMeta }
+
+    if (active) {
+      nextMeta.bezierAltKeyActive = true
+    } else {
+      delete nextMeta.bezierAltKeyActive
+    }
+
+    this.editor.updateInstanceState({ meta: nextMeta })
   }
 
   /**
@@ -732,12 +779,15 @@ export class BezierEditModeService {
     this.editor.setSelectedShapes([shape.id])
 
     bezierLog('EditMode', 'Exited edit mode for shape:', shape.id)
+
+    this.setAltKeyActive(false)
   }
 
   /**
    * Cleanup the service and remove event listeners
    */
   destroy() {
+    this.setAltKeyActive(false)
     this.cleanupFunctions.forEach(cleanup => cleanup())
     this.cleanupFunctions = []
     bezierLog('Service', 'BezierEditModeService destroyed')

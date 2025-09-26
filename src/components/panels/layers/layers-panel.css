@@ -1,0 +1,186 @@
+.layers-panel {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.layers-panel__content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.layers-panel__empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--color-text-3);
+  font-size: 12px;
+}
+
+/* Shape Tree */
+.shape-tree {
+  width: 100%;
+}
+
+/* Shape Tree Item */
+.shape-tree-item {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 8px 2px 0;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+  font-size: 12px;
+  color: var(--color-text-1);
+  user-select: none;
+  position: relative;
+}
+
+.shape-tree-item:hover {
+  background-color: var(--color-muted-1);
+}
+
+.shape-tree-item--selected {
+  background-color: #2563eb;
+  color: white;
+}
+
+.shape-tree-item--selected:hover {
+  background-color: #1e50d0;
+}
+
+.shape-tree-item--anchor {
+  font-style: italic;
+  color: var(--color-text-3);
+  cursor: default;
+}
+
+.shape-tree-item--anchor:hover {
+  background-color: transparent;
+}
+
+.shape-tree-item__content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 4px;
+}
+
+.shape-tree-item__left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.shape-tree-item__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.shape-tree-item--selected .shape-tree-item__name {
+  color: white;
+}
+
+/* Expand/Collapse Button */
+.shape-tree-item__expand {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-text-2);
+  transition: transform 0.15s ease;
+}
+
+.shape-tree-item__expand:hover {
+  color: var(--color-text-0);
+}
+
+.shape-tree-item--selected .shape-tree-item__expand {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.shape-tree-item--selected .shape-tree-item__expand:hover {
+  color: white;
+}
+
+/* Ensure icon size */
+.shape-tree-item__expand .tlui-button__icon,
+.shape-tree-item__expand .tlui-button__icon svg,
+.shape-tree-item__expand svg {
+  width: 12px !important;
+  height: 12px !important;
+  min-width: 12px !important;
+  min-height: 12px !important;
+}
+
+/* Action Buttons */
+.shape-tree-item__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.shape-tree-item:hover .shape-tree-item__actions,
+.shape-tree-item--selected .shape-tree-item__actions {
+  opacity: 1;
+}
+
+.shape-tree-item__visibility,
+.shape-tree-item__edit {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  color: var(--color-text-2);
+  transition: all 0.1s ease;
+}
+
+.shape-tree-item__visibility:hover,
+.shape-tree-item__edit:hover {
+  background-color: var(--color-muted-2);
+  color: var(--color-text-0);
+}
+
+.shape-tree-item--selected .shape-tree-item__visibility,
+.shape-tree-item--selected .shape-tree-item__edit {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.shape-tree-item--selected .shape-tree-item__visibility:hover,
+.shape-tree-item--selected .shape-tree-item__edit:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.shape-tree-item__visibility svg,
+.shape-tree-item__edit svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Anchor points container */
+.shape-tree-anchors {
+  opacity: 0.8;
+}

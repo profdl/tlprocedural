@@ -7,6 +7,7 @@ import { TabbedPanelContainer } from './TabbedPanelContainer'
 import { PropertiesPanelContent } from './PropertiesPanelContent'
 import { StylePanelContent } from './StylePanelContent'
 import { ModifiersPanelContent } from './ModifiersPanelContent'
+import { LayersPanelContent } from './LayersPanelContent'
 import { useSelectionMonitor } from './hooks/useSelectionMonitor'
 
 interface PanelConfig {
@@ -16,6 +17,11 @@ interface PanelConfig {
 }
 
 const PANEL_CONFIGS: PanelConfig[] = [
+  {
+    id: 'layers',
+    title: 'Layers',
+    component: LayersPanelContent
+  },
   {
     id: 'properties',
     title: 'Properties',
@@ -114,6 +120,7 @@ export function StackedPanelSystem() {
 
         // Create panel contents map for the tab group
         const panelContents: Record<PanelId, React.ReactNode> = {
+          layers: null,
           properties: null,
           style: null,
           modifiers: null

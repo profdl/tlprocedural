@@ -225,8 +225,12 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   override onHandleDrag = (shape: BezierShape, { handle }: { handle: TLHandle }) => {
     bezierLog('Drag', 'onHandleDrag called for handle:', handle.id, 'shiftKey:', this.editor.inputs.shiftKey)
     
-    const ctrlKey = this.editor.inputs.ctrlKey // Ctrl key breaks symmetry
-    
+    const isSelectTool = this.editor.getCurrentToolId() === 'select'
+    const instanceMeta = this.editor.getInstanceState().meta as { bezierAltKeyActive?: boolean } | undefined
+    const altKeyForBezier = Boolean(instanceMeta?.bezierAltKeyActive)
+    const altBreaksSymmetry = isSelectTool && (this.editor.inputs.altKey || altKeyForBezier)
+    const ctrlKey = this.editor.inputs.ctrlKey || altBreaksSymmetry
+
     // Track initial position for movement threshold detection
     const handleKey = createHandleDragKey(shape.id, handle.id)
     const isInitialDrag = !this.handleDragStart.has(handleKey)

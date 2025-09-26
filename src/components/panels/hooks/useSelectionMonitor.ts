@@ -18,7 +18,8 @@ export function useSelectionMonitor() {
 
   // Update panel visibility based on selection
   useEffect(() => {
-    // Keep Style and Modifiers panels always visible
+    // Keep Layers, Style and Modifiers panels always visible
+    setPanelVisible('layers', true)
     setPanelVisible('style', true)
     setPanelVisible('modifiers', true)
   }, [setPanelVisible])

@@ -1,12 +1,12 @@
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 import { calculateStackedLayoutWithTabGroups, calculateStackedLayout } from './panel/layoutCalculations'
-import { createDefaultPanels } from './panel/panelUtils'
+import { createDefaultPanels, DEFAULT_PANEL_ORDER } from './panel/panelUtils'
 import { createTabGroupOperations } from './panel/tabGroupOperations'
 import { createPanelOperations } from './panel/panelOperations'
 import { getDisplayOrder } from './panel/displayUtils'
 
-export type PanelId = 'properties' | 'style' | 'modifiers'
+export type PanelId = 'properties' | 'style' | 'modifiers' | 'layers'
 
 export interface PanelPosition {
   y: number
@@ -110,7 +110,7 @@ export const usePanelStore = create<PanelStoreState>()(
   subscribeWithSelector((set, get) => ({
     // Initial state
     panels: defaultPanels,
-    panelOrder: ['properties', 'style', 'modifiers'],
+    panelOrder: DEFAULT_PANEL_ORDER,
     activePanelId: null,
     viewportHeight: typeof window !== 'undefined' ? window.innerHeight : 1080,
     tabGroups: {},
@@ -120,7 +120,7 @@ export const usePanelStore = create<PanelStoreState>()(
     initializePanels: () => {
       const currentState = get()
       const newPanels = createDefaultPanels(currentState.viewportHeight)
-      set({ panels: newPanels })
+      set({ panels: newPanels, panelOrder: DEFAULT_PANEL_ORDER })
     },
 
     // Set viewport height and recalculate layout
@@ -313,7 +313,7 @@ export const usePanelStore = create<PanelStoreState>()(
       const currentState = get()
       set({
         panels: createDefaultPanels(currentState.viewportHeight),
-        panelOrder: ['properties', 'style', 'modifiers']
+        panelOrder: DEFAULT_PANEL_ORDER
       })
     },
 
