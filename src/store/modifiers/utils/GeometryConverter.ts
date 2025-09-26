@@ -56,6 +56,9 @@ export class GeometryConverter {
       case 'bezier':
         polygon = this.bezierShapeToPolygon(shape)
         break
+      case 'sine-wave':
+        polygon = this.sineWaveShapeToPolygon(shape)
+        break
       default:
         // Fallback: use bounding box for unsupported shapes
         polygon = this.boundingBoxToPolygon(shape)
@@ -536,6 +539,74 @@ export class GeometryConverter {
     }
 
     return [[points]]
+  }
+
+  /**
+   * Convert sine wave shape to polygon by expanding the stroke into a thin ribbon
+   */
+  private static sineWaveShapeToPolygon(shape: TLShape): PolygonCoordinates {
+    const props = shape.props as {
+      w?: number
+      h?: number
+      amplitude?: number
+      frequency?: number
+      phase?: number
+      strokeWidth?: number
+    }
+
+    const width = Math.max(typeof props.w === 'number' ? props.w :  Math.max(1, props.amplitude ? props.amplitude * 4 : 100), 1)
+    const height = typeof props.h === 'number' ? props.h : typeof props.amplitude === 'number' ? props.amplitude * 2 : 100
+    const amplitude = typeof props.amplitude === 'number' ? props.amplitude : Math.max(height / 2, 1)
+    const frequency = typeof props.frequency === 'number' ? props.frequency : 1
+    const phase = (typeof props.phase === 'number' ? props.phase : 0) * Math.PI / 180
+    const strokeWidth = Math.max(typeof props.strokeWidth === 'number' ? props.strokeWidth : 4, 1)
+
+    const { x, y, rotation = 0 } = shape
+    const halfThickness = strokeWidth / 2
+    const steps = Math.max(64, Math.ceil(width / 4))
+
+    const topPoints: Pair[] = []
+    const bottomPoints: Pair[] = []
+
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps
+      const localX = t * width
+      const waveAngle = phase + (t * frequency * 2 * Math.PI)
+      const localY = amplitude + amplitude * Math.sin(waveAngle)
+
+      const globalX = x + localX
+      const globalY = y + localY
+
+      // Derivative of the sine function for tangent calculation
+      const derivative = amplitude * Math.cos(waveAngle) * frequency * 2 * Math.PI / width
+
+      let normalX = -derivative
+      let normalY = 1
+      const length = Math.hypot(normalX, normalY) || 1
+      normalX /= length
+      normalY /= length
+
+      topPoints.push([globalX + normalX * halfThickness, globalY + normalY * halfThickness])
+      bottomPoints.push([globalX - normalX * halfThickness, globalY - normalY * halfThickness])
+    }
+
+    let polygonPoints: Pair[] = [...topPoints, ...bottomPoints.reverse()]
+
+    if (rotation !== 0) {
+      const centerX = x + width / 2
+      const centerY = y + height / 2
+      polygonPoints = polygonPoints.map(([px, py]) => this.rotatePoint(px, py, centerX, centerY, rotation))
+    }
+
+    if (polygonPoints.length > 0) {
+      const first = polygonPoints[0]
+      const last = polygonPoints[polygonPoints.length - 1]
+      if (first[0] !== last[0] || first[1] !== last[1]) {
+        polygonPoints.push([...first] as Pair)
+      }
+    }
+
+    return [[polygonPoints]]
   }
 
   /**
