@@ -54,11 +54,24 @@
 .shape-tree-item--anchor {
   font-style: italic;
   color: var(--color-text-3);
-  cursor: default;
+  cursor: pointer;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  transition: background-color 0.1s ease, color 0.1s ease;
 }
 
 .shape-tree-item--anchor:hover {
-  background-color: transparent;
+  background-color: var(--color-muted-1);
+  color: var(--color-text-1);
+}
+
+.shape-tree-item--anchor:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+  background-color: var(--color-muted-1);
+  color: var(--color-text-1);
 }
 
 .shape-tree-item__content {

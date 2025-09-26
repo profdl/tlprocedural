@@ -18,6 +18,8 @@ import {
 } from '@dnd-kit/utilities'
 import { ShapeTree } from './ShapeTree'
 import { useModifierStore } from '../../../store/modifierStore'
+import { BezierState } from '../../shapes/services/BezierState'
+import type { BezierShape } from '../../shapes/BezierShape'
 
 interface ShapeTreeItemProps {
   shapeId: TLShapeId
@@ -271,6 +273,29 @@ export function ShapeTreeItem({
     setIsExpanded(!isExpanded)
   }
 
+  const handleAnchorClick = (e: React.MouseEvent, anchorIndex: number) => {
+    e.stopPropagation()
+
+    if (!shape || shape.type !== 'bezier') return
+
+    // Cast to proper BezierShape type
+    const bezierShape = shape as BezierShape
+
+    // Enter edit mode for the bezier shape
+    BezierState.enterEditMode(bezierShape, editor)
+
+    // Select the specific anchor point after a brief delay to ensure edit mode is active
+    setTimeout(() => {
+      const currentShape = editor.getShape(shape.id) as BezierShape
+      if (currentShape) {
+        BezierState.handlePointSelection(currentShape, anchorIndex, false, editor)
+      }
+    }, 50)
+
+    // Switch to bezier tool for editing
+    editor.setCurrentTool('bezier')
+  }
+
   const hasChildren = childIds.length > 0 || anchorPoints.length > 0
 
   // Combine refs
@@ -424,16 +449,18 @@ export function ShapeTreeItem({
           {anchorPoints.length > 0 && (
             <div className="shape-tree-anchors">
               {anchorPoints.map((anchor, index) => (
-                <div
+                <button
                   key={`anchor-${index}`}
                   className="shape-tree-item shape-tree-item--anchor"
                   style={{
                     paddingLeft: `${32 + depth * 20}px`,
                     opacity: effectivelyHidden ? 0.4 : 1
                   }}
+                  onClick={(e) => handleAnchorClick(e, index)}
+                  aria-label={`Select ${anchor}`}
                 >
                   <span className="shape-tree-item__name">{anchor}</span>
-                </div>
+                </button>
               ))}
             </div>
           )}
