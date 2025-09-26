@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import { setCustomShapesRegistry } from './CustomShapesRegistry'
 import {
   CustomShapesContext,
@@ -50,7 +50,7 @@ export function CustomShapesProvider({ children }: CustomShapesProviderProps) {
         })
 
         // Save migrated shapes back to storage if migration occurred
-        if (initialShapes.some((shape, index) =>
+        if (initialShapes.some((_, index) =>
           !parsed[index].version || !parsed[index].lastModified
         )) {
           saveToStorage(initialShapes)

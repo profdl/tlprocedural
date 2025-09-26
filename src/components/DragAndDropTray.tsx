@@ -1,10 +1,11 @@
 import { useEditor, createShapeId, Vec, useValue } from 'tldraw'
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
-import type { Editor, TLShapeId } from 'tldraw'
+import type { Editor, TLShape, TLShapeId } from 'tldraw'
 import { useCustomShapes } from './hooks/useCustomShapes'
 import { useCustomShapeInstances } from './hooks/useCustomShapeInstances'
 import { bezierShapeToCustomTrayItem, generateBezierThumbnailSvg } from './utils/bezierToCustomShape'
-import { combineShapesToCustom } from './utils/multiShapeToCustomShape'
+import { combineShapesToCustom, type MultiShapeChildDefinition, cloneShapeProps, sanitizeMeta, RESERVED_META_KEYS, isMultiShapeDefaultProps } from './utils/multiShapeToCustomShape'
+import type { JsonObject } from '@tldraw/utils'
 import type { BezierShape } from './shapes/BezierShape'
 
 type DragState =
@@ -19,28 +20,6 @@ interface TrayItem {
   shapeType: string
   defaultProps?: Record<string, unknown>
   version?: number
-}
-
-interface Bounds {
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
-type ShapeCreationInput = Parameters<Editor['createShape']>[0]
-
-interface MultiShapeDefaultProps extends Record<string, unknown> {
-  shapes: ShapeCreationInput[]
-  originalBounds?: Bounds
-}
-
-function isMultiShapeDefaultProps(
-  value: Record<string, unknown> | undefined
-): value is MultiShapeDefaultProps {
-  if (!value) return false
-  const candidate = value as { shapes?: unknown }
-  return Array.isArray(candidate.shapes)
 }
 
 // SVG strings for Lucide icons (matching the toolbar icons)
@@ -112,6 +91,86 @@ const defaultTrayItems: TrayItem[] = [
   }
 ]
 
+type ShapeCreationInput = Parameters<Editor['createShape']>[0]
+
+function cloneProps(props: Record<string, unknown> | undefined) {
+  if (!props) return {}
+  return cloneShapeProps(props)
+}
+
+function mergeMeta(
+  base: Record<string, unknown> | undefined,
+  extra: Record<string, unknown>
+): JsonObject {
+  const result: Record<string, unknown> = {}
+
+  const sanitizedBase = base ? sanitizeMeta(base) : undefined
+
+  if (sanitizedBase) {
+    for (const [key, value] of Object.entries(sanitizedBase)) {
+      if (RESERVED_META_KEYS.has(key)) continue
+      result[key] = value
+    }
+  }
+
+  for (const [key, value] of Object.entries(extra)) {
+    result[key] = value
+  }
+
+  return result as JsonObject
+}
+
+function buildChildShapesFromDefinition(
+  childDefinitions: MultiShapeChildDefinition[],
+  baseX: number,
+  baseY: number,
+  options: {
+    customShapeId?: string
+    instanceId?: string
+    version?: number
+    markAsGroupChild?: boolean
+  }
+): ShapeCreationInput[] {
+  return childDefinitions.map(child => {
+    const id = createShapeId()
+    const metaExtras = options.customShapeId && options.instanceId
+      ? {
+          customShapeId: options.customShapeId,
+          instanceId: options.instanceId,
+          isCustomShapeInstance: true as const,
+          version: options.version ?? 1,
+          groupEditMode: false,
+          ...(options.markAsGroupChild ? { isGroupChild: true } : {})
+        }
+      : {}
+
+    const mergedMeta = mergeMeta(child.meta, metaExtras)
+
+    const shape: ShapeCreationInput = {
+      id,
+      type: child.type,
+      x: baseX + child.localTransform.x,
+      y: baseY + child.localTransform.y,
+      rotation: child.localTransform.rotation ?? 0,
+      props: cloneProps(child.props)
+    }
+
+    if (typeof child.opacity === 'number') {
+      shape.opacity = child.opacity
+    }
+
+    if (typeof child.isLocked === 'boolean') {
+      shape.isLocked = child.isLocked
+    }
+
+    if (Object.keys(mergedMeta).length > 0) {
+      shape.meta = mergedMeta
+    }
+
+    return shape
+  })
+}
+
 export function DragAndDropTray() {
   const editor = useEditor()
   const [dragState, setDragState] = useState<DragState>({ type: 'idle' })
@@ -133,15 +192,30 @@ export function DragAndDropTray() {
 
   // Check for any valid shapes to create custom shape from
   const validSelectedShapes = useMemo(() => {
-    return selectedShapes.filter(shape => {
-      // Exclude shapes in edit mode
-      if ('editMode' in shape.props && shape.props.editMode) {
-        return false
+    const resolved: TLShape[] = []
+    const seen = new Set<string>()
+
+    const addShape = (shape: TLShape | null | undefined) => {
+      if (!shape) return
+      if (seen.has(shape.id)) return
+
+      // Skip shapes currently in edit mode
+      if ('editMode' in shape.props && shape.props.editMode) return
+
+      if (shape.type === 'group') {
+        const childIds = editor.getSortedChildIdsForParent(shape)
+        childIds.forEach(childId => addShape(editor.getShape(childId)))
+        return
       }
-      // Include all shape types
-      return true
-    })
-  }, [selectedShapes])
+
+      seen.add(shape.id)
+      resolved.push(shape)
+    }
+
+    selectedShapes.forEach(shape => addShape(shape))
+
+    return resolved
+  }, [selectedShapes, editor])
 
   const hasValidShapesSelected = validSelectedShapes.length > 0
 
@@ -246,7 +320,7 @@ export function DragAndDropTray() {
       } else {
         customTrayItem = {
           ...customTrayItem,
-          iconSvg: lucideIcons.polygon
+          iconSvg: lucideIcons.pentagon
         }
       }
     }
@@ -264,37 +338,20 @@ export function DragAndDropTray() {
           ? customTrayItem.defaultProps
           : undefined
 
-        const shapes = multiShapeDefaults?.shapes ?? []
-        if (shapes.length > 0) {
-          const bounds = multiShapeDefaults?.originalBounds
-          const centerOffsetX = bounds ? -bounds.width / 2 : -50
-          const centerOffsetY = bounds ? -bounds.height / 2 : -50
+        const childDefinitions = multiShapeDefaults?.shapes ?? []
+        if (childDefinitions.length > 0) {
+          const selectionBounds = editor.getSelectionPageBounds()
+          const baseX = selectionBounds ? selectionBounds.x : 0
+          const baseY = selectionBounds ? selectionBounds.y : 0
 
-          const groupBounds = editor.getSelectionPageBounds()
-          const groupCenterX = groupBounds ? groupBounds.x + groupBounds.width / 2 : 0
-          const groupCenterY = groupBounds ? groupBounds.y + groupBounds.height / 2 : 0
+          const childShapes = buildChildShapesFromDefinition(childDefinitions, baseX, baseY, {
+            customShapeId,
+            instanceId,
+            version: 1,
+            markAsGroupChild: true
+          })
 
-          for (const shape of shapes) {
-            const newShapeId = createShapeId()
-            const shapeWithoutId = { ...shape }
-            delete (shapeWithoutId as { id?: unknown }).id
-            const instanceShape: ShapeCreationInput = {
-              ...shapeWithoutId,
-              id: newShapeId,
-              x: groupCenterX + (shape.x ?? 0) + centerOffsetX,
-              y: groupCenterY + (shape.y ?? 0) + centerOffsetY,
-              meta: {
-                ...cleanMetadata(shape.meta as Record<string, unknown> | undefined),
-                customShapeId,
-                instanceId,
-                isCustomShapeInstance: true as const,
-                version: 1,
-                groupEditMode: false,
-                isGroupChild: true
-              }
-            }
-            shapeInstances.push(instanceShape)
-          }
+          shapeInstances.push(...childShapes)
         }
       } else {
         const originalShape = validSelectedShapes[0]
@@ -315,9 +372,12 @@ export function DragAndDropTray() {
 
       // Delete the original shapes and create the instances
       editor.run(() => {
-        // Delete original shapes
-        const originalIds = validSelectedShapes.map(shape => shape.id)
-        editor.deleteShapes(originalIds)
+        const idsToDelete = new Set<TLShapeId>(selectedShapes.map(shape => shape.id as TLShapeId))
+        validSelectedShapes.forEach(shape => idsToDelete.add(shape.id as TLShapeId))
+
+        if (idsToDelete.size > 0) {
+          editor.deleteShapes(Array.from(idsToDelete))
+        }
 
         // Create the instances
         editor.createShapes(shapeInstances)
@@ -325,28 +385,29 @@ export function DragAndDropTray() {
         // For multi-shape instances, group them
         if (customTrayItem.shapeType === 'multi-shape' && shapeInstances.length > 1) {
           const instanceIds = shapeInstances.map(shape => shape.id).filter(Boolean) as TLShapeId[]
-          const groupId = editor.groupShapes(instanceIds)
+          const newGroupId = createShapeId()
+          editor.groupShapes(instanceIds, { groupId: newGroupId, select: false })
 
           // Add custom metadata to the group
-          if (groupId) {
-            const group = editor.getShape(groupId)
-            if (group) {
-              editor.updateShape({
-                ...group,
-                meta: {
-                  customShapeId,
-                  instanceId,
-                  isCustomShapeInstance: true as const,
-                  version: 1,
-                  isMultiShapeGroup: true
-                }
-              })
-            }
-            editor.setSelectedShapes([groupId])
-          } else {
-            if (instanceIds.length > 0) {
-              editor.setSelectedShapes(instanceIds)
-            }
+          const group = editor.getShape(newGroupId)
+          if (group) {
+            const updatedMeta = mergeMeta(group.meta as Record<string, unknown> | undefined, {
+              customShapeId,
+              instanceId,
+              isCustomShapeInstance: true as const,
+              version: 1,
+              isMultiShapeGroup: true
+            })
+
+            editor.updateShape({
+              id: group.id,
+              type: group.type,
+              meta: updatedMeta
+            })
+
+            editor.setSelectedShapes([newGroupId])
+          } else if (instanceIds.length > 0) {
+            editor.setSelectedShapes(instanceIds)
           }
         } else {
           // Select the new instances for single shapes
@@ -363,7 +424,7 @@ export function DragAndDropTray() {
       : `${validSelectedShapes.length} shapes`
 
     console.log(`Created custom shape from ${shapeDescription}:`, customTrayItem.label)
-  }, [validSelectedShapes, editor, addCustomShape, generateInstanceId, cleanMetadata])
+  }, [validSelectedShapes, selectedShapes, editor, addCustomShape, generateInstanceId, cleanMetadata])
 
   const handlePointerDown = useCallback((e: React.PointerEvent, itemId: string) => {
     e.preventDefault()
@@ -449,71 +510,48 @@ export function DragAndDropTray() {
             ? trayItem.defaultProps
             : undefined
 
-          const shapes = multiShapeDefaults?.shapes ?? []
-          if (shapes.length > 0) {
-            const createdShapeIds: TLShapeId[] = []
+          const childDefinitions = multiShapeDefaults?.shapes ?? []
+          if (childDefinitions.length > 0) {
             const instanceId = generateInstanceId()
-
-            // Calculate center offset for the entire group
             const bounds = multiShapeDefaults?.originalBounds
-            const centerOffsetX = bounds ? -bounds.width / 2 : -50
-            const centerOffsetY = bounds ? -bounds.height / 2 : -50
+            const baseX = pagePoint.x - (bounds?.width ?? 0) / 2
+            const baseY = pagePoint.y - (bounds?.height ?? 0) / 2
 
-            // Create individual shapes first
-            for (const shape of shapes) {
-              const newShapeId = createShapeId()
-              const shapeWithoutId = { ...shape }
-              delete (shapeWithoutId as { id?: unknown }).id
-              const newShape: ShapeCreationInput = {
-                ...shapeWithoutId,
-                id: newShapeId,
-                x: pagePoint.x + (shape.x ?? 0) + centerOffsetX,
-                y: pagePoint.y + (shape.y ?? 0) + centerOffsetY,
-                // Add instance metadata if this is a custom shape, but mark as grouped
-                meta: isCustomShape ? {
+            const childShapes = buildChildShapesFromDefinition(childDefinitions, baseX, baseY, {
+              customShapeId: isCustomShape ? trayItem.id : undefined,
+              instanceId: isCustomShape ? instanceId : undefined,
+              version: trayItem.version ?? 1,
+              markAsGroupChild: isCustomShape
+            })
+
+            editor.createShapes(childShapes)
+
+            const createdShapeIds = childShapes.map(shape => shape.id).filter(Boolean) as TLShapeId[]
+
+            if (isCustomShape && createdShapeIds.length > 1) {
+              const newGroupId = createShapeId()
+              editor.groupShapes(createdShapeIds, { groupId: newGroupId, select: false })
+
+              const group = editor.getShape(newGroupId)
+              if (group) {
+                const updatedMeta = mergeMeta(group.meta as Record<string, unknown> | undefined, {
                   customShapeId: trayItem.id,
                   instanceId,
                   isCustomShapeInstance: true as const,
                   version: trayItem.version ?? 1,
-                  groupEditMode: false,
-                  isGroupChild: true // Mark as part of a group
-                } : shape.meta
-              }
+                  isMultiShapeGroup: true
+                })
 
-              editor.createShape(newShape)
-              createdShapeIds.push(newShapeId)
-            }
+                editor.updateShape({
+                  id: group.id,
+                  type: group.type,
+                  meta: updatedMeta
+                })
 
-            // Group the created shapes and add metadata to the group
-            if (isCustomShape && createdShapeIds.length > 1) {
-              const groupId = editor.groupShapes(createdShapeIds)
-
-              // Add custom metadata to the group to track it as a custom shape instance
-              if (groupId) {
-                const group = editor.getShape(groupId)
-                if (group) {
-                  editor.updateShape({
-                    ...group,
-                    meta: {
-                      customShapeId: trayItem.id,
-                      instanceId,
-                      isCustomShapeInstance: true as const,
-                      version: trayItem.version ?? 1,
-                      isMultiShapeGroup: true
-                    }
-                  })
-                }
+                editor.setSelectedShapes([newGroupId])
               }
-
-              // Select the group
-              if (groupId) {
-                editor.setSelectedShapes([groupId])
-              }
-            } else {
-              // Fallback: select all created shapes if not grouped
-              if (createdShapeIds.length > 0) {
-                editor.setSelectedShapes(createdShapeIds)
-              }
+            } else if (createdShapeIds.length > 0) {
+              editor.setSelectedShapes(createdShapeIds)
             }
           }
         } else {

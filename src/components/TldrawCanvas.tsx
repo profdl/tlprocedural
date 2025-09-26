@@ -13,7 +13,7 @@ import {
 } from 'tldraw'
 import type { TLComponents } from 'tldraw'
 import 'tldraw/tldraw.css'
-import React, { useMemo, useLayoutEffect, useRef } from 'react'
+import { useMemo, useLayoutEffect, useRef } from 'react'
 import { CustomStylePanel } from './CustomStylePanel'
 import { CustomToolbar } from './CustomToolbar'
 import { ModifierOverlay } from './ModifierRenderer'

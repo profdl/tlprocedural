@@ -4,7 +4,7 @@ import { TransformComposer, extractShapesFromState } from '../../../store/modifi
 import { getOriginalShapeId, findTopLevelGroup, getGroupPageBounds, getGroupChildShapes } from '../utils'
 import { applyRotationToShapes } from '../utils/transformUtils'
 import { useEditor, createShapeId, Vec } from 'tldraw'
-import type { TLShape } from 'tldraw'
+import type { TLShape, TLShapeId } from 'tldraw'
 import type { TLModifier, TLModifierId, GroupContext, ModifierType } from '../../../types/modifiers'
 import { CompoundShapeUtil, type CompoundShape } from '../../shapes/CompoundShape'
 
@@ -54,7 +54,7 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
     // For preview clones/processed shapes, we need to look up modifiers using the original shape ID
     const originalShapeId = getOriginalShapeId(selectedShape)
     if (originalShapeId && selectedShape.meta?.stackProcessed && !selectedShape.meta?.appliedFromModifier) {
-      return store.getModifiersForShape(originalShapeId as import('tldraw').TLShapeId)
+      return store.getModifiersForShape(originalShapeId)
     }
 
     // For all other shapes (including permanently applied modifier results), use the shape's own ID
@@ -153,7 +153,7 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
     }
 
     // Standard single-shape modifier logic
-    let targetShapeId = selectedShape.id
+    let targetShapeId: TLShapeId = selectedShape.id
 
     // Boolean result shapes should be treated as independent shapes
     if (selectedShape.meta?.appliedFromBoolean || selectedShape.meta?.isBooleanResult) {
@@ -168,14 +168,14 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
     }
 
     // Create modifier using existing store method
-    store.createModifier(targetShapeId as import('tldraw').TLShapeId, type, {})
+    store.createModifier(targetShapeId, type, {})
   }, [selectedShape, selectedShapes, isMultiShapeSelection, store, editor, createCompoundShape])
 
   const applyModifiers = useCallback(() => {
     if (!selectedShape || !editor) return
 
     // Determine the correct shape ID to get modifiers from
-    let targetShapeId = selectedShape.id
+    let targetShapeId: TLShapeId = selectedShape.id
 
     // Boolean result shapes should be treated as independent shapes
     if (selectedShape.meta?.appliedFromBoolean || selectedShape.meta?.isBooleanResult) {
@@ -190,7 +190,7 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
     }
 
     // Get all enabled modifiers for this shape
-    const enabledModifiers = store.getEnabledModifiersForShape(targetShapeId as import('tldraw').TLShapeId)
+    const enabledModifiers = store.getEnabledModifiersForShape(targetShapeId)
 
     console.log('🔧 Apply All started:', {
       selectedShapeId: selectedShape.id,
@@ -207,7 +207,7 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
     try {
       // Get the actual shape to apply modifiers to
       const actualOriginalShape = targetShapeId !== selectedShape.id
-        ? editor.getShape(targetShapeId as import('tldraw').TLShapeId) || selectedShape
+        ? editor.getShape(targetShapeId) || selectedShape
         : selectedShape
 
       // Check if we have boolean modifiers (they need special handling)
@@ -440,7 +440,7 @@ export function useModifierManager({ selectedShapes }: UseModifierManagerProps):
     try {
       // Get the actual shape to apply modifiers to
       const actualOriginalShape = targetShapeId !== selectedShape.id
-        ? editor.getShape(targetShapeId as import('tldraw').TLShapeId) || selectedShape
+        ? editor.getShape(targetShapeId) || selectedShape
         : selectedShape
 
       // Process only this specific modifier (all remaining modifiers are array modifiers)

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { useEditor, useValue } from 'tldraw'
+import { useEditor, useValue, type TLShapeId } from 'tldraw'
 import { useCustomShapeInstances } from './useCustomShapeInstances'
 import { useCustomShapes } from './useCustomShapes'
 import { bezierShapeToCustomTrayItem, normalizeBezierPoints } from '../utils/bezierToCustomShape'
@@ -57,16 +57,16 @@ export function useCustomShapeInstanceManager() {
   const { getCustomShape, updateCustomShape } = useCustomShapes()
 
   // Track edit states to detect when editing ends
-  const editStateRef = useRef<Map<string, boolean>>(new Map())
+  const editStateRef = useRef<Map<TLShapeId, boolean>>(new Map())
 
   // Track shape properties to detect live changes during edit mode
-  const shapePropsRef = useRef<Map<string, ShapePropsSnapshot>>(new Map())
+  const shapePropsRef = useRef<Map<TLShapeId, ShapePropsSnapshot>>(new Map())
 
   // Track original bounds when editing begins for proper compensation
-  const originalBoundsRef = useRef<Map<string, BoundsSnapshot>>(new Map())
+  const originalBoundsRef = useRef<Map<TLShapeId, BoundsSnapshot>>(new Map())
 
   // Track original instance positions to prevent cumulative compensation
-  const originalInstancePositionsRef = useRef<Map<string, Map<string, { x: number; y: number }>>>(new Map())
+  const originalInstancePositionsRef = useRef<Map<string, Map<TLShapeId, { x: number; y: number }>>>(new Map())
 
   // Monitor all shapes for edit mode changes
   const trackedBezierInstances = useValue(
@@ -244,7 +244,7 @@ export function useCustomShapeInstanceManager() {
           : null
         if (customShapeId) {
           const instances = getInstancesForCustomShape(customShapeId)
-          const instancePositions = new Map<string, { x: number; y: number }>()
+          const instancePositions = new Map<TLShapeId, { x: number; y: number }>()
           instances.forEach(instance => {
             instancePositions.set(instance.id, { x: instance.x, y: instance.y })
           })
@@ -272,6 +272,6 @@ export function useCustomShapeInstanceManager() {
 
   return {
     // Expose some utilities if needed
-    isTrackingShape: (shapeId: string) => editStateRef.current.has(shapeId)
+    isTrackingShape: (shapeId: TLShapeId) => editStateRef.current.has(shapeId)
   }
 }

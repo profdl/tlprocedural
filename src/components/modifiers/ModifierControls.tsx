@@ -116,6 +116,10 @@ export function ModifierControls({ selectedShapes }: ModifierControlsProps) {
     )
   }
 
+  if (!selectedShape) {
+    return null
+  }
+
   return (
     <ModifierErrorBoundary
       fallback={

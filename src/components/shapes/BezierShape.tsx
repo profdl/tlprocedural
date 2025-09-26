@@ -1,5 +1,5 @@
 import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, type TLResizeInfo } from 'tldraw'
-import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
+import { FlippableShapeUtil, addFlippingSupport } from './utils/FlippableShapeUtil'
 import { BezierBounds } from './services/BezierBounds'
 import { BezierState } from './services/BezierState'
 import {
@@ -374,8 +374,8 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     // Don't allow resize in edit mode
     if (shape.props.editMode) return shape
 
-    // First, let the parent class handle the resize properly (position, dimensions, flipping)
-    const resizedShape = super.onResize(shape, info) as BezierShape
+    // First, apply default resize behavior with flipping support
+    const resizedShape = addFlippingSupport(shape, info)
 
     const { scaleX, scaleY } = info
 

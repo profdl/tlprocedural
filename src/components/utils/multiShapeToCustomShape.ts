@@ -1,8 +1,108 @@
 import type { TLShape, Editor } from 'tldraw'
 import type { CustomTrayItem } from '../hooks/useCustomShapes'
-import type { BezierShape } from '../shapes/BezierShape'
+import type { BezierShape, BezierPoint } from '../shapes/BezierShape'
 import type { PolygonShape } from '../shapes/PolygonShape'
 import { bezierPointsToPath } from './bezierToCustomShape'
+
+export interface MultiShapeChildDefinition {
+  type: TLShape['type']
+  props: Record<string, unknown>
+  localTransform: {
+    x: number
+    y: number
+    rotation: number
+  }
+  opacity?: number
+  isLocked?: boolean
+  meta?: Record<string, unknown>
+}
+
+export interface MultiShapeDefaultProps extends Record<string, unknown> {
+  shapes: MultiShapeChildDefinition[]
+  originalBounds: {
+    width: number
+    height: number
+  }
+}
+
+export function isMultiShapeDefaultProps(
+  value: Record<string, unknown> | undefined
+): value is MultiShapeDefaultProps {
+  if (!value) return false
+  const candidate = value as MultiShapeDefaultProps
+  return Array.isArray(candidate.shapes) && typeof candidate.originalBounds === 'object'
+}
+
+export const RESERVED_META_KEYS = new Set([
+  'customShapeId',
+  'instanceId',
+  'isCustomShapeInstance',
+  'groupEditMode',
+  'groupEditInstanceId',
+  'isGroupChild',
+  'isMultiShapeGroup',
+  'nativeGroupEdit'
+])
+
+function isSerializable(value: unknown): boolean {
+  if (value === null) return true
+  const valueType = typeof value
+  if (valueType === 'string' || valueType === 'number' || valueType === 'boolean') {
+    return true
+  }
+  if (Array.isArray(value)) {
+    return value.every(isSerializable)
+  }
+  if (valueType === 'object') {
+    return Object.values(value as Record<string, unknown>).every(isSerializable)
+  }
+  return false
+}
+
+export function sanitizeMeta(meta: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  if (!meta) return undefined
+
+  const sanitized: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(meta)) {
+    if (RESERVED_META_KEYS.has(key)) continue
+    if (!isSerializable(value)) continue
+    sanitized[key] = value
+  }
+
+  return Object.keys(sanitized).length > 0 ? sanitized : undefined
+}
+
+export function cloneShapeProps(props: Record<string, unknown>): Record<string, unknown> {
+  try {
+    return structuredClone(props)
+  } catch (_err) {
+    return JSON.parse(JSON.stringify(props))
+  }
+}
+
+function sortShapesForTemplate(shapes: TLShape[]): TLShape[] {
+  return [...shapes].sort((a, b) => a.index.localeCompare(b.index))
+}
+
+function createLocalTransformData(
+  shape: TLShape,
+  editor: Editor,
+  combinedBounds: { x: number; y: number; width: number; height: number }
+): Pick<MultiShapeChildDefinition, 'localTransform'> {
+  const pageTransform = editor.getShapePageTransform(shape)
+  const pagePoint = pageTransform?.applyToPoint
+    ? pageTransform.applyToPoint({ x: 0, y: 0 })
+    : { x: shape.x, y: shape.y }
+  const rotation = pageTransform?.rotation?.() ?? (typeof shape.rotation === 'number' ? shape.rotation : 0)
+
+  return {
+    localTransform: {
+      x: pagePoint.x - combinedBounds.x,
+      y: pagePoint.y - combinedBounds.y,
+      rotation
+    }
+  }
+}
 
 /**
  * Converts multiple selected shapes into a single custom tray item
@@ -16,40 +116,38 @@ export function combineShapesToCustom(
     throw new Error('No shapes provided for custom shape creation')
   }
 
+  const sortedShapes = sortShapesForTemplate(shapes)
+
   // Calculate combined bounds of all shapes
-  const combinedBounds = calculateCombinedBounds(shapes, editor)
+  const combinedBounds = calculateCombinedBounds(sortedShapes, editor)
 
   // Generate unified SVG representation
-  const iconSvg = generateMultiShapeThumbnail(shapes, editor, combinedBounds)
+  const iconSvg = generateMultiShapeThumbnail(sortedShapes, editor, combinedBounds)
 
-  // Generate a default label if none provided
-  const shapeTypes = [...new Set(shapes.map(s => s.type))]
-  const defaultLabel = shapes.length === 1
-    ? `Custom ${shapes[0].type}`
-    : `Custom ${shapes.length} shapes (${shapeTypes.join(', ')})`
+  const shapeTypes = [...new Set(sortedShapes.map(s => s.type))]
+  const defaultLabel = sortedShapes.length === 1
+    ? `Custom ${sortedShapes[0].type}`
+    : `Custom ${sortedShapes.length} shapes (${shapeTypes.join(', ')})`
+
+  const childDefinitions: MultiShapeChildDefinition[] = sortedShapes.map(shape => ({
+    type: shape.type,
+    props: cloneShapeProps(shape.props as Record<string, unknown>),
+    ...createLocalTransformData(shape, editor, combinedBounds),
+    opacity: typeof shape.opacity === 'number' ? shape.opacity : undefined,
+    isLocked: shape.isLocked,
+    meta: sanitizeMeta(shape.meta as Record<string, unknown> | undefined)
+  }))
 
   return {
     label: label || defaultLabel,
     iconSvg,
     shapeType: 'multi-shape',
     defaultProps: {
-      w: Math.max(combinedBounds.width, 50), // Minimum size for usability
-      h: Math.max(combinedBounds.height, 50),
-      shapes: shapes.map(shape => {
-        const shapeWithoutId = { ...shape }
-        delete (shapeWithoutId as { id?: TLShape['id'] }).id
-
-        return {
-          ...shapeWithoutId,
-          x: shape.x - combinedBounds.x,
-          y: shape.y - combinedBounds.y
-        }
-      }),
-      originalBounds: combinedBounds,
-      color: '#000000',
-      fillColor: '#ffffff',
-      strokeWidth: 1,
-      fill: false
+      shapes: childDefinitions,
+      originalBounds: {
+        width: Math.max(combinedBounds.width, 1),
+        height: Math.max(combinedBounds.height, 1)
+      }
     },
     version: 1,
     lastModified: Date.now()

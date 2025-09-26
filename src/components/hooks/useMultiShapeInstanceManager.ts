@@ -1,12 +1,19 @@
 import { useEffect, useRef, useCallback } from 'react'
-import { useEditor, useValue } from 'tldraw'
+import { useEditor, useValue, type TLShapeId } from 'tldraw'
 import { useCustomShapeInstances } from './useCustomShapeInstances'
 import { useCustomShapes } from './useCustomShapes'
 import { bezierShapeToCustomTrayItem, normalizeBezierPoints } from '../utils/bezierToCustomShape'
-import { combineShapesToCustom } from '../utils/multiShapeToCustomShape'
+import {
+  combineShapesToCustom,
+  isMultiShapeDefaultProps,
+  sanitizeMeta,
+  RESERVED_META_KEYS,
+  cloneShapeProps
+} from '../utils/multiShapeToCustomShape'
 import { BezierBounds } from '../shapes/services/BezierBounds'
 import type { BezierShape } from '../shapes/BezierShape'
 import type { TLShape, Editor } from 'tldraw'
+import type { JsonObject } from '@tldraw/utils'
 
 interface BoundsSnapshot {
   minX: number
@@ -18,18 +25,6 @@ interface BoundsSnapshot {
 interface ShapePosition {
   x: number
   y: number
-}
-
-interface TemplateShapeData {
-  type?: TLShape['type']
-  props?: Record<string, unknown>
-  x?: number
-  y?: number
-}
-
-interface TemplateProps {
-  shapes?: TemplateShapeData[]
-  [key: string]: unknown
 }
 
 type ShapeUpdate = Parameters<Editor['updateShapes']>[0][number]
@@ -44,8 +39,54 @@ function extractInstanceId(shape: TLShape): string | null {
   return typeof value === 'string' ? value : null
 }
 
-function isMultiShapeTemplate(props: TemplateProps): props is TemplateProps & { shapes: TemplateShapeData[] } {
-  return Array.isArray(props.shapes)
+function sortShapesByIndex(shapes: TLShape[]): TLShape[] {
+  return [...shapes].sort((a, b) => a.index.localeCompare(b.index))
+}
+
+function partitionGroupAndChildren(shapes: TLShape[]): { group: TLShape | null; children: TLShape[] } {
+  let group: TLShape | null = null
+  const children: TLShape[] = []
+
+  shapes.forEach(shape => {
+    if (shape.type === 'group' && shape.meta?.isMultiShapeGroup) {
+      group = shape
+      return
+    }
+
+    if (shape.meta?.isGroupChild === true || shape.meta?.isCustomShapeInstance === true) {
+      children.push(shape)
+      return
+    }
+
+    // Fallback: treat shape as child if no explicit metadata
+    children.push(shape)
+  })
+
+  return { group, children }
+}
+
+function mergeInstanceMeta(
+  currentMeta: Record<string, unknown> | undefined,
+  templateMeta: Record<string, unknown> | undefined,
+  overrides: Record<string, unknown>
+): JsonObject {
+  const meta: Record<string, unknown> = {}
+
+  if (currentMeta) {
+    Object.assign(meta, currentMeta)
+  }
+
+  const sanitizedTemplate = sanitizeMeta(templateMeta)
+  if (sanitizedTemplate) {
+    Object.entries(sanitizedTemplate).forEach(([key, value]) => {
+      if (RESERVED_META_KEYS.has(key)) return
+      meta[key] = value
+    })
+  }
+
+  Object.assign(meta, overrides)
+
+  return meta as JsonObject
 }
 
 /**
@@ -58,30 +99,30 @@ export function useMultiShapeInstanceManager() {
   const { getCustomShape, updateCustomShape } = useCustomShapes()
 
   // Track edit states to detect when editing ends
-  const editStateRef = useRef<Map<string, boolean>>(new Map())
+  const editStateRef = useRef<Map<TLShapeId, boolean>>(new Map())
 
   // Track shape properties to detect live changes during edit mode
-  const shapePropsRef = useRef<Map<string, string>>(new Map())
+  const shapePropsRef = useRef<Map<TLShapeId, string>>(new Map())
 
   // Track original bounds when editing begins for proper compensation (bezier shapes only)
-  const originalBoundsRef = useRef<Map<string, BoundsSnapshot>>(new Map())
+  const originalBoundsRef = useRef<Map<TLShapeId, BoundsSnapshot>>(new Map())
 
   // Track original instance positions to prevent cumulative compensation
-  const originalInstancePositionsRef = useRef<Map<string, Map<string, ShapePosition>>>(new Map())
+  const originalInstancePositionsRef = useRef<Map<string, Map<TLShapeId, ShapePosition>>>(new Map())
 
   // Track group edit mode - when true, changes to any shape in a group will sync to all instances
-  const groupEditModeRef = useRef<Map<string, boolean>>(new Map())
+  const groupEditModeRef = useRef<Map<TLShapeId, boolean>>(new Map())
 
   const storeOriginalInstancePositions = useCallback((customShapeId: string) => {
     const instances = getInstancesForCustomShape(customShapeId)
-    const instancePositions = new Map<string, ShapePosition>()
+    const instancePositions = new Map<TLShapeId, ShapePosition>()
     instances.forEach(instance => {
       instancePositions.set(instance.id, { x: instance.x, y: instance.y })
     })
     originalInstancePositionsRef.current.set(customShapeId, instancePositions)
   }, [getInstancesForCustomShape])
 
-  const cleanupShapeTracking = useCallback((shapeId: string, customShapeId: string) => {
+  const cleanupShapeTracking = useCallback((shapeId: TLShapeId, customShapeId: string) => {
     shapePropsRef.current.delete(shapeId)
     originalBoundsRef.current.delete(shapeId)
     originalInstancePositionsRef.current.delete(customShapeId)
@@ -274,48 +315,130 @@ export function useMultiShapeInstanceManager() {
     return combineShapesToCustom(groupShapes, editor, label)
   }, [editor])
 
-  const updateInstanceGroupFromTemplate = useCallback((instanceShapes: TLShape[], templateProps: TemplateProps) => {
+  const updateInstanceGroupFromTemplate = useCallback((
+    instanceShapes: TLShape[],
+    templateDefaultProps: Record<string, unknown>,
+    customShapeId: string,
+    nextVersion: number
+  ) => {
+    if (instanceShapes.length === 0) return
+
     const updates: ShapeUpdate[] = []
 
-    if (!isMultiShapeTemplate(templateProps)) {
-      if (instanceShapes.length === 1) {
-        const shape = instanceShapes[0]
-        const singleShapeTemplate: Record<string, unknown> = { ...templateProps }
-        delete singleShapeTemplate.shapes
+    if (!isMultiShapeDefaultProps(templateDefaultProps)) {
+      const shape = instanceShapes[0]
+      const singleInstanceId = extractInstanceId(shape) ?? extractInstanceId(instanceShapes[0])
+      const overrides: Record<string, unknown> = {
+        customShapeId,
+        isCustomShapeInstance: true as const,
+        version: nextVersion,
+        groupEditMode: false
+      }
+
+      if (singleInstanceId) {
+        overrides.instanceId = singleInstanceId
+      }
+
+      const mergedMeta = mergeInstanceMeta(
+        shape.meta as Record<string, unknown> | undefined,
+        undefined,
+        overrides
+      )
+
+      const templateProps = cloneShapeProps(templateDefaultProps as Record<string, unknown>)
+      const propsUpdate = {
+        ...shape.props,
+        ...templateProps
+      }
+
+      updates.push({
+        id: shape.id,
+        type: shape.type,
+        props: propsUpdate,
+        meta: mergedMeta
+      })
+    } else {
+      const { group, children } = partitionGroupAndChildren(instanceShapes)
+      const sortedChildren = sortShapesByIndex(children)
+      const templateChildren = templateDefaultProps.shapes
+
+      sortedChildren.forEach((instanceShape, index) => {
+        const definition = templateChildren[index]
+        if (!definition) return
+
+        const instanceId = extractInstanceId(instanceShape) ?? extractInstanceId(group ?? instanceShape)
+
+        const overrides: Record<string, unknown> = {
+          customShapeId,
+          isCustomShapeInstance: true as const,
+          version: nextVersion,
+          groupEditMode: false,
+          isGroupChild: true
+        }
+
+        if (instanceId) {
+          overrides.instanceId = instanceId
+        }
+
+        const mergedMeta = mergeInstanceMeta(
+          instanceShape.meta as Record<string, unknown> | undefined,
+          definition.meta,
+          overrides
+        )
+
+        const propsUpdate = {
+          ...instanceShape.props,
+          ...cloneShapeProps(definition.props)
+        }
+
+        const shapeUpdate: ShapeUpdate = {
+          id: instanceShape.id,
+          type: instanceShape.type,
+          props: propsUpdate,
+          x: definition.localTransform.x,
+          y: definition.localTransform.y,
+          rotation: definition.localTransform.rotation,
+          meta: mergedMeta
+        }
+
+        if (typeof definition.opacity === 'number') {
+          shapeUpdate.opacity = definition.opacity
+        }
+
+        if (typeof definition.isLocked === 'boolean') {
+          shapeUpdate.isLocked = definition.isLocked
+        }
+
+        updates.push(shapeUpdate)
+      })
+
+      if (group) {
+        const groupInstanceId = extractInstanceId(group) ?? extractInstanceId(sortedChildren[0])
+        const groupOverrides: Record<string, unknown> = {
+          customShapeId,
+          isCustomShapeInstance: true as const,
+          version: nextVersion,
+          isMultiShapeGroup: true,
+          groupEditMode: false,
+          nativeGroupEdit: false
+        }
+
+        if (groupInstanceId) {
+          groupOverrides.instanceId = groupInstanceId
+        }
+
+        const groupMeta = mergeInstanceMeta(
+          group.meta as Record<string, unknown> | undefined,
+          undefined,
+          groupOverrides
+        )
+
         updates.push({
-          id: shape.id,
-          type: shape.type,
-          props: {
-            ...shape.props,
-            ...singleShapeTemplate
-          }
+          id: group.id,
+          type: group.type,
+          meta: groupMeta
         })
       }
-    } else {
-      templateProps.shapes.forEach((templateShape, index) => {
-        const instanceShape = instanceShapes[index]
-        if (!instanceShape) return
-
-        const update: ShapeUpdate = {
-          id: instanceShape.id,
-          type: instanceShape.type
-        }
-
-        if (templateShape.props) {
-          update.props = {
-            ...instanceShape.props,
-            ...templateShape.props
-          }
-        }
-
-        const templateX = typeof templateShape.x === 'number' ? templateShape.x : 0
-        const templateY = typeof templateShape.y === 'number' ? templateShape.y : 0
-
-        update.x = instanceShape.x + templateX
-        update.y = instanceShape.y + templateY
-
-        updates.push(update)
-      })
     }
 
     if (updates.length > 0) {
@@ -333,6 +456,8 @@ export function useMultiShapeInstanceManager() {
     console.log(`Group live update for custom shape instance: ${customShapeId}`)
 
     try {
+      const nextVersion = (customShape.version ?? 1) + 1
+
       // Get all shapes that belong to this instance group
       const allShapes = editor.getCurrentPageShapes()
       const instanceId = extractInstanceId(shape)
@@ -352,7 +477,13 @@ export function useMultiShapeInstanceManager() {
       }
 
       // Calculate the updated template definition from the current group state
-      const updatedTemplateData = createUpdatedTemplateFromGroup(groupShapes, customShape.label)
+      const templateSourceShapes = groupShapes.filter(s => s.type !== 'group')
+      if (templateSourceShapes.length === 0) {
+        console.warn('No editable shapes found in group for template update')
+        return
+      }
+
+      const updatedTemplateData = createUpdatedTemplateFromGroup(templateSourceShapes, customShape.label)
 
       // Update the custom shape definition
       updateCustomShape(customShapeId, {
@@ -375,7 +506,12 @@ export function useMultiShapeInstanceManager() {
           extractInstanceId(s) === otherInstanceId
         )
 
-        updateInstanceGroupFromTemplate(otherInstanceShapes, updatedTemplateData.defaultProps)
+        updateInstanceGroupFromTemplate(
+          otherInstanceShapes,
+          updatedTemplateData.defaultProps,
+          customShapeId,
+          nextVersion
+        )
       })
 
       console.log(`Group live updated other instances for: ${customShapeId}`)
@@ -439,6 +575,8 @@ export function useMultiShapeInstanceManager() {
     console.log(`Group edit mode ended for custom shape instance: ${customShapeId}`)
 
     try {
+      const nextVersion = (customShape.version ?? 1) + 1
+
       const allShapes = editor.getCurrentPageShapes()
       const groupShapes = allShapes.filter(s =>
         extractCustomShapeId(s) === customShapeId &&
@@ -450,12 +588,29 @@ export function useMultiShapeInstanceManager() {
         return
       }
 
-      const updatedTemplateData = createUpdatedTemplateFromGroup(groupShapes, customShape.label)
+      const templateSourceShapes = groupShapes.filter(s => s.type !== 'group')
+      if (templateSourceShapes.length === 0) {
+        console.warn('No editable shapes found in group for template update')
+        return
+      }
+
+      const updatedTemplateData = createUpdatedTemplateFromGroup(templateSourceShapes, customShape.label)
 
       updateCustomShape(customShapeId, {
         iconSvg: updatedTemplateData.iconSvg,
         defaultProps: updatedTemplateData.defaultProps
       })
+
+      const editingInstanceShapes = allShapes.filter(s =>
+        extractCustomShapeId(s) === customShapeId && extractInstanceId(s) === instanceId
+      )
+
+      updateInstanceGroupFromTemplate(
+        editingInstanceShapes,
+        updatedTemplateData.defaultProps,
+        customShapeId,
+        nextVersion
+      )
 
       const allInstances = getInstancesForCustomShape(customShapeId)
       const otherInstanceIds = new Set(
@@ -470,7 +625,12 @@ export function useMultiShapeInstanceManager() {
           extractInstanceId(s) === otherInstanceId
         )
 
-        updateInstanceGroupFromTemplate(otherInstanceShapes, updatedTemplateData.defaultProps)
+        updateInstanceGroupFromTemplate(
+          otherInstanceShapes,
+          updatedTemplateData.defaultProps,
+          customShapeId,
+          nextVersion
+        )
       })
 
       console.log(`Updated custom shape definition and all instances after group edit: ${customShapeId}`)
@@ -659,7 +819,7 @@ export function useMultiShapeInstanceManager() {
 
   return {
     // Expose some utilities if needed
-    isTrackingShape: (shapeId: string) => editStateRef.current.has(shapeId),
-    isShapeInGroupEditMode: (shapeId: string) => groupEditModeRef.current.get(shapeId) || false
+    isTrackingShape: (shapeId: TLShapeId) => editStateRef.current.has(shapeId),
+    isShapeInGroupEditMode: (shapeId: TLShapeId) => groupEditModeRef.current.get(shapeId) || false
   }
 }

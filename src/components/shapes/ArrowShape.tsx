@@ -28,11 +28,12 @@ export class CustomArrowShapeUtil extends FlippableShapeUtil<CustomArrowShape> {
   }
 
   override getDefaultProps(): CustomArrowShape['props'] {
+    const defaults = this.getCommonDefaultProps()
     return {
+      ...defaults,
       w: 150,
       h: 80,
       strokeWidth: 2, // Arrow uses thicker stroke by default
-      ...this.getCommonDefaultProps(),
     }
   }
 

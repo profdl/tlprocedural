@@ -23,6 +23,7 @@ import type {
   TLModifierId
 } from '../../../types/modifiers'
 import { useModifierStore } from '../../../store/modifierStore'
+import type { TLShapeId } from 'tldraw'
 
 // Local stopEventPropagation implementation
 function stopEventPropagation(e: React.SyntheticEvent | Event) {
@@ -33,7 +34,7 @@ interface ModifierListProps {
   modifiers: TLModifier[]
   onToggleModifier: (modifierId: string) => void
   onRemoveModifier: (modifierId: string) => void
-  shapeId: string
+  shapeId: TLShapeId
 }
 
 /**
@@ -76,7 +77,7 @@ export function ModifierList({ modifiers, onToggleModifier, onRemoveModifier, sh
         
         // Update the order in the store
         const newOrderIds = newOrder.map(m => m.id as TLModifierId)
-        store.reorderModifiers(shapeId as import('tldraw').TLShapeId, newOrderIds)
+        store.reorderModifiers(shapeId, newOrderIds)
       }
     }
     

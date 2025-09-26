@@ -1,8 +1,9 @@
-import { StateNode, TLClickEventInfo, TLKeyboardEventInfo } from 'tldraw'
-import type { Editor, TLShapeId } from 'tldraw'
+import { StateNode } from 'tldraw'
+import type { Editor, TLShapeId, TLClickEventInfo, TLKeyboardEventInfo } from 'tldraw'
+import type { JsonObject } from '@tldraw/utils'
 import { getCustomShapeFromRegistry } from '../providers/CustomShapesRegistry'
 
-interface GroupEditState {
+interface GroupEditState extends JsonObject {
   customShapeId: string
   instanceShapeId: TLShapeId
   shapeIds: TLShapeId[]
@@ -159,9 +160,13 @@ export class GroupEditTool extends StateNode {
       shapeIds
     }
 
-    this.editor.updateInstanceState({
-      ...instanceState,
+    const nextMeta = {
+      ...instanceState.meta,
       groupEditState: nextState
+    } as JsonObject
+
+    this.editor.updateInstanceState({
+      meta: nextMeta
     })
   }
 
@@ -169,8 +174,10 @@ export class GroupEditTool extends StateNode {
    * Get the current group edit state
    */
   private getGroupEditState(): GroupEditState | null {
-    const instanceState = this.editor.getInstanceState() as unknown as { groupEditState?: GroupEditState | null }
-    return instanceState.groupEditState ?? null
+    const instanceState = this.editor.getInstanceState()
+    const meta = instanceState.meta as JsonObject & { groupEditState?: GroupEditState | null }
+    const state = meta.groupEditState
+    return state ?? null
   }
 
   /**
@@ -178,9 +185,11 @@ export class GroupEditTool extends StateNode {
    */
   private clearGroupEditState() {
     const instanceState = this.editor.getInstanceState()
+    const nextMeta = { ...instanceState.meta } as JsonObject
+    delete nextMeta.groupEditState
+
     this.editor.updateInstanceState({
-      ...instanceState,
-      groupEditState: null
+      meta: nextMeta
     })
   }
 }

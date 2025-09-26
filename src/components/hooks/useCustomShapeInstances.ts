@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react'
-import { useEditor, useValue, type TLShape } from 'tldraw'
+import { useEditor, useValue, type TLShape, type TLShapeId } from 'tldraw'
 import type { Editor } from 'tldraw'
 import { useCustomShapes } from './useCustomShapes'
 
@@ -67,29 +67,29 @@ export function useCustomShapeInstances() {
   }, [])
 
   // Update all instances of a custom shape with new properties
-  const updateAllInstances = useCallback((customShapeId: string, updates: Partial<TLShape>, excludeShapeId?: string, boundsOffset?: { x: number; y: number }, originalPositions?: Map<string, { x: number; y: number }>) => {
+  const updateAllInstances = useCallback((customShapeId: string, updates: Partial<TLShape>, excludeShapeId?: TLShapeId, boundsOffset?: { x: number; y: number }, originalPositions?: Map<TLShapeId, { x: number; y: number }>) => {
     const instances = getInstancesForCustomShape(customShapeId)
     if (instances.length === 0) return
 
     const customShape = getCustomShape(customShapeId)
     if (!customShape) return
 
-    const mutableUpdates: Partial<TLShape> = { ...updates }
-    delete mutableUpdates.type
-    delete mutableUpdates.id
-    delete mutableUpdates.parentId
-    delete mutableUpdates.index
-
     // Filter out the excluded shape (typically the one being edited)
     const instancesToUpdate = excludeShapeId
       ? instances.filter(instance => instance.id !== excludeShapeId)
       : instances
 
-    const propsUpdate = mutableUpdates.props
-    const otherUpdates: Partial<TLShape> = { ...mutableUpdates }
-    delete otherUpdates.props
-    delete otherUpdates.x
-    delete otherUpdates.y
+    const {
+      type: _type,
+      id: _id,
+      parentId: _parentId,
+      index: _index,
+      props: propsUpdate,
+      x: xUpdate,
+      y: yUpdate,
+      meta: metaUpdate,
+      ...restUpdates
+    } = updates
 
     const shapeUpdates: ShapeUpdate[] = instancesToUpdate.map(instance => {
       const updatedShape: ShapeUpdate = {
@@ -121,32 +121,30 @@ export function useCustomShapeInstances() {
           updatedShape.x = instance.x + boundsOffset.x
           updatedShape.y = instance.y + boundsOffset.y
         }
-      } else if (typeof mutableUpdates.x === 'number' || typeof mutableUpdates.y === 'number') {
-        if (typeof mutableUpdates.x === 'number') {
-          updatedShape.x = mutableUpdates.x
+      } else if (typeof xUpdate === 'number' || typeof yUpdate === 'number') {
+        if (typeof xUpdate === 'number') {
+          updatedShape.x = xUpdate
         }
-        if (typeof mutableUpdates.y === 'number') {
-          updatedShape.y = mutableUpdates.y
+        if (typeof yUpdate === 'number') {
+          updatedShape.y = yUpdate
         }
       }
 
-      if (otherUpdates.meta) {
+      if (metaUpdate) {
         updatedShape.meta = {
           ...updatedShape.meta,
-          ...otherUpdates.meta
+          ...metaUpdate
         }
       }
 
-      const remainingUpdates: Partial<TLShape> = { ...otherUpdates }
-      delete remainingUpdates.meta
-      Object.assign(updatedShape, remainingUpdates)
+      Object.assign(updatedShape, restUpdates)
 
       return updatedShape
     })
 
     // Validate shape updates before applying
-    const validatedUpdates = shapeUpdates.filter(shape => {
-      if (!shape.type || !shape.id) {
+    const validatedUpdates = shapeUpdates.filter((shape): shape is NonNullable<ShapeUpdate> => {
+      if (!shape || !('id' in shape) || !(shape as { id?: TLShapeId }).id || !('type' in shape) || !(shape as { type?: string }).type) {
         console.error('Invalid shape update - missing type or id:', shape)
         return false
       }
@@ -158,7 +156,12 @@ export function useCustomShapeInstances() {
       return
     }
 
-    console.log('Applying shape updates:', validatedUpdates.map(s => ({ id: s.id, type: s.type, hasProps: !!s.props })))
+    const updateSummary = (validatedUpdates as Array<{ id: TLShapeId; type: string; props?: unknown }>).map(shape => ({
+      id: shape.id,
+      type: shape.type,
+      hasProps: !!shape.props
+    }))
+    console.log('Applying shape updates:', updateSummary)
 
     // Batch update all instances
     editor.run(() => {

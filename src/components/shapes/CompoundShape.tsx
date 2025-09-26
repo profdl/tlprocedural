@@ -1,4 +1,6 @@
 import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLShapeId, type TLShape } from 'tldraw'
+import type { JSX } from 'react'
+import type { JsonObject } from '@tldraw/utils'
 import type { BezierPoint } from './BezierShape'
 import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 
@@ -11,7 +13,7 @@ export interface ChildShapeData {
   relativeX: number // Position relative to compound shape origin
   relativeY: number
   relativeRotation: number // Rotation relative to compound shape
-  props: Record<string, unknown> // Shape-specific properties
+  props: JsonObject // Shape-specific properties
 }
 
 interface DrawPoint {
@@ -21,6 +23,10 @@ interface DrawPoint {
 
 interface DrawSegment {
   points: DrawPoint[]
+}
+
+function isJsonObject(value: unknown): value is JsonObject {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
 }
 
 function isPointArray(value: unknown): value is DrawPoint[] {
@@ -49,6 +55,21 @@ function isBezierPointArray(value: unknown): value is BezierPoint[] {
   )
 }
 
+function getNumberProp(obj: JsonObject, key: string, fallback = 0): number {
+  const value = obj[key]
+  return typeof value === 'number' ? value : fallback
+}
+
+function getStringProp(obj: JsonObject, key: string, fallback = ''): string {
+  const value = obj[key]
+  return typeof value === 'string' ? value : fallback
+}
+
+function getBooleanProp(obj: JsonObject, key: string, fallback = false): boolean {
+  const value = obj[key]
+  return typeof value === 'boolean' ? value : fallback
+}
+
 /**
  * CompoundShape - Contains multiple child shapes and treats them as single entity
  * Used primarily for multi-shape boolean operations
@@ -70,6 +91,37 @@ export type CompoundShape = TLBaseShape<
 export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
   static override type = 'compound' as const
 
+  private static readonly childShapeValidator = T.jsonValue.refine<ChildShapeData>((value) => {
+    if (!isJsonObject(value)) {
+      throw new Error('Child shape must be a JSON object')
+    }
+
+    const { id, type, relativeX, relativeY, relativeRotation, props } = value
+
+    if (typeof id !== 'string' || !id.startsWith('shape:')) {
+      throw new Error('Child shape id must be a TLShapeId string')
+    }
+    if (typeof type !== 'string') {
+      throw new Error('Child shape type must be a string')
+    }
+    if (typeof relativeX !== 'number' || typeof relativeY !== 'number' || typeof relativeRotation !== 'number') {
+      throw new Error('Child shape relative transform must be numeric')
+    }
+
+    const childProps = isJsonObject(props) ? props : {} as JsonObject
+
+    const child: ChildShapeData = {
+      id: id as TLShapeId,
+      type,
+      relativeX,
+      relativeY,
+      relativeRotation,
+      props: childProps
+    }
+
+    return child
+  })
+
   static override props: RecordProps<CompoundShape> = {
     w: T.number,
     h: T.number,
@@ -77,14 +129,7 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
     fillColor: T.string,
     strokeWidth: T.number,
     fill: T.boolean,
-    childShapes: T.arrayOf(T.object({
-      id: T.string,
-      type: T.string,
-      relativeX: T.number,
-      relativeY: T.number,
-      relativeRotation: T.number,
-      props: T.any
-    })),
+    childShapes: T.arrayOf(CompoundShapeUtil.childShapeValidator),
     boundingBoxVisible: T.optional(T.boolean),
   }
 
@@ -143,6 +188,13 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
     )
   }
 
+  override indicator(shape: CompoundShape): JSX.Element {
+    const { w, h } = shape.props
+    return (
+      <rect x={0} y={0} width={w} height={h} />
+    )
+  }
+
   /**
    * Render individual child shape based on its type
    */
@@ -168,21 +220,28 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
     }
   }
 
-  private renderGeoShape(props: Record<string, unknown>): JSX.Element {
-    const { w, h, color, fillColor, fill, strokeWidth } = props
+  private renderGeoShape(props: JsonObject): JSX.Element {
+    const w = getNumberProp(props, 'w')
+    const h = getNumberProp(props, 'h')
+    const color = getStringProp(props, 'color', '#000')
+    const fillColor = getStringProp(props, 'fillColor', 'transparent')
+    const fill = getBooleanProp(props, 'fill', false)
+    const strokeWidth = getNumberProp(props, 'strokeWidth', 1)
     return (
       <rect
-        width={w as number}
-        height={h as number}
-        fill={fill ? (fillColor as string) : 'none'}
-        stroke={color as string}
-        strokeWidth={strokeWidth as number}
+        width={w}
+        height={h}
+        fill={fill ? fillColor : 'none'}
+        stroke={color}
+        strokeWidth={strokeWidth}
       />
     )
   }
 
-  private renderDrawShape(props: Record<string, unknown>): JSX.Element {
-    const { segments, color, strokeWidth } = props
+  private renderDrawShape(props: JsonObject): JSX.Element {
+    const segments = props.segments
+    const color = getStringProp(props, 'color', '#000')
+    const strokeWidth = getNumberProp(props, 'strokeWidth', 1)
     if (!isDrawSegmentArray(segments)) {
       return <g />
     }
@@ -203,18 +262,23 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
       <path
         d={pathData}
         fill="none"
-        stroke={color as string}
-        strokeWidth={strokeWidth as number}
+        stroke={color}
+        strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
     )
   }
 
-  private renderCircleShape(props: Record<string, unknown>): JSX.Element {
-    const { w, h, color, fillColor, fill, strokeWidth } = props
-    const rx = (w as number) / 2
-    const ry = (h as number) / 2
+  private renderCircleShape(props: JsonObject): JSX.Element {
+    const w = getNumberProp(props, 'w')
+    const h = getNumberProp(props, 'h')
+    const color = getStringProp(props, 'color', '#000')
+    const fillColor = getStringProp(props, 'fillColor', 'transparent')
+    const fill = getBooleanProp(props, 'fill', false)
+    const strokeWidth = getNumberProp(props, 'strokeWidth', 1)
+    const rx = w / 2
+    const ry = h / 2
 
     return (
       <ellipse
@@ -222,18 +286,21 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
         cy={0}
         rx={rx}
         ry={ry}
-        fill={fill ? (fillColor as string) : 'none'}
-        stroke={color as string}
-        strokeWidth={strokeWidth as number}
+        fill={fill ? fillColor : 'none'}
+        stroke={color}
+        strokeWidth={strokeWidth}
         transform={`translate(${rx}, ${ry})`}
       />
     )
   }
 
-  private renderTriangleShape(props: Record<string, unknown>): JSX.Element {
-    const { w, h, color, fillColor, fill, strokeWidth } = props
-    const width = w as number
-    const height = h as number
+  private renderTriangleShape(props: JsonObject): JSX.Element {
+    const width = getNumberProp(props, 'w')
+    const height = getNumberProp(props, 'h')
+    const color = getStringProp(props, 'color', '#000')
+    const fillColor = getStringProp(props, 'fillColor', 'transparent')
+    const fill = getBooleanProp(props, 'fill', false)
+    const strokeWidth = getNumberProp(props, 'strokeWidth', 1)
 
     // Standard triangle points
     const points = `${width / 2},0 0,${height} ${width},${height}`
@@ -241,15 +308,19 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
     return (
       <polygon
         points={points}
-        fill={fill ? (fillColor as string) : 'none'}
-        stroke={color as string}
-        strokeWidth={strokeWidth as number}
+        fill={fill ? fillColor : 'none'}
+        stroke={color}
+        strokeWidth={strokeWidth}
       />
     )
   }
 
-  private renderPolygonShape(props: Record<string, unknown>): JSX.Element {
-    const { points, color, fillColor, fill, strokeWidth } = props
+  private renderPolygonShape(props: JsonObject): JSX.Element {
+    const color = getStringProp(props, 'color', '#000')
+    const fillColor = getStringProp(props, 'fillColor', 'transparent')
+    const fill = getBooleanProp(props, 'fill', false)
+    const strokeWidth = getNumberProp(props, 'strokeWidth', 1)
+    const points = props.points
 
     if (!isPointArray(points)) {
       return <g />
@@ -260,15 +331,20 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
     return (
       <polygon
         points={pointsString}
-        fill={fill ? (fillColor as string) : 'none'}
-        stroke={color as string}
-        strokeWidth={strokeWidth as number}
+        fill={fill ? fillColor : 'none'}
+        stroke={color}
+        strokeWidth={strokeWidth}
       />
     )
   }
 
-  private renderBezierShape(props: Record<string, unknown>): JSX.Element {
-    const { points, color, fillColor, fill, strokeWidth, isClosed } = props
+  private renderBezierShape(props: JsonObject): JSX.Element {
+    const points = props.points
+    const color = getStringProp(props, 'color', '#000')
+    const fillColor = getStringProp(props, 'fillColor', 'transparent')
+    const fill = getBooleanProp(props, 'fill', false)
+    const strokeWidth = getNumberProp(props, 'strokeWidth', 1)
+    const isClosed = getBooleanProp(props, 'isClosed', false)
 
     if (!isBezierPointArray(points)) {
       return <g />
@@ -296,20 +372,20 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
     return (
       <path
         d={pathData}
-        fill={fill && isClosed ? (fillColor as string) : 'none'}
-        stroke={color as string}
-        strokeWidth={strokeWidth as number}
+        fill={fill && isClosed ? fillColor : 'none'}
+        stroke={color}
+        strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
     )
   }
 
-  private renderFallbackShape(props: Record<string, unknown>): JSX.Element {
-    const width = typeof props.w === 'number' ? props.w : 50
-    const height = typeof props.h === 'number' ? props.h : 50
-    const strokeColor = typeof props.color === 'string' ? props.color : '#999'
-    const stroke = typeof props.strokeWidth === 'number' ? props.strokeWidth : 1
+  private renderFallbackShape(props: JsonObject): JSX.Element {
+    const width = getNumberProp(props, 'w', 50)
+    const height = getNumberProp(props, 'h', 50)
+    const strokeColor = getStringProp(props, 'color', '#999')
+    const stroke = getNumberProp(props, 'strokeWidth', 1)
 
     // Render a simple rectangle with an X for unknown shapes
     return (
@@ -342,8 +418,9 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
     shapes.forEach(({ shape, relativePosition }) => {
       const shapeMinX = relativePosition.x
       const shapeMinY = relativePosition.y
-      const shapeWidth = typeof shape.props?.w === 'number' ? shape.props.w : 0
-      const shapeHeight = typeof shape.props?.h === 'number' ? shape.props.h : 0
+      const shapeProps = shape.props as Record<string, unknown>
+      const shapeWidth = typeof shapeProps.w === 'number' ? shapeProps.w : 0
+      const shapeHeight = typeof shapeProps.h === 'number' ? shapeProps.h : 0
       const shapeMaxX = relativePosition.x + shapeWidth
       const shapeMaxY = relativePosition.y + shapeHeight
 
@@ -357,14 +434,19 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
     const h = maxY - minY
 
     // Create child shape data
-    const childShapes: ChildShapeData[] = shapes.map(({ shape, relativePosition }) => ({
-      id: shape.id,
-      type: shape.type,
-      relativeX: relativePosition.x - minX,
-      relativeY: relativePosition.y - minY,
-      relativeRotation: shape.rotation ?? 0,
-      props: shape.props ?? {}
-    }))
+    const childShapes: ChildShapeData[] = shapes.map(({ shape, relativePosition }) => {
+      const props = shape.props
+      const parsedProps = isJsonObject(props) ? props : {} as JsonObject
+
+      return {
+        id: shape.id,
+        type: shape.type,
+        relativeX: relativePosition.x - minX,
+        relativeY: relativePosition.y - minY,
+        relativeRotation: shape.rotation ?? 0,
+        props: parsedProps
+      }
+    })
 
     return {
       w,

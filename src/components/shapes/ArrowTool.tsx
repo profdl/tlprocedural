@@ -34,10 +34,10 @@ export class CustomArrowTool extends StateNode {
         index: this.editor.getHighestIndexForParent(this.editor.getCurrentPageId()),
         parentId: this.editor.getCurrentPageId(),
         props: {
+          ...DEFAULT_SHAPE_PROPS,
           w: 150,
           h: 80,
           strokeWidth: 2, // Arrow uses thicker stroke by default
-          ...DEFAULT_SHAPE_PROPS,
         },
         meta: {},
         opacity: 1,

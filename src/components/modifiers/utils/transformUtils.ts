@@ -1,11 +1,11 @@
-import type { TLShape, Editor } from 'tldraw'
+import type { TLShape, Editor, TLShapeId } from 'tldraw'
 import { createShapeId } from 'tldraw'
 import { getShapeDimensions } from './shapeDimensions'
 
 /**
  * Clone utilities
  */
-export function generateCloneId(): string {
+export function generateCloneId(): TLShapeId {
   return createShapeId()
 }
 
@@ -13,9 +13,9 @@ export function isArrayClone(shape: TLShape): boolean {
   return !!(shape.meta?.isArrayClone)
 }
 
-export function getOriginalShapeId(shape: TLShape): string | null {
+export function getOriginalShapeId(shape: TLShape): TLShapeId | null {
   const originalId = shape.meta?.originalShapeId
-  return typeof originalId === 'string' ? originalId : null
+  return typeof originalId === 'string' ? originalId as TLShapeId : null
 }
 
 /**
@@ -72,10 +72,10 @@ export function getTopLeftFromCenter(shape: TLShape, centerX: number, centerY: n
  * This ensures consistent rotation behavior matching the UI
  * NOTE: This function should be called from within an editor.run() context
  */
-export function applyRotationToShapes(editor: Editor, shapeIds: string[], rotation: number): void {
+export function applyRotationToShapes(editor: Editor, shapeIds: TLShapeId[], rotation: number): void {
   if (rotation !== 0 && shapeIds.length > 0) {
     // Don't wrap in editor.run() - should be called from within a run context
-    editor.rotateShapesBy(shapeIds as import('tldraw').TLShapeId[], rotation)
+    editor.rotateShapesBy(shapeIds, rotation)
   }
 }
 
@@ -256,5 +256,4 @@ export function calculateGridPosition(
     scaleY: 1
   }
 }
-
 
