@@ -80,16 +80,21 @@ export function useCustomShapeInstances() {
       : instances
 
     const {
-      type: _type,
-      id: _id,
-      parentId: _parentId,
-      index: _index,
       props: propsUpdate,
       x: xUpdate,
       y: yUpdate,
       meta: metaUpdate,
-      ...restUpdates
+      ...restUpdatesRaw
     } = updates
+
+    const restUpdates = Object.fromEntries(
+      Object.entries(restUpdatesRaw).filter(([key]) =>
+        key !== 'type' &&
+        key !== 'id' &&
+        key !== 'parentId' &&
+        key !== 'index'
+      )
+    ) as Record<string, unknown>
 
     const shapeUpdates: ShapeUpdate[] = instancesToUpdate.map(instance => {
       const updatedShape: ShapeUpdate = {

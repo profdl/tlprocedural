@@ -75,7 +75,7 @@ export function sanitizeMeta(meta: Record<string, unknown> | undefined): Record<
 export function cloneShapeProps(props: Record<string, unknown>): Record<string, unknown> {
   try {
     return structuredClone(props)
-  } catch (_err) {
+  } catch {
     return JSON.parse(JSON.stringify(props))
   }
 }

@@ -135,6 +135,12 @@ export function useMultiShapeInstanceManager() {
     [editor]
   )
 
+  const selectedShapeIds = useValue(
+    'selected-shape-ids-for-multi-instance-manager',
+    () => editor.getSelectedShapeIds(),
+    [editor]
+  )
+
   // Monitor TLDraw's current editing state to detect group editing
   const editingShapeId = useValue(
     'editing-shape-id',
@@ -199,6 +205,78 @@ export function useMultiShapeInstanceManager() {
       }
     }
   }, [editor, isEditingCustomShapeGroup, editingShapeId])
+
+  useEffect(() => {
+    if (selectedShapeIds.length === 0) return
+
+    const selectedShapes = selectedShapeIds
+      .map(id => editor.getShape(id))
+      .filter((shape): shape is TLShape => !!shape)
+
+    const instanceMap = new Map<string, {
+      customShapeId: string
+      instanceId: string
+      shapes: TLShape[]
+    }>()
+
+    selectedShapes.forEach(shape => {
+      if (shape.meta?.isGroupChild !== true) return
+
+      const customShapeId = extractCustomShapeId(shape)
+      const instanceId = extractInstanceId(shape)
+      if (!customShapeId || !instanceId) return
+
+      const key = `${customShapeId}::${instanceId}`
+      if (instanceMap.has(key)) return
+
+      const relatedShapes = allShapes.filter(s =>
+        extractCustomShapeId(s) === customShapeId &&
+        extractInstanceId(s) === instanceId
+      )
+
+      instanceMap.set(key, { customShapeId, instanceId, shapes: relatedShapes })
+    })
+
+    if (instanceMap.size === 0) return
+
+    const updates: ShapeUpdate[] = []
+
+    instanceMap.forEach(({ shapes }) => {
+      const { group, children } = partitionGroupAndChildren(shapes)
+
+      children.forEach(child => {
+        if (child.meta?.groupEditMode === true) return
+
+        updates.push({
+          id: child.id,
+          type: child.type,
+          meta: {
+            ...child.meta,
+            groupEditMode: true,
+            nativeGroupEdit: false
+          }
+        })
+      })
+
+      if (group && group.meta?.groupEditMode !== true) {
+        updates.push({
+          id: group.id,
+          type: group.type,
+          meta: {
+            ...group.meta,
+            groupEditMode: true,
+            nativeGroupEdit: false
+          }
+        })
+      }
+    })
+
+    if (updates.length > 0) {
+      editor.run(() => {
+        editor.updateShapes(updates)
+      }, { history: 'record-preserveRedoStack' })
+    }
+  }, [allShapes, editor, selectedShapeIds])
 
   /**
    * Initialize tracking when a shape enters edit mode
@@ -361,6 +439,56 @@ export function useMultiShapeInstanceManager() {
       const { group, children } = partitionGroupAndChildren(instanceShapes)
       const sortedChildren = sortShapesByIndex(children)
       const templateChildren = templateDefaultProps.shapes
+      const targetBounds = templateDefaultProps.originalBounds
+      const targetWidth = Math.max(targetBounds?.width ?? 0, 1)
+      const targetHeight = Math.max(targetBounds?.height ?? 0, 1)
+
+      let baseX: number | null = null
+      let baseY: number | null = null
+
+      let minX = Infinity
+      let minY = Infinity
+      let maxX = -Infinity
+      let maxY = -Infinity
+
+      sortedChildren.forEach(child => {
+        const childBounds = editor.getShapePageBounds(child.id)
+        if (!childBounds) return
+
+        minX = Math.min(minX, childBounds.x)
+        minY = Math.min(minY, childBounds.y)
+        maxX = Math.max(maxX, childBounds.x + childBounds.width)
+        maxY = Math.max(maxY, childBounds.y + childBounds.height)
+      })
+
+      const hasBounds = Number.isFinite(minX) && Number.isFinite(minY) &&
+        Number.isFinite(maxX) && Number.isFinite(maxY) && maxX > minX && maxY > minY
+
+      if (hasBounds) {
+        const centerX = (minX + maxX) / 2
+        const centerY = (minY + maxY) / 2
+        baseX = centerX - targetWidth / 2
+        baseY = centerY - targetHeight / 2
+      }
+
+      if (baseX === null || baseY === null) {
+        if (group) {
+          baseX = typeof group.x === 'number' ? group.x : 0
+          baseY = typeof group.y === 'number' ? group.y : 0
+        }
+      }
+
+      if (baseX === null || baseY === null) {
+        const fallbackChild = sortedChildren[0]
+        const fallbackDefinition = templateChildren[0]
+        if (fallbackChild && fallbackDefinition) {
+          baseX = fallbackChild.x - fallbackDefinition.localTransform.x
+          baseY = fallbackChild.y - fallbackDefinition.localTransform.y
+        } else {
+          baseX = 0
+          baseY = 0
+        }
+      }
 
       sortedChildren.forEach((instanceShape, index) => {
         const definition = templateChildren[index]
@@ -395,8 +523,12 @@ export function useMultiShapeInstanceManager() {
           id: instanceShape.id,
           type: instanceShape.type,
           props: propsUpdate,
-          x: definition.localTransform.x,
-          y: definition.localTransform.y,
+          x: group
+            ? definition.localTransform.x
+            : (baseX ?? 0) + definition.localTransform.x,
+          y: group
+            ? definition.localTransform.y
+            : (baseY ?? 0) + definition.localTransform.y,
           rotation: definition.localTransform.rotation,
           meta: mergedMeta
         }
@@ -433,16 +565,25 @@ export function useMultiShapeInstanceManager() {
           groupOverrides
         )
 
-        updates.push({
+        const groupUpdate: ShapeUpdate = {
           id: group.id,
           type: group.type,
           meta: groupMeta
-        })
+        }
+
+        if (typeof baseX === 'number' && typeof baseY === 'number') {
+          groupUpdate.x = baseX
+          groupUpdate.y = baseY
+        }
+
+        updates.push(groupUpdate)
       }
     }
 
     if (updates.length > 0) {
-      editor.updateShapes(updates)
+      editor.run(() => {
+        editor.updateShapes(updates)
+      }, { history: 'record-preserveRedoStack' })
     }
   }, [editor])
 
