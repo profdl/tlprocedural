@@ -345,3 +345,84 @@
   background-color: var(--color-selected);
   border-color: var(--color-selected);
 }
+
+/* Resize Handle Styles */
+.stacked-panel__resize-handle {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  cursor: ns-resize;
+  background-color: transparent;
+  border-top: 1px solid transparent;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+  z-index: 10;
+}
+
+.stacked-panel__resize-handle:hover {
+  border-top-color: var(--color-accent);
+  background-color: var(--color-accent);
+  opacity: 0.1;
+}
+
+.stacked-panel__resize-handle:active,
+.stacked-panel__resize-handle--resizing {
+  border-top-color: var(--color-accent);
+  background-color: var(--color-accent);
+  opacity: 0.2;
+}
+
+/* Add a visual indicator when resizing */
+.stacked-panel__resize-handle::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 2px;
+  background-color: var(--color-accent);
+  border-radius: 1px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.stacked-panel__resize-handle:hover::after,
+.stacked-panel__resize-handle:active::after,
+.stacked-panel__resize-handle--resizing::after {
+  opacity: 0.6;
+}
+
+/* Ensure the resize handle doesn't interfere with content scrolling */
+.stacked-panel__content {
+  padding-bottom: 12px; /* Add extra padding at bottom for resize handle */
+}
+
+/* Style for when the entire panel is being resized */
+.stacked-panel--resizing {
+  transition: none; /* Disable transitions during resize for smooth interaction */
+  user-select: none; /* Prevent text selection during resize */
+}
+
+.stacked-panel--resizing .stacked-panel__content {
+  pointer-events: none; /* Prevent interaction with content during resize */
+}
+
+/* Smooth transitions for final height application */
+.stacked-panel {
+  transition: height 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stacked-panel--resizing {
+  transition: none; /* Disable during resize for direct manipulation */
+}
+
+/* Optimized transitions for better performance */
+.stacked-panel__content {
+  transition: height 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stacked-panel--resizing .stacked-panel__content {
+  transition: none; /* Disable during resize */
+}

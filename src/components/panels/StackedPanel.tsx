@@ -2,6 +2,7 @@ import { type ReactNode } from "react";
 import { TldrawUiButton, TldrawUiButtonIcon } from "tldraw";
 import { type PanelId } from "../../store/panelStore";
 import { useStackedPanel } from "./hooks/useStackedPanel";
+import { useResizable } from "./hooks/useResizable";
 
 interface StackedPanelProps {
   id: PanelId;
@@ -37,11 +38,20 @@ export function StackedPanel({
     getDropZoneIndicators,
   } = stackedPanelData;
 
+  // Enable resizing only for layers panel (after panelRef is available)
+  const resizableData = useResizable({
+    panelId: id,
+    isResizable: id === 'layers',
+    panelElementRef: panelRef
+  });
+
   const dropZoneIndicators = getDropZoneIndicators();
   const panelStyle = getPanelStyle();
 
-  // Calculate effective height
-  const effectiveHeight = isCollapsed ? 28 : panel.size.height;
+  // Calculate effective height - during resize, let DOM manipulation handle it
+  const effectiveHeight = isCollapsed
+    ? 28
+    : (!resizableData?.isResizing && (panel.userDefinedHeight || panel.size.height)) || panel.size.height;
 
   return (
     <>
@@ -112,7 +122,9 @@ export function StackedPanel({
         ref={panelRef}
         className={`stacked-panel ${className} ${
           dragState.isDragging ? "stacked-panel--dragging" : ""
-        } ${isCollapsed ? "stacked-panel--collapsed" : ""}`}
+        } ${isCollapsed ? "stacked-panel--collapsed" : ""} ${
+          resizableData?.isResizing ? "stacked-panel--resizing" : ""
+        }`}
         style={{
           position: "absolute",
           top: panel.position.y,
@@ -238,9 +250,45 @@ export function StackedPanel({
               padding: "8px",
               height: effectiveHeight - 28, // Subtract header height
               overflow: "auto",
+              position: "relative",
             }}
           >
             {children}
+
+            {/* Resize Handle - only show for resizable panels */}
+            {id === 'layers' && resizableData && (
+              <div
+                className={`stacked-panel__resize-handle ${
+                  resizableData.isResizing ? "stacked-panel__resize-handle--resizing" : ""
+                }`}
+                {...resizableData.getResizeHandleProps()}
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: "6px", // Slightly taller for easier interaction
+                  cursor: "ns-resize",
+                  backgroundColor: "transparent",
+                  borderTop: "1px solid transparent",
+                  transition: resizableData.isResizing ? "none" : "border-color 0.2s ease",
+                  zIndex: 10,
+                  ...resizableData.getResizeHandleProps()?.style
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderTopColor = "var(--color-accent)";
+                  e.currentTarget.style.backgroundColor = "var(--color-accent)";
+                  e.currentTarget.style.opacity = "0.1";
+                }}
+                onMouseLeave={(e) => {
+                  if (!resizableData.isResizing) {
+                    e.currentTarget.style.borderTopColor = "transparent";
+                    e.currentTarget.style.backgroundColor = "transparent";
+                    e.currentTarget.style.opacity = "1";
+                  }
+                }}
+              />
+            )}
           </div>
         )}
       </div>

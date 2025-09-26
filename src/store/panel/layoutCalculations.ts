@@ -79,6 +79,7 @@ export const calculateStackedLayoutWithTabGroups = (
   const fixedHeights: Record<PanelId, number> = {
     properties: panels.properties?.contentHeight || 213,
     style: panels.style?.contentHeight || 164,
+    layers: panels.layers?.userDefinedHeight || 0, // Use user-defined height if available
     modifiers: 0 // Will be calculated based on remaining space
   }
 
@@ -91,6 +92,9 @@ export const calculateStackedLayoutWithTabGroups = (
       const panel = panels[panelId]
       if (panel) {
         if (panelId === 'modifiers') {
+          modifierItems.push(item)
+        } else if (panelId === 'layers' && !panel.userDefinedHeight) {
+          // If layers panel has no user-defined height, treat it as flexible
           modifierItems.push(item)
         } else {
           const height = panel.isCollapsed ? COLLAPSED_HEIGHT : fixedHeights[panelId] || 200
@@ -131,7 +135,7 @@ export const calculateStackedLayoutWithTabGroups = (
         let panelHeight: number
         if (panel.isCollapsed) {
           panelHeight = COLLAPSED_HEIGHT
-        } else if (panelId === 'modifiers') {
+        } else if (panelId === 'modifiers' || (panelId === 'layers' && !panel.userDefinedHeight)) {
           panelHeight = modifierItemHeight
         } else {
           panelHeight = fixedHeights[panelId] || 200
@@ -194,19 +198,25 @@ export const calculateStackedLayout = (
   const fixedHeights: Record<PanelId, number> = {
     properties: panels.properties?.contentHeight || 213,
     style: panels.style?.contentHeight || 164,
+    layers: panels.layers?.userDefinedHeight || 0, // Use user-defined height if available
     modifiers: 0 // Will be calculated based on remaining space
   }
 
-  // Calculate remaining height for modifiers panel
+  // Calculate remaining height for flexible panels (modifiers and layers without user-defined height)
+  const flexiblePanelIds = visiblePanels.filter(id =>
+    id === 'modifiers' || (id === 'layers' && !panels[id]?.userDefinedHeight)
+  )
+
   const fixedPanelsHeight = visiblePanels
-    .filter(id => id !== 'modifiers')
+    .filter(id => !flexiblePanelIds.includes(id))
     .reduce((total, id) => {
       const height = panels[id]?.isCollapsed ? COLLAPSED_HEIGHT : fixedHeights[id] || 200
       return total + height + PANEL_GAP
     }, 0)
 
   const availableHeight = viewportHeight - TOP_MARGIN - BOTTOM_MARGIN
-  const modifiersHeight = Math.max(200, availableHeight - fixedPanelsHeight)
+  const remainingHeight = Math.max(200, availableHeight - fixedPanelsHeight)
+  const flexiblePanelHeight = flexiblePanelIds.length > 0 ? remainingHeight / flexiblePanelIds.length : 0
 
   // Second pass: assign positions and final heights
   visiblePanels.forEach(id => {
@@ -215,8 +225,8 @@ export const calculateStackedLayout = (
     let panelHeight: number
     if (panels[id]?.isCollapsed) {
       panelHeight = COLLAPSED_HEIGHT
-    } else if (id === 'modifiers') {
-      panelHeight = modifiersHeight
+    } else if (flexiblePanelIds.includes(id)) {
+      panelHeight = flexiblePanelHeight
     } else {
       panelHeight = fixedHeights[id] || 200
     }

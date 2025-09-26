@@ -21,21 +21,10 @@ export function CustomToolbar() {
   const editor = useEditor()
   const tools = useTools()
 
-  // Track selection (kept if needed for future dynamic UI changes)
-  useValue('is-sine-selected', () => {
-    const selected = editor.getSelectedShapes()
-    return selected.some((s) => s.type === 'sine-wave')
-  }, [editor])
-
   return (
     <DefaultToolbar>
       {/* Essential navigation tools */}
       {['select', 'hand', 'zoom'].map((id) => (
-        <ToolMenuItem key={id} toolId={id} tools={tools} />
-      ))}
-
-      {/* Basic custom shapes */}
-      {['circle', 'polygon', 'triangle'].map((id) => (
         <ToolMenuItem key={id} toolId={id} tools={tools} />
       ))}
 
@@ -48,9 +37,6 @@ export function CustomToolbar() {
       {['add-point'].map((id) => (
         <ToolMenuItem key={id} toolId={id} tools={tools} />
       ))}
-
-      {/* Procedural shapes */}
-      <ToolMenuItem toolId="sine-wave" tools={tools} />
 
     </DefaultToolbar>
   )

@@ -622,102 +622,176 @@ export function DragAndDropTray() {
           padding: '8px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '8px',
           boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
           zIndex: 10,
           userSelect: 'none',
-          outline: 'none'
+          outline: 'none',
+          width: '72px',
+          height: '400px'
         }}
       >
-        {allTrayItems.map((item) => {
-          const isSelected = selectedCustomShapeId === item.id
-
-          return (
-            <div
-              key={item.id}
-              data-drag_item_index={item.id}
-              className="tray-item"
-              style={{
-                width: '48px',
-                height: '48px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'grab',
-                borderRadius: '4px',
-                border: isSelected ? '2px solid #007acc' : '1px solid transparent',
-                backgroundColor: isSelected ? '#e6f3ff' : '#f8f9fa',
-                transition: 'all 0.2s ease',
-                boxShadow: isSelected ? '0 0 0 1px rgba(0, 122, 204, 0.3)' : 'none'
-              }}
-              onPointerDown={(e) => handlePointerDown(e, item.id)}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              onPointerLeave={handlePointerLeave}
-              title={item.label}
-            >
+        {/* Default Shapes Section */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {defaultTrayItems.map((item) => {
+            return (
               <div
+                key={item.id}
+                data-drag_item_index={item.id}
+                className="tray-item"
                 style={{
-                  width: '20px',
-                  height: '20px',
+                  width: '48px',
+                  height: '48px',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  cursor: 'grab',
+                  borderRadius: '4px',
+                  border: '1px solid transparent',
+                  backgroundColor: '#f8f9fa',
+                  transition: 'all 0.2s ease'
                 }}
-                dangerouslySetInnerHTML={{
-                  __html: item.iconSvg.replace(/stroke="currentColor"/g, 'stroke="#333"')
-                }}
-              />
-            </div>
-          )
-        })}
+                onPointerDown={(e) => handlePointerDown(e, item.id)}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerLeave={handlePointerLeave}
+                title={item.label}
+              >
+                <div
+                  style={{
+                    width: '20px',
+                    height: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                  dangerouslySetInnerHTML={{
+                    __html: item.iconSvg.replace(/stroke="currentColor"/g, 'stroke="#333"')
+                  }}
+                />
+              </div>
+            )
+          })}
+        </div>
 
-        {/* Add Custom Shape Button - visible when any valid shapes are selected */}
-        {hasValidShapesSelected && (
-          <div
-            key="add-custom-shape"
-            className="tray-item add-button"
-            style={{
-              width: '48px',
-              height: '48px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              borderRadius: '4px',
-              border: '2px dashed #007acc',
-              backgroundColor: '#f0f8ff',
-              transition: 'all 0.2s ease',
-              opacity: 0.9
-            }}
-            onClick={handleCreateCustomShape}
-            title={validSelectedShapes.length === 1
-              ? `Add selected ${validSelectedShapes[0].type} as custom shape`
-              : `Add ${validSelectedShapes.length} selected shapes as custom shape`
-            }
-            onMouseEnter={(e) => {
+        {/* Divider */}
+        <div
+          style={{
+            height: '1px',
+            backgroundColor: '#e0e0e0',
+            margin: '8px 0',
+            width: '100%'
+          }}
+        />
+
+        {/* Add Custom Shape Button */}
+        <div
+          key="add-custom-shape"
+          className="tray-item add-button"
+          style={{
+            width: '48px',
+            height: '48px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: hasValidShapesSelected ? 'pointer' : 'not-allowed',
+            borderRadius: '4px',
+            border: hasValidShapesSelected ? '2px dashed #007acc' : '2px dashed #ccc',
+            backgroundColor: hasValidShapesSelected ? '#f0f8ff' : '#f5f5f5',
+            transition: 'all 0.2s ease',
+            opacity: hasValidShapesSelected ? 0.9 : 0.5,
+            marginBottom: '8px'
+          }}
+          onClick={hasValidShapesSelected ? handleCreateCustomShape : undefined}
+          title={hasValidShapesSelected
+            ? (validSelectedShapes.length === 1
+                ? `Add selected ${validSelectedShapes[0].type} as custom shape`
+                : `Add ${validSelectedShapes.length} selected shapes as custom shape`)
+            : 'Select shapes to create a custom shape'
+          }
+          onMouseEnter={(e) => {
+            if (hasValidShapesSelected) {
               e.currentTarget.style.backgroundColor = '#e6f3ff'
               e.currentTarget.style.opacity = '1'
-            }}
-            onMouseLeave={(e) => {
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (hasValidShapesSelected) {
               e.currentTarget.style.backgroundColor = '#f0f8ff'
               e.currentTarget.style.opacity = '0.9'
+            }
+          }}
+        >
+          <div
+            style={{
+              width: '20px',
+              height: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
-          >
-            <div
-              style={{
-                width: '20px',
-                height: '20px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              dangerouslySetInnerHTML={{
-                __html: lucideIcons.plus.replace(/stroke="currentColor"/g, 'stroke="#007acc"')
-              }}
-            />
-          </div>
-        )}
+            dangerouslySetInnerHTML={{
+              __html: lucideIcons.plus.replace(/stroke="currentColor"/g, hasValidShapesSelected ? 'stroke="#007acc"' : 'stroke="#ccc"')
+            }}
+          />
+        </div>
+
+        {/* Custom Shapes Scrollable Area */}
+        <div
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            paddingRight: '4px',
+            minHeight: 0
+          }}
+        >
+          {customShapes.map((item) => {
+            const isSelected = selectedCustomShapeId === item.id
+
+            return (
+              <div
+                key={item.id}
+                data-drag_item_index={item.id}
+                className="tray-item"
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  minHeight: '48px',
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'grab',
+                  borderRadius: '4px',
+                  border: isSelected ? '2px solid #007acc' : '1px solid transparent',
+                  backgroundColor: isSelected ? '#e6f3ff' : '#f8f9fa',
+                  transition: 'all 0.2s ease',
+                  boxShadow: isSelected ? '0 0 0 1px rgba(0, 122, 204, 0.3)' : 'none'
+                }}
+                onPointerDown={(e) => handlePointerDown(e, item.id)}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerLeave={handlePointerLeave}
+                title={item.label}
+              >
+                <div
+                  style={{
+                    width: '20px',
+                    height: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                  dangerouslySetInnerHTML={{
+                    __html: item.iconSvg.replace(/stroke="currentColor"/g, 'stroke="#333"')
+                  }}
+                />
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* Drag Preview */}

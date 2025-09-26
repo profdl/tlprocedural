@@ -42,6 +42,7 @@ export interface PanelState {
   size: PanelSize
   originalSize: PanelSize
   contentHeight?: number
+  userDefinedHeight?: number
   order: number
   isDragging?: boolean
   stackState?: PanelStackState
@@ -63,6 +64,7 @@ interface PanelStoreState {
   setPanelCollapsed: (id: PanelId, collapsed: boolean) => void
   setPanelVisible: (id: PanelId, visible: boolean) => void
   setPanelContentHeight: (id: PanelId, contentHeight: number) => void
+  setPanelUserDefinedHeight: (id: PanelId, height: number) => void
   setActivePanel: (id: PanelId | null) => void
   setViewportHeight: (height: number) => void
 
@@ -244,6 +246,43 @@ export const usePanelStore = create<PanelStoreState>()(
       set(state => {
         const updatedPanels = panelOps.setPanelContentHeight(id, contentHeight, state.panels, state.panelOrder, state.viewportHeight)
         if (!updatedPanels) return state
+
+        return {
+          ...state,
+          panels: updatedPanels
+        }
+      })
+    },
+
+    // Set user-defined height for resizable panels
+    setPanelUserDefinedHeight: (id: PanelId, height: number) => {
+      set(state => {
+        const updatedPanels = { ...state.panels }
+        const panel = updatedPanels[id]
+
+        if (!panel) return state
+
+        updatedPanels[id] = {
+          ...panel,
+          userDefinedHeight: Math.max(100, Math.min(height, state.viewportHeight - 200)) // Min 100px, max viewport - 200px for other panels
+        }
+
+        // Recalculate layout with new user-defined height
+        const { positions, calculatedHeights } = calculateStackedLayout(state.panelOrder, updatedPanels, state.viewportHeight)
+
+        Object.keys(updatedPanels).forEach(panelId => {
+          const id = panelId as PanelId
+          if (positions[id]) {
+            updatedPanels[id] = {
+              ...updatedPanels[id],
+              position: positions[id],
+              size: {
+                ...updatedPanels[id].size,
+                height: calculatedHeights[id] || updatedPanels[id].size.height
+              }
+            }
+          }
+        })
 
         return {
           ...state,
