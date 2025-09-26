@@ -105,6 +105,12 @@ export function ShapeTreeItem({
 
   const { hasModifiers, modifierCount, enabledModifiersCount } = modifierInfo
 
+  // Check if this is a custom shape instance
+  const isCustomShapeInstance = useMemo(() => {
+    if (!shape) return false
+    return shape.meta?.isCustomShapeInstance === true
+  }, [shape])
+
   // Get child IDs if this shape has children
   const childIds = useValue(
     'childIds',
@@ -411,12 +417,9 @@ export function ShapeTreeItem({
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
               >
-                <circle cx="3" cy="3" r="1" fill="currentColor" />
-                <circle cx="9" cy="3" r="1" fill="currentColor" />
-                <circle cx="3" cy="6" r="1" fill="currentColor" />
-                <circle cx="9" cy="6" r="1" fill="currentColor" />
-                <circle cx="3" cy="9" r="1" fill="currentColor" />
-                <circle cx="9" cy="9" r="1" fill="currentColor" />
+                <circle cx="6" cy="3" r="1" fill="currentColor" />
+                <circle cx="6" cy="6" r="1" fill="currentColor" />
+                <circle cx="6" cy="9" r="1" fill="currentColor" />
               </svg>
             </button>
 
@@ -445,6 +448,16 @@ export function ShapeTreeItem({
                 title={`${modifierCount} modifier${modifierCount !== 1 ? 's' : ''} applied (${enabledModifiersCount} active)`}
               >
                 {modifierCount > 1 ? 'Modifiers' : 'Modifier'}
+              </span>
+            )}
+
+            {/* Instance tag */}
+            {isCustomShapeInstance && (
+              <span
+                className="shape-tree-item__instance-tag"
+                title="Instance of user-created custom shape"
+              >
+                Instance
               </span>
             )}
           </div>
