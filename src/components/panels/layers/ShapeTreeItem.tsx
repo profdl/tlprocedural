@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   useEditor,
   useValue,
@@ -8,6 +8,7 @@ import {
   TldrawUiButtonIcon
 } from 'tldraw'
 import { ShapeTree } from './ShapeTree'
+import { useModifierStore } from '../../../store/modifierStore'
 
 interface ShapeTreeItemProps {
   shapeId: TLShapeId
@@ -27,6 +28,40 @@ export function ShapeTreeItem({
 
   // Get the shape data
   const shape = useValue('shape', () => editor.getShape(shapeId), [editor, shapeId])
+
+  // Check if this is a modifier clone that should be hidden
+  const isModifierClone = useMemo(() => {
+    if (!shape) return false
+    return shape.meta?.stackProcessed === true && !shape.meta?.appliedFromModifier
+  }, [shape])
+
+  // Track modifier state with local state to prevent infinite loops
+  const [modifierInfo, setModifierInfo] = useState(() => {
+    const modifiers = useModifierStore.getState().getModifiersForShape(shapeId)
+    return {
+      hasModifiers: modifiers.length > 0,
+      modifierCount: modifiers.length,
+      enabledModifiersCount: modifiers.filter(m => m.enabled).length
+    }
+  })
+
+  // Subscribe to modifier changes for this specific shape
+  useEffect(() => {
+    const unsubscribe = useModifierStore.subscribe(
+      (state) => state.getModifiersForShape(shapeId),
+      (modifiers) => {
+        setModifierInfo({
+          hasModifiers: modifiers.length > 0,
+          modifierCount: modifiers.length,
+          enabledModifiersCount: modifiers.filter(m => m.enabled).length
+        })
+      },
+      { equalityFn: (a, b) => a.length === b.length && a.every((m, i) => m.id === b[i].id && m.enabled === b[i].enabled) }
+    )
+    return unsubscribe
+  }, [shapeId])
+
+  const { hasModifiers, modifierCount, enabledModifiersCount } = modifierInfo
 
   // Get child IDs if this shape has children
   const childIds = useValue(
@@ -120,7 +155,8 @@ export function ShapeTreeItem({
     return points.map((_, index) => `Anchor ${index + 1}`)
   }, [shape])
 
-  if (!shape) return null
+  // Don't render if shape doesn't exist or if it's a modifier clone
+  if (!shape || isModifierClone) return null
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -178,6 +214,16 @@ export function ShapeTreeItem({
             <span className="shape-tree-item__name">
               {shapeName}
             </span>
+
+            {/* Modifier tag */}
+            {hasModifiers && (
+              <span
+                className="shape-tree-item__modifier-tag"
+                title={`${modifierCount} modifier${modifierCount !== 1 ? 's' : ''} applied (${enabledModifiersCount} active)`}
+              >
+                {modifierCount > 1 ? 'Modifiers' : 'Modifier'}
+              </span>
+            )}
           </div>
 
           <div className="shape-tree-item__actions">

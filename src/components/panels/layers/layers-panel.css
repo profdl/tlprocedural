@@ -184,3 +184,34 @@
 .shape-tree-anchors {
   opacity: 0.8;
 }
+
+/* Modifier tag */
+.shape-tree-item__modifier-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 16px;
+  padding: 0 6px;
+  margin-left: 4px;
+  background-color: #4c9aff;
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: background-color 0.1s ease;
+}
+
+.shape-tree-item:hover .shape-tree-item__modifier-tag {
+  background-color: #2684ff;
+}
+
+.shape-tree-item--selected .shape-tree-item__modifier-tag {
+  background-color: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+.shape-tree-item--selected:hover .shape-tree-item__modifier-tag {
+  background-color: rgba(255, 255, 255, 0.4);
+}
