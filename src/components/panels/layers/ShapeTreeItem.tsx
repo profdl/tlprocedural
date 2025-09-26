@@ -7,6 +7,12 @@ import {
   type TLBezierShape,
   TldrawUiButtonIcon
 } from 'tldraw'
+import {
+  useSortable
+} from '@dnd-kit/sortable'
+import {
+  CSS
+} from '@dnd-kit/utilities'
 import { ShapeTree } from './ShapeTree'
 import { useModifierStore } from '../../../store/modifierStore'
 
@@ -25,6 +31,16 @@ export function ShapeTreeItem({
 }: ShapeTreeItemProps) {
   const editor = useEditor()
   const [isExpanded, setIsExpanded] = useState(true)
+
+  // Set up drag and drop
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: shapeId })
 
   // Get the shape data
   const shape = useValue('shape', () => editor.getShape(shapeId), [editor, shapeId])
@@ -233,18 +249,47 @@ export function ShapeTreeItem({
 
   const hasChildren = childIds.length > 0 || anchorPoints.length > 0
 
+  // Combine drag styles
+  const dragStyle = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    paddingLeft: `${12 + depth * 20}px`,
+    opacity: effectivelyHidden ? 0.4 : isDragging ? 0.5 : 1
+  }
+
   return (
     <>
       <div
-        className={`shape-tree-item ${isSelected ? 'shape-tree-item--selected' : ''}`}
-        style={{
-          paddingLeft: `${12 + depth * 20}px`,
-          opacity: effectivelyHidden ? 0.4 : 1
-        }}
+        ref={setNodeRef}
+        className={`shape-tree-item ${isSelected ? 'shape-tree-item--selected' : ''} ${isDragging ? 'shape-tree-item--dragging' : ''}`}
+        style={dragStyle}
         onClick={handleClick}
       >
         <div className="shape-tree-item__content">
           <div className="shape-tree-item__left">
+            {/* Drag handle */}
+            <button
+              className="shape-tree-item__drag-handle"
+              {...attributes}
+              {...listeners}
+              aria-label="Drag to reorder"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle cx="3" cy="3" r="1" fill="currentColor" />
+                <circle cx="9" cy="3" r="1" fill="currentColor" />
+                <circle cx="3" cy="6" r="1" fill="currentColor" />
+                <circle cx="9" cy="6" r="1" fill="currentColor" />
+                <circle cx="3" cy="9" r="1" fill="currentColor" />
+                <circle cx="9" cy="9" r="1" fill="currentColor" />
+              </svg>
+            </button>
+
             {/* Expand/collapse button */}
             {hasChildren && (
               <button
