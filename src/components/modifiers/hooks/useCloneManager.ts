@@ -36,12 +36,18 @@ export function useCloneManager({
 
   // Check if we should hide the source shape based on modifier types
   // Keep source visible for array modifiers (linear-array, circular-array, grid-array, mirror)
+  // Also keep compound shapes visible (they represent the combined multi-shape entity)
   const shouldHideSourceShape = useMemo(() => {
+    // Never hide compound shapes - they should remain visible as the final result
+    if (shape?.type === 'compound') {
+      return false
+    }
+
     const arrayModifierTypes = ['linear-array', 'circular-array', 'grid-array', 'mirror']
     return !modifiers.some(modifier =>
       modifier.enabled && arrayModifierTypes.includes(modifier.type)
     )
-  }, [modifiers])
+  }, [modifiers, shape?.type])
 
   // All remaining modifiers are array modifiers (no path modifiers left)
   const hasPathModifiers = false

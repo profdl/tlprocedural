@@ -215,6 +215,9 @@ const lucideIcons = {
 const uiOverrides = {
   tools(editor: Editor, tools: TLUiToolsContextType): TLUiToolsContextType {
     const newTools = { ...tools }
+
+    // Remove the text tool to disable text creation
+    delete newTools.text
     
     // Override default tool icons with Lucide icons
     if (newTools['select']) {
@@ -609,12 +612,12 @@ export function TldrawCanvas() {
           CompoundShapeUtil
         ]}
         tools={[
-          SineWaveShapeTool, 
-          TriangleTool, 
-          PolygonTool, 
-          CircleTool, 
-          LineTool, 
-          CustomDrawTool, 
+          SineWaveShapeTool,
+          TriangleTool,
+          PolygonTool,
+          CircleTool,
+          LineTool,
+          CustomDrawTool,
           BezierTool,
           RemovePointTool,
           CustomArrowTool
