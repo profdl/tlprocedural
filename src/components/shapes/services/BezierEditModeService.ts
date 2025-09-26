@@ -1,4 +1,4 @@
-import { type Editor } from 'tldraw'
+import { type Editor, type TLShapeId } from 'tldraw'
 import { type BezierPoint, type BezierShape } from '../BezierShape'
 import { BezierState } from './BezierState'
 import { BezierBounds } from './BezierBounds'
@@ -15,6 +15,13 @@ export class BezierEditModeService {
   private readonly DOUBLE_CLICK_THRESHOLD = 300 // ms
   private readonly DOUBLE_CLICK_DISTANCE = 5 // pixels
   private cleanupFunctions: (() => void)[] = []
+  private activeSegmentDrag: {
+    shapeId: TLShapeId
+    segmentIndex: number
+    initialLocalPoint: { x: number; y: number }
+    initialPoints: BezierPoint[]
+    isClosed: boolean
+  } | null = null
 
   constructor(editor: Editor) {
     this.editor = editor
@@ -28,14 +35,24 @@ export class BezierEditModeService {
     const container = this.editor.getContainer()
 
     const handlePointerDown = (e: PointerEvent) => this.handlePointerDown(e)
+    const handlePointerMove = (e: PointerEvent) => this.handlePointerMove(e)
+    const handlePointerUp = () => this.handlePointerUp()
     const handleKeyDown = (e: KeyboardEvent) => this.handleKeyDown(e)
 
     container.addEventListener('pointerdown', handlePointerDown, { capture: false })
+    container.addEventListener('pointermove', handlePointerMove, { capture: false })
+    container.addEventListener('pointerup', handlePointerUp, { capture: false })
+    container.addEventListener('pointerleave', handlePointerUp, { capture: false })
+    container.addEventListener('pointercancel', handlePointerUp, { capture: false })
     container.addEventListener('keydown', handleKeyDown, { capture: false })
 
     // Store cleanup functions
     this.cleanupFunctions.push(() => {
       container.removeEventListener('pointerdown', handlePointerDown, { capture: false })
+      container.removeEventListener('pointermove', handlePointerMove, { capture: false })
+      container.removeEventListener('pointerup', handlePointerUp, { capture: false })
+      container.removeEventListener('pointerleave', handlePointerUp, { capture: false })
+      container.removeEventListener('pointercancel', handlePointerUp, { capture: false })
       container.removeEventListener('keydown', handleKeyDown, { capture: false })
     })
 
@@ -46,59 +63,242 @@ export class BezierEditModeService {
    * Handle pointer down events for bezier edit mode
    */
   private handlePointerDown(e: PointerEvent) {
-    // Find any bezier shape currently in edit mode
     const editingBezierShape = this.findEditingBezierShape()
 
     if (!editingBezierShape) {
-      return // No shape in edit mode, nothing to do
+      this.activeSegmentDrag = null
+      return
     }
 
-    // Convert screen coordinates to page coordinates
+    const currentToolId = this.editor.getCurrentToolId()
+    this.activeSegmentDrag = null
+
     const screenPoint = { x: e.clientX, y: e.clientY }
     const pagePoint = this.editor.screenToPage(screenPoint)
 
-    // Check if clicking on the editing shape or its handles
     const shapesAtPointer = this.editor.getShapesAtPoint(pagePoint)
     const clickingOnEditingShape = shapesAtPointer.some(shape => shape.id === editingBezierShape.id)
 
-    // Get interaction context
     const interactionContext = this.getInteractionContext(editingBezierShape, pagePoint)
-
-    // Handle double-click detection
     const isDoubleClick = this.detectDoubleClick(e)
 
     if (isDoubleClick && interactionContext.clickingOnAnchorPoint) {
       this.handleDoubleClickOnAnchor(editingBezierShape, pagePoint, interactionContext)
+      BezierState.clearSegmentSelection(editingBezierShape, this.editor)
       return
     }
 
-    // Handle single click interactions
     if (interactionContext.clickingOnAnchorPoint && !isDoubleClick) {
       this.handleAnchorPointSelection(editingBezierShape, pagePoint, interactionContext, e)
+      BezierState.clearSegmentSelection(editingBezierShape, this.editor)
       return
     }
 
-    // Handle point addition via hover preview or direct segment click
-    if (clickingOnEditingShape && !interactionContext.clickingOnHandle && !interactionContext.clickingOnAnchorPoint) {
-      // Try hover preview first (if available)
-      if (this.handleHoverPreviewClick(editingBezierShape, pagePoint)) {
-        return // Point was added
+    if (interactionContext.clickingOnHandle) {
+      BezierState.clearSegmentSelection(editingBezierShape, this.editor)
+      if (currentToolId === 'bezier') {
+        this.editor.setCursor({ type: 'pointer' })
       }
-
-      // Try direct segment click if no hover preview
-      if (this.handleDirectSegmentClick(editingBezierShape, pagePoint)) {
-        return // Point was added
-      }
-
-      // Clear point selection if clicking on shape but not on interactive elements
-      this.clearPointSelection(editingBezierShape)
       return
     }
 
-    // Exit edit mode if clicking outside shape and handles
+    if (clickingOnEditingShape) {
+      if (currentToolId === 'bezier') {
+        if (this.handleHoverPreviewClick(editingBezierShape, pagePoint)) {
+          BezierState.clearSegmentSelection(editingBezierShape, this.editor)
+          return
+        }
+
+        if (this.handleDirectSegmentClick(editingBezierShape, pagePoint)) {
+          BezierState.clearSegmentSelection(editingBezierShape, this.editor)
+          return
+        }
+
+        this.clearSelections(editingBezierShape)
+        return
+      }
+
+      if (currentToolId === 'select') {
+        const segmentInfo = BezierState.getSegmentAtPosition(
+          editingBezierShape.props.points,
+          interactionContext.localPoint,
+          this.editor.getZoomLevel(),
+          editingBezierShape.props.isClosed
+        )
+
+        if (segmentInfo) {
+          BezierState.selectSegment(editingBezierShape, segmentInfo.segmentIndex, this.editor)
+          if (e.button === 0) {
+            e.preventDefault()
+            e.stopImmediatePropagation()
+            this.beginSegmentDrag(editingBezierShape, segmentInfo.segmentIndex, interactionContext.localPoint)
+          }
+          return
+        }
+
+        this.clearSelections(editingBezierShape)
+        return
+      }
+
+      this.clearSelections(editingBezierShape)
+      return
+    }
+
     if (!clickingOnEditingShape && !interactionContext.clickingOnHandle) {
       this.exitEditMode(editingBezierShape)
     }
+  }
+
+  private handlePointerMove(e: PointerEvent) {
+    if (this.activeSegmentDrag) {
+      this.updateSegmentDrag(e)
+      return
+    }
+
+    const editingBezierShape = this.findEditingBezierShape()
+    if (!editingBezierShape) return
+
+    if (this.editor.inputs.isDragging) return
+
+    const currentToolId = this.editor.getCurrentToolId()
+    if (currentToolId === 'bezier') {
+      const pagePoint = this.editor.screenToPage({ x: e.clientX, y: e.clientY })
+      const context = this.getInteractionContext(editingBezierShape, pagePoint)
+      this.editor.setCursor({ type: context.clickingOnHandle ? 'pointer' : 'cross' })
+    } else if (currentToolId === 'select') {
+      this.editor.setCursor({ type: 'default' })
+    }
+  }
+
+  private handlePointerUp() {
+    if (!this.activeSegmentDrag) return
+
+    const { shapeId, segmentIndex } = this.activeSegmentDrag
+    this.activeSegmentDrag = null
+
+    const shape = this.editor.getShape(shapeId) as BezierShape | undefined
+    if (!shape) return
+
+    const normalizedShape = BezierBounds.recalculateShapeBounds(shape, shape.props.points)
+
+    this.editor.updateShape({
+      ...normalizedShape,
+      props: {
+        ...normalizedShape.props,
+        selectedSegmentIndex: segmentIndex,
+        hoverSegmentIndex: segmentIndex,
+        selectedPointIndices: [],
+      },
+    })
+  }
+
+  private beginSegmentDrag(shape: BezierShape, segmentIndex: number, localPoint: { x: number; y: number }) {
+    this.activeSegmentDrag = {
+      shapeId: shape.id,
+      segmentIndex,
+      initialLocalPoint: { ...localPoint },
+      initialPoints: this.clonePoints(shape.props.points),
+      isClosed: shape.props.isClosed,
+    }
+  }
+
+  private updateSegmentDrag(e: PointerEvent) {
+    const drag = this.activeSegmentDrag
+    if (!drag) return
+
+    const shape = this.editor.getShape(drag.shapeId) as BezierShape | undefined
+    if (!shape) {
+      this.activeSegmentDrag = null
+      return
+    }
+
+    const pagePoint = this.editor.screenToPage({ x: e.clientX, y: e.clientY })
+    const shapePageBounds = this.editor.getShapePageBounds(shape.id)
+    if (!shapePageBounds) return
+
+    const localPoint = {
+      x: pagePoint.x - shapePageBounds.x,
+      y: pagePoint.y - shapePageBounds.y,
+    }
+
+    const delta = {
+      x: localPoint.x - drag.initialLocalPoint.x,
+      y: localPoint.y - drag.initialLocalPoint.y,
+    }
+
+    const updatedPoints = this.clonePoints(drag.initialPoints)
+
+    const clampedIndex = Math.min(Math.max(drag.segmentIndex, 0), updatedPoints.length - 1)
+    if (updatedPoints.length < 2) return
+
+    const isClosingSegment = drag.isClosed && clampedIndex === updatedPoints.length - 1
+    const endIndex = isClosingSegment ? 0 : Math.min(clampedIndex + 1, updatedPoints.length - 1)
+
+    const startInitial = drag.initialPoints[clampedIndex]
+    const endInitial = drag.initialPoints[endIndex]
+    if (!startInitial || !endInitial) return
+
+    const startPoint = { ...updatedPoints[clampedIndex] }
+    const endPoint = { ...updatedPoints[endIndex] }
+
+    const baseStartHandle = startInitial.cp2 ? { ...startInitial.cp2 } : { x: startInitial.x, y: startInitial.y }
+    const baseEndHandle = endInitial.cp1 ? { ...endInitial.cp1 } : { x: endInitial.x, y: endInitial.y }
+
+    startPoint.cp2 = {
+      x: baseStartHandle.x + delta.x,
+      y: baseStartHandle.y + delta.y,
+    }
+
+    endPoint.cp1 = {
+      x: baseEndHandle.x + delta.x,
+      y: baseEndHandle.y + delta.y,
+    }
+
+    updatedPoints[clampedIndex] = startPoint
+    updatedPoints[endIndex] = endPoint
+
+    const updatedShape = {
+      ...shape,
+      props: {
+        ...shape.props,
+        points: updatedPoints,
+        selectedSegmentIndex: drag.segmentIndex,
+        hoverSegmentIndex: drag.segmentIndex,
+        hoverPoint: undefined,
+        selectedPointIndices: [],
+      },
+    }
+
+    this.editor.updateShape(updatedShape)
+  }
+
+  private clonePoints(points: BezierPoint[]): BezierPoint[] {
+    return points.map(point => ({
+      x: point.x,
+      y: point.y,
+      cp1: point.cp1 ? { x: point.cp1.x, y: point.cp1.y } : undefined,
+      cp2: point.cp2 ? { x: point.cp2.x, y: point.cp2.y } : undefined,
+    }))
+  }
+
+  private clearSelections(shape: BezierShape) {
+    const hasPointSelection = shape.props.selectedPointIndices && shape.props.selectedPointIndices.length > 0
+    const hasSegmentSelection = typeof shape.props.selectedSegmentIndex === 'number'
+
+    if (!hasPointSelection && !hasSegmentSelection) {
+      return
+    }
+
+    this.editor.updateShape({
+      id: shape.id,
+      type: 'bezier',
+      props: {
+        ...shape.props,
+        selectedPointIndices: [],
+        selectedSegmentIndex: undefined,
+        hoverSegmentIndex: undefined,
+      },
+    })
   }
 
   /**
@@ -292,6 +492,8 @@ export class BezierEditModeService {
       props: {
         ...shape.props,
         points: newPoints,
+        selectedSegmentIndex: undefined,
+        hoverSegmentIndex: undefined,
       },
     })
 
@@ -330,7 +532,9 @@ export class BezierEditModeService {
       type: 'bezier',
       props: {
         ...shape.props,
-        selectedPointIndices: newSelected
+        selectedPointIndices: newSelected,
+        selectedSegmentIndex: undefined,
+        hoverSegmentIndex: undefined,
       }
     })
 
@@ -341,6 +545,10 @@ export class BezierEditModeService {
    * Handle clicking on hover preview to add points
    */
   private handleHoverPreviewClick(shape: BezierShape, pagePoint: { x: number; y: number }): boolean {
+    if (this.editor.getCurrentToolId() !== 'bezier') {
+      return false
+    }
+
     const hoverPoint = shape.props.hoverPoint
     const hoverSegmentIndex = shape.props.hoverSegmentIndex
 
@@ -376,6 +584,10 @@ export class BezierEditModeService {
    * Handle direct clicking on path segments to add points
    */
   private handleDirectSegmentClick(shape: BezierShape, pagePoint: { x: number; y: number }): boolean {
+    if (this.editor.getCurrentToolId() !== 'bezier') {
+      return false
+    }
+
     const shapePageBounds = this.editor.getShapePageBounds(shape.id)
     if (!shapePageBounds) return false
 
@@ -398,7 +610,14 @@ export class BezierEditModeService {
       // Recalculate bounds after addition
       const finalShape = BezierBounds.recalculateShapeBounds(updatedShape, updatedShape.props.points)
 
-      this.editor.updateShape(finalShape)
+      this.editor.updateShape({
+        ...finalShape,
+        props: {
+          ...finalShape.props,
+          selectedSegmentIndex: undefined,
+          hoverSegmentIndex: undefined,
+        },
+      })
       bezierLog('PointAdd', 'Added point at segment', segmentInfo.segmentIndex, 'using direct click')
       return true
     }
@@ -430,28 +649,12 @@ export class BezierEditModeService {
       props: {
         ...finalShape.props,
         hoverPoint: undefined,
-        hoverSegmentIndex: undefined
+        hoverSegmentIndex: undefined,
+        selectedSegmentIndex: undefined,
       }
     })
 
     bezierLog('PointAdd', 'Added point at hover preview, segment:', segmentIndex)
-  }
-
-  /**
-   * Clear point selection
-   */
-  private clearPointSelection(shape: BezierShape) {
-    const hasSelection = shape.props.selectedPointIndices && shape.props.selectedPointIndices.length > 0
-    if (hasSelection) {
-      this.editor.updateShape({
-        id: shape.id,
-        type: 'bezier',
-        props: {
-          ...shape.props,
-          selectedPointIndices: []
-        },
-      })
-    }
   }
 
   /**
@@ -473,7 +676,14 @@ export class BezierEditModeService {
     // Recalculate bounds after deletion
     const finalShape = BezierBounds.recalculateShapeBounds(updatedShape, updatedShape.props.points)
 
-    this.editor.updateShape(finalShape)
+    this.editor.updateShape({
+      ...finalShape,
+      props: {
+        ...finalShape.props,
+        selectedSegmentIndex: undefined,
+        hoverSegmentIndex: undefined,
+      },
+    })
 
     bezierLog('Delete', 'Deleted selected points:', selectedIndices)
   }
@@ -488,7 +698,10 @@ export class BezierEditModeService {
       props: {
         ...shape.props,
         editMode: false,
-        selectedPointIndices: []
+        selectedPointIndices: [],
+        selectedSegmentIndex: undefined,
+        hoverSegmentIndex: undefined,
+        hoverPoint: undefined,
       },
     })
 

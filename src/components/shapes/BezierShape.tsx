@@ -7,12 +7,12 @@ import {
   createHandleMemoKey,
   createHandleDragKey
 } from './utils/bezierUtils'
-import { bezierLog } from './utils/bezierConstants'
+import { BEZIER_STYLES, bezierLog } from './utils/bezierConstants'
 import { BezierPath } from './components/BezierPath'
 import { BezierControlPoints } from './components/BezierControlPoints'
 import { BezierHoverPreview } from './components/BezierHoverPreview'
 import { LRUCache } from '../../utils/LRUCache'
-import { bezierPointsToPath } from './utils/bezierPathHelpers'
+import { bezierPointsToPath, bezierSegmentToPath } from './utils/bezierPathHelpers'
 
 export interface BezierPoint {
   x: number
@@ -34,6 +34,7 @@ export type BezierShape = TLBaseShape<
     isClosed: boolean
     editMode?: boolean
     selectedPointIndices?: number[]
+    selectedSegmentIndex?: number
     hoverPoint?: { x: number; y: number; cp1?: { x: number; y: number }; cp2?: { x: number; y: number } }
     hoverSegmentIndex?: number
   }
@@ -65,6 +66,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     isClosed: T.boolean,
     editMode: T.optional(T.boolean),
     selectedPointIndices: T.optional(T.arrayOf(T.number)),
+    selectedSegmentIndex: T.optional(T.number),
     hoverPoint: T.optional(T.object({
       x: T.number,
       y: T.number,
@@ -91,7 +93,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   }
 
   override component(shape: BezierShape) {
-    const { points, color, fillColor, strokeWidth, fill, isClosed, editMode, selectedPointIndices = [], hoverPoint } = shape.props
+    const { points, color, fillColor, strokeWidth, fill, isClosed, editMode, selectedPointIndices = [], selectedSegmentIndex, hoverPoint } = shape.props
 
     // Note: This is a class component following TLDraw's ShapeUtil pattern
     // FUTURE CONSIDERATION: Could potentially refactor to functional component if more hook usage is needed
@@ -107,9 +109,12 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     
     // Convert points to SVG path (only if we have 2+ points)
     const pathData = points.length >= 2 ? bezierPointsToPath(points, isClosed) : ''
+    const selectedSegmentPath = typeof selectedSegmentIndex === 'number'
+      ? bezierSegmentToPath(points, selectedSegmentIndex, isClosed)
+      : ''
 
     return (
-      <HTMLContainer style={{ cursor: editMode ? 'crosshair' : 'default' }}>
+      <HTMLContainer style={{ cursor: 'default' }}>
         <svg 
           width={shape.props.w} 
           height={shape.props.h} 
@@ -128,6 +133,20 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
             isClosed={isClosed}
             editMode={!!editMode}
           />
+
+          {/* Highlight a selected segment when editing */}
+          {editMode && selectedSegmentPath && (
+            <path
+              d={selectedSegmentPath}
+              fill="none"
+              stroke={BEZIER_STYLES.SEGMENT_HIGHLIGHT_COLOR}
+              strokeWidth={BEZIER_STYLES.SEGMENT_HIGHLIGHT_WIDTH}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={BEZIER_STYLES.SEGMENT_HIGHLIGHT_OPACITY}
+              strokeDasharray={BEZIER_STYLES.SEGMENT_HIGHLIGHT_DASH}
+            />
+          )}
           
           {/* Show control points and hover preview when in edit mode only */}
           {editMode && (

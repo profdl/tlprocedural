@@ -37,7 +37,7 @@ export const BezierPath: React.FC<BezierPathProps> = ({
       strokeLinejoin="round"
       strokeDasharray={undefined}
       opacity={editMode ? BEZIER_STYLES.EDIT_MODE_OPACITY : 1}
-      style={{ cursor: editMode ? 'crosshair' : 'default' }}
+      style={{ cursor: 'inherit' }}
     />
   )
 }

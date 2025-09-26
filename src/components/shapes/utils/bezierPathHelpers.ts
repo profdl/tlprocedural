@@ -40,6 +40,37 @@ export function bezierPointsToPath(points: BezierPoint[], isClosed: boolean): st
 }
 
 /**
+ * Convert a single segment to SVG path data for highlighting / selection visuals.
+ */
+export function bezierSegmentToPath(points: BezierPoint[], segmentIndex: number, isClosed: boolean): string {
+  if (segmentIndex < 0 || points.length < 2) return ''
+
+  const startPoint = points[segmentIndex]
+  if (!startPoint) return ''
+
+  const isClosingSegment = segmentIndex === points.length - 1 && isClosed
+  const endIndex = isClosingSegment ? 0 : segmentIndex + 1
+  const endPoint = points[endIndex]
+  if (!endPoint) return ''
+
+  const startCommand = `M ${startPoint.x} ${startPoint.y}`
+
+  if (startPoint.cp2 && endPoint.cp1) {
+    return `${startCommand} C ${startPoint.cp2.x} ${startPoint.cp2.y} ${endPoint.cp1.x} ${endPoint.cp1.y} ${endPoint.x} ${endPoint.y}`
+  }
+
+  if (startPoint.cp2) {
+    return `${startCommand} Q ${startPoint.cp2.x} ${startPoint.cp2.y} ${endPoint.x} ${endPoint.y}`
+  }
+
+  if (endPoint.cp1) {
+    return `${startCommand} Q ${endPoint.cp1.x} ${endPoint.cp1.y} ${endPoint.x} ${endPoint.y}`
+  }
+
+  return `${startCommand} L ${endPoint.x} ${endPoint.y}`
+}
+
+/**
  * Calculate accurate bounds for Bezier points.
  */
 export function getBezierPointBounds(points: BezierPoint[], isClosed: boolean) {

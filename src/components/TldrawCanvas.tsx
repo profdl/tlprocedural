@@ -46,6 +46,8 @@ import { CustomArrowTool } from './shapes/ArrowTool'
 import { CompoundShapeUtil } from './shapes/CompoundShape'
 import { BezierHandle } from './overrides/BezierHandle'
 
+type StoreUpdateTuple = [Record<string, unknown>, Record<string, unknown>]
+
 // Using only custom shapes - no native tldraw shapes
 
 // Custom Grid Component inspired by cuttle.xyz
@@ -499,50 +501,57 @@ export function TldrawCanvas() {
     }
 
     const cleanupBezierEditModePersistence = editor.store.listen((entry) => {
-      const updates = Object.values(entry.changes.updated) as Array<[any, any]>
+      const updates = Object.values(entry.changes.updated) as StoreUpdateTuple[];
 
       for (const [from, to] of updates) {
-        if (to?.typeName === 'shape' && to?.type === 'bezier') {
-          const prevShape = from as BezierShape | undefined
-          const nextShape = to as BezierShape
+        const toRecord = to as { typeName?: unknown; type?: unknown }
+        if (toRecord.typeName !== 'shape' || toRecord.type !== 'bezier') {
+          continue
+        }
 
-          const wasInEditMode = Boolean(prevShape?.props?.editMode)
-          const isInEditMode = Boolean(nextShape.props?.editMode)
+        const prevShape = from as BezierShape | undefined
+        const nextShape = to as BezierShape
 
-          if (isInEditMode) {
-            lastBezierEditShapeId = nextShape.id
-            cacheSelection(nextShape)
-            continue
+        const wasInEditMode = Boolean(prevShape?.props?.editMode)
+        const isInEditMode = Boolean(nextShape.props?.editMode)
+
+        if (isInEditMode) {
+          lastBezierEditShapeId = nextShape.id
+          cacheSelection(nextShape)
+          continue
+        }
+
+        if (wasInEditMode && !isInEditMode) {
+          if (prevShape) {
+            cacheSelection(prevShape)
+          } else {
+            cachedPointSelections.delete(nextShape.id)
           }
 
-          if (wasInEditMode && !isInEditMode) {
-            if (prevShape) {
-              cacheSelection(prevShape)
-            } else {
-              cachedPointSelections.delete(nextShape.id)
-            }
-
-            lastEditModeExit = { id: nextShape.id, timestamp: Date.now() }
-          }
+          lastEditModeExit = { id: nextShape.id, timestamp: Date.now() }
         }
       }
 
-      const removals = Object.values(entry.changes.removed) as any[]
+      const removals = Object.values(entry.changes.removed) as Record<string, unknown>[]
       for (const record of removals) {
-        if (record?.typeName === 'shape' && record?.type === 'bezier') {
-          cachedPointSelections.delete(record.id as TLShapeId)
-          if (lastBezierEditShapeId === record.id) {
-            lastBezierEditShapeId = null
-          }
-          if (lastEditModeExit?.id === record.id) {
-            lastEditModeExit = null
+        const removalRecord = record as { typeName?: unknown; type?: unknown; id?: unknown }
+        if (removalRecord.typeName === 'shape' && removalRecord.type === 'bezier') {
+          const removalId = typeof removalRecord.id === 'string' ? (removalRecord.id as TLShapeId) : null
+          if (removalId) {
+            cachedPointSelections.delete(removalId)
+            if (lastBezierEditShapeId === removalId) {
+              lastBezierEditShapeId = null
+            }
+            if (lastEditModeExit?.id === removalId) {
+              lastEditModeExit = null
+            }
           }
         }
       }
     }, { scope: 'all' })
 
     const originalSetCurrentTool = editor.setCurrentTool.bind(editor)
-    editor.setCurrentTool = ((id: string, info: any = {}) => {
+    editor.setCurrentTool = ((id: string, info: Record<string, unknown> = {}) => {
       const result = originalSetCurrentTool(id, info)
 
       if (id === 'bezier') {

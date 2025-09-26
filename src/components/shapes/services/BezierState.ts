@@ -21,7 +21,10 @@ export class BezierState {
       props: {
         ...shape.props,
         editMode: !shape.props.editMode,
-        selectedPointIndices: shape.props.editMode ? [] : (shape.props.selectedPointIndices || [])
+        selectedPointIndices: shape.props.editMode ? [] : (shape.props.selectedPointIndices || []),
+        selectedSegmentIndex: undefined,
+        hoverSegmentIndex: undefined,
+        hoverPoint: undefined,
       }
     }
     
@@ -53,6 +56,9 @@ export class BezierState {
       props: {
         ...shape.props,
         editMode: true,
+        selectedSegmentIndex: undefined,
+        hoverSegmentIndex: undefined,
+        hoverPoint: undefined,
       }
     }
     
@@ -76,7 +82,8 @@ export class BezierState {
         editMode: false,
         selectedPointIndices: [], // Clear selection when exiting
         hoverPoint: undefined,
-        hoverSegmentIndex: undefined
+        hoverSegmentIndex: undefined,
+        selectedSegmentIndex: undefined,
       }
     }
     
@@ -122,7 +129,8 @@ export class BezierState {
       ...shape,
       props: {
         ...shape.props,
-        selectedPointIndices: newSelected
+        selectedPointIndices: newSelected,
+        selectedSegmentIndex: undefined,
       }
     }
     
@@ -145,10 +153,60 @@ export class BezierState {
       ...shape,
       props: {
         ...shape.props,
-        selectedPointIndices: []
+        selectedPointIndices: [],
+        selectedSegmentIndex: undefined,
       }
     }
     
+    editor.updateShape(updatedShape)
+    return updatedShape
+  }
+
+  /**
+   * Select a segment by index
+   */
+  static selectSegment(
+    shape: BezierShape,
+    segmentIndex: number,
+    editor: Editor
+  ): BezierShape {
+    if (segmentIndex < 0) return shape
+
+    const updatedShape = {
+      ...shape,
+      props: {
+        ...shape.props,
+        selectedSegmentIndex: segmentIndex,
+        hoverSegmentIndex: segmentIndex,
+        hoverPoint: undefined,
+        selectedPointIndices: [],
+      }
+    }
+
+    editor.updateShape(updatedShape)
+    return updatedShape
+  }
+
+  /**
+   * Clear selected segment state
+   */
+  static clearSegmentSelection(
+    shape: BezierShape,
+    editor: Editor
+  ): BezierShape {
+    if (typeof shape.props.selectedSegmentIndex !== 'number') {
+      return shape
+    }
+
+    const updatedShape = {
+      ...shape,
+      props: {
+        ...shape.props,
+        selectedSegmentIndex: undefined,
+        hoverSegmentIndex: undefined,
+      }
+    }
+
     editor.updateShape(updatedShape)
     return updatedShape
   }
@@ -188,7 +246,8 @@ export class BezierState {
       props: {
         ...shape.props,
         points: currentPoints,
-        selectedPointIndices: [] // Clear selection after deletion
+        selectedPointIndices: [], // Clear selection after deletion
+        selectedSegmentIndex: undefined,
       }
     }
   }
@@ -243,7 +302,8 @@ export class BezierState {
       ...shape,
       props: {
         ...shape.props,
-        points: newPoints
+        points: newPoints,
+        selectedSegmentIndex: undefined,
       }
     }
     
@@ -294,7 +354,8 @@ export class BezierState {
       props: {
         ...shape.props,
         points: newPoints,
-        selectedPointIndices: [newPointIndex] // Auto-select the new point
+        selectedPointIndices: [newPointIndex], // Auto-select the new point
+        selectedSegmentIndex: undefined,
       }
     }
   }
