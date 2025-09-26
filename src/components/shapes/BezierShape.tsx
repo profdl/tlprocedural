@@ -342,7 +342,7 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
   }
 
 
-  // Double-click to enter/exit edit mode
+  // Double-click to enter edit mode when using the select tool
   override onDoubleClick = (shape: BezierShape) => {
     // Check if this is a custom shape instance
     const isCustomShapeInstance = shape.meta?.isCustomShapeInstance === true
@@ -356,7 +356,14 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
       }
     }
 
-    // Use BezierState service for consistent edit mode toggling
+    const currentToolId = this.editor.getCurrentToolId()
+
+    if (currentToolId === 'select') {
+      // Ensure we always end in edit mode when double-clicking from the select tool
+      return BezierState.enterEditMode(shape, this.editor)
+    }
+
+    // Fallback to existing toggle behaviour for other tools
     return BezierState.toggleEditMode(shape, this.editor)
   }
 

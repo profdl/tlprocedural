@@ -126,6 +126,29 @@ export class BezierEditModeService {
           editingBezierShape.props.isClosed
         )
 
+        if (segmentInfo && isDoubleClick) {
+          const updatedShape = BezierState.addPointToSegment(
+            editingBezierShape,
+            segmentInfo.segmentIndex,
+            segmentInfo.t
+          )
+
+          const finalShape = BezierBounds.recalculateShapeBounds(
+            updatedShape,
+            updatedShape.props.points
+          )
+
+          this.editor.updateShape({
+            ...finalShape,
+            props: {
+              ...finalShape.props,
+              selectedSegmentIndex: undefined,
+              hoverSegmentIndex: undefined,
+            },
+          })
+          return
+        }
+
         if (segmentInfo) {
           BezierState.selectSegment(editingBezierShape, segmentInfo.segmentIndex, this.editor)
           if (e.button === 0) {

@@ -50,7 +50,7 @@ export class BezierState {
     editor: Editor
   ): BezierShape {
     if (shape.props.editMode) return shape
-    
+
     const updatedShape = {
       ...shape,
       props: {
@@ -61,8 +61,9 @@ export class BezierState {
         hoverPoint: undefined,
       }
     }
-    
+
     editor.updateShape(updatedShape)
+    editor.setSelectedShapes([shape.id])
     return updatedShape
   }
 
