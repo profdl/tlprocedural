@@ -11,6 +11,9 @@ import {
   useSortable
 } from '@dnd-kit/sortable'
 import {
+  useDroppable
+} from '@dnd-kit/core'
+import {
   CSS
 } from '@dnd-kit/utilities'
 import { ShapeTree } from './ShapeTree'
@@ -32,6 +35,9 @@ export function ShapeTreeItem({
   const editor = useEditor()
   const [isExpanded, setIsExpanded] = useState(true)
 
+  // Get the shape data
+  const shape = useValue('shape', () => editor.getShape(shapeId), [editor, shapeId])
+
   // Set up drag and drop
   const {
     attributes,
@@ -40,10 +46,28 @@ export function ShapeTreeItem({
     transform,
     transition,
     isDragging
-  } = useSortable({ id: shapeId })
+  } = useSortable({
+    id: shapeId,
+    data: {
+      type: shape?.type === 'group' ? 'group-item' : 'shape-item',
+      parentId: shape?.parentId,
+      shapeType: shape?.type
+    }
+  })
 
-  // Get the shape data
-  const shape = useValue('shape', () => editor.getShape(shapeId), [editor, shapeId])
+  // Set up drop zone for groups
+  const {
+    setNodeRef: setDropRef,
+    isOver: isDropOver
+  } = useDroppable({
+    id: `${shapeId}-group-drop`,
+    data: {
+      type: 'group-drop-zone',
+      groupId: shapeId,
+      accepts: ['shape-item', 'group-item']
+    },
+    disabled: shape?.type !== 'group'
+  })
 
   // Check if this is a modifier clone that should be hidden
   const isModifierClone = useMemo(() => {
@@ -249,6 +273,14 @@ export function ShapeTreeItem({
 
   const hasChildren = childIds.length > 0 || anchorPoints.length > 0
 
+  // Combine refs
+  const combinedRef = (node: HTMLDivElement | null) => {
+    setNodeRef(node)
+    if (shape?.type === 'group') {
+      setDropRef(node)
+    }
+  }
+
   // Combine drag styles
   const dragStyle = {
     transform: CSS.Transform.toString(transform),
@@ -260,8 +292,8 @@ export function ShapeTreeItem({
   return (
     <>
       <div
-        ref={setNodeRef}
-        className={`shape-tree-item ${isSelected ? 'shape-tree-item--selected' : ''} ${isDragging ? 'shape-tree-item--dragging' : ''}`}
+        ref={combinedRef}
+        className={`shape-tree-item ${isSelected ? 'shape-tree-item--selected' : ''} ${isDragging ? 'shape-tree-item--dragging' : ''} ${isDropOver && shape?.type === 'group' ? 'shape-tree-item--drop-target' : ''}`}
         style={dragStyle}
         onClick={handleClick}
       >

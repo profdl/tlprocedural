@@ -1,4 +1,8 @@
 import { type TLShapeId } from 'tldraw'
+import {
+  SortableContext,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable'
 import { ShapeTreeItem } from './ShapeTreeItem'
 
 interface ShapeTreeProps {
@@ -17,16 +21,18 @@ export function ShapeTree({
   if (shapeIds.length === 0) return null
 
   return (
-    <div className="shape-tree">
-      {shapeIds.map((shapeId) => (
-        <ShapeTreeItem
-          key={shapeId}
-          shapeId={shapeId}
-          depth={depth}
-          isSelected={selectedIds.includes(shapeId)}
-          parentIsHidden={parentIsHidden}
-        />
-      ))}
-    </div>
+    <SortableContext items={shapeIds} strategy={verticalListSortingStrategy}>
+      <div className="shape-tree">
+        {shapeIds.map((shapeId) => (
+          <ShapeTreeItem
+            key={shapeId}
+            shapeId={shapeId}
+            depth={depth}
+            isSelected={selectedIds.includes(shapeId)}
+            parentIsHidden={parentIsHidden}
+          />
+        ))}
+      </div>
+    </SortableContext>
   )
 }

@@ -50,24 +50,86 @@ export function LayersPanelContent() {
 
     if (!over || active.id === over.id) return
 
-    const oldIndex = shapeIds.indexOf(active.id as string)
-    const newIndex = shapeIds.indexOf(over.id as string)
+    const activeId = active.id as string
+    const overId = over.id as string
 
-    if (oldIndex === -1 || newIndex === -1) return
+    // Get the shapes to understand their current hierarchy
+    const activeShape = editor.getShape(activeId)
+    const overShape = editor.getShape(overId)
 
-    // Calculate how many positions to move
-    const positionsToMove = Math.abs(newIndex - oldIndex)
-    const movingUp = newIndex < oldIndex // Moving up in the layer panel (toward front in z-order)
+    if (!activeShape || !overShape) return
 
-    // Apply the reordering using TLDraw's layer methods
-    // Since our layer panel is reversed (front shapes at top), moving up = bring forward
-    for (let i = 0; i < positionsToMove; i++) {
-      if (movingUp) {
-        // Moving up in layer panel = bringing forward in z-order
-        editor.bringForward([active.id as string])
-      } else {
-        // Moving down in layer panel = sending backward in z-order
-        editor.sendBackward([active.id as string])
+    // Determine the operation based on the drop target
+    const activeParentId = activeShape.parentId
+    const overParentId = overShape.parentId
+
+    // Check if we're dropping over a group handle (special handling for group operations)
+    if (over.data.current?.type === 'group-drop-zone') {
+      // Drop into group: reparent the shape to the group
+      const targetGroupId = over.data.current.groupId
+      const targetGroup = editor.getShape(targetGroupId)
+
+      if (targetGroup && targetGroup.type === 'group' && activeParentId !== targetGroupId) {
+        // Move shape into the group
+        editor.reparentShapes([activeShape], targetGroupId)
+        return
+      }
+    }
+
+    // Check if we're dropping over the page root (ungrouping)
+    if (over.data.current?.type === 'page-drop-zone') {
+      // Move shape to page root (ungroup if it was in a group)
+      const pageId = editor.getCurrentPageId()
+      if (activeParentId !== pageId) {
+        editor.reparentShapes([activeShape], pageId)
+        return
+      }
+    }
+
+    // Handle reordering within the same parent
+    if (activeParentId === overParentId) {
+      // Get all siblings in the same parent
+      const siblings = editor.getSortedChildIdsForParent(activeParentId)
+      const reversedSiblings = [...siblings].reverse() // Match our reversed display order
+
+      const oldIndex = reversedSiblings.indexOf(activeId)
+      const newIndex = reversedSiblings.indexOf(overId)
+
+      if (oldIndex === -1 || newIndex === -1) return
+
+      // Calculate how many positions to move
+      const positionsToMove = Math.abs(newIndex - oldIndex)
+      const movingUp = newIndex < oldIndex // Moving up in the layer panel (toward front in z-order)
+
+      // Apply the reordering using TLDraw's layer methods
+      for (let i = 0; i < positionsToMove; i++) {
+        if (movingUp) {
+          editor.bringForward([activeId])
+        } else {
+          editor.sendBackward([activeId])
+        }
+      }
+    } else {
+      // Cross-parent operation: move to the same parent as the drop target
+      editor.reparentShapes([activeShape], overParentId)
+
+      // Then reorder within the new parent if needed
+      const newSiblings = editor.getSortedChildIdsForParent(overParentId)
+      const reversedNewSiblings = [...newSiblings].reverse()
+      const targetIndex = reversedNewSiblings.indexOf(overId)
+      const newShapeIndex = reversedNewSiblings.indexOf(activeId)
+
+      if (targetIndex !== -1 && newShapeIndex !== -1 && targetIndex !== newShapeIndex) {
+        const positionsToMove = Math.abs(targetIndex - newShapeIndex)
+        const movingUp = targetIndex < newShapeIndex
+
+        for (let i = 0; i < positionsToMove; i++) {
+          if (movingUp) {
+            editor.bringForward([activeId])
+          } else {
+            editor.sendBackward([activeId])
+          }
+        }
       }
     }
   }
