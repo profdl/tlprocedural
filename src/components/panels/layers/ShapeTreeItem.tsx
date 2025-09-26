@@ -216,6 +216,11 @@ export function ShapeTreeItem({
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation()
 
+    // Don't handle clicks during drag operations
+    if (isDragging) {
+      return
+    }
+
     // Exit edit mode for any bezier shape that's currently in edit mode
     const allShapes = editor.getCurrentPageShapes()
     const editingBezierShape = allShapes.find(s =>
@@ -533,7 +538,10 @@ export function ShapeTreeItem({
         <>
           {/* Render anchor points for bezier shapes */}
           {anchorPoints.length > 0 && (
-            <div className="shape-tree-anchors">
+            <div
+              className="shape-tree-anchors"
+              style={{ pointerEvents: isDragging ? 'none' : 'auto' }}
+            >
               {anchorPoints.map((anchor, index) => {
                 const isAnchorSelected = selectedAnchorIndices.includes(index)
                 return (
@@ -542,10 +550,12 @@ export function ShapeTreeItem({
                     className={`shape-tree-item shape-tree-item--anchor ${isAnchorSelected ? 'shape-tree-item--anchor--selected' : ''}`}
                     style={{
                       paddingLeft: `${32 + depth * 20}px`,
-                      opacity: effectivelyHidden ? 0.4 : 1
+                      opacity: effectivelyHidden ? 0.4 : 1,
+                      pointerEvents: isDragging ? 'none' : 'auto'
                     }}
                     onClick={(e) => handleAnchorClick(e, index)}
                     aria-label={`Select ${anchor}`}
+                    tabIndex={isDragging ? -1 : 0}
                   >
                     <span className="shape-tree-item__name">{anchor}</span>
                   </button>
