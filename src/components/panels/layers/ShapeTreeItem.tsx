@@ -70,12 +70,12 @@ export function ShapeTreeItem({
     [editor, shapeId]
   )
 
-  // Check if shape is hidden
+  // Check if shape is hidden (opacity 0 means hidden)
   const isHidden = useValue(
     'isHidden',
     () => {
       const shp = editor.getShape(shapeId)
-      return shp?.meta?.isHidden === true
+      return shp?.opacity === 0
     },
     [editor, shapeId]
   )
@@ -87,7 +87,7 @@ export function ShapeTreeItem({
     [editor]
   )
 
-  // Determine the effective hidden state
+  // Determine the effective hidden state (parent hidden or self hidden)
   const effectivelyHidden = parentIsHidden || isHidden
 
   // Format the shape name
@@ -168,14 +168,62 @@ export function ShapeTreeItem({
 
   const handleToggleVisibility = (e: React.MouseEvent) => {
     e.stopPropagation()
+
+    // Toggle opacity between 0 and 1
+    const newOpacity = isHidden ? 1 : 0
+
+    // Helper function to recursively update child shapes
+    const updateChildShapes = (parentId: TLShapeId, opacity: number) => {
+      const childIds = editor.getSortedChildIdsForParent(parentId)
+      const childShapes = childIds.map(id => editor.getShape(id)).filter(Boolean)
+
+      if (childShapes.length > 0) {
+        editor.updateShapes(
+          childShapes.map(child => ({
+            id: child.id,
+            type: child.type,
+            opacity: opacity
+          }))
+        )
+
+        // Recursively update grandchildren
+        childShapes.forEach(child => {
+          updateChildShapes(child.id, opacity)
+        })
+      }
+    }
+
+    // Update the main shape
     editor.updateShape({
       id: shapeId,
       type: shape.type,
-      meta: {
-        ...shape.meta,
-        isHidden: !isHidden
-      }
+      opacity: newOpacity
     })
+
+    // Update child shapes (for groups)
+    if (childIds.length > 0) {
+      updateChildShapes(shapeId, newOpacity)
+    }
+
+    // If this shape has modifiers, also hide/show its clones
+    if (hasModifiers) {
+      const allShapes = editor.getCurrentPageShapes()
+      const cloneShapes = allShapes.filter(s =>
+        s.meta?.originalShapeId === shapeId &&
+        s.meta?.stackProcessed === true
+      )
+
+      // Update all clone shapes
+      if (cloneShapes.length > 0) {
+        editor.updateShapes(
+          cloneShapes.map(clone => ({
+            id: clone.id,
+            type: clone.type,
+            opacity: newOpacity
+          }))
+        )
+      }
+    }
   }
 
   const handleToggleExpand = (e: React.MouseEvent) => {
