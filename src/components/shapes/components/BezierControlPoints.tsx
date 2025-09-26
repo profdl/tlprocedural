@@ -17,8 +17,11 @@ export const BezierControlPoints: React.FC<BezierControlPointsProps> = ({
 }) => {
   return (
     <g opacity={BEZIER_STYLES.CONTROL_OPACITY}>
-      {points.map((point, i) => (
-        <g key={i}>
+      {points.map((point, i) => {
+        const isSelected = selectedPointIndices.includes(i)
+
+        return (
+          <g key={i}>
           {/* Control point lines - draw these first so they appear behind the circles */}
           {point.cp1 && (
             <line
@@ -50,20 +53,20 @@ export const BezierControlPoints: React.FC<BezierControlPointsProps> = ({
             <circle
               cx={point.cp1.x}
               cy={point.cp1.y}
-              r={selectedPointIndices.includes(i) ? BEZIER_THRESHOLDS.CONTROL_RADIUS_SELECTED : BEZIER_THRESHOLDS.CONTROL_RADIUS}
-              fill={selectedPointIndices.includes(i) ? BEZIER_STYLES.CONTROL_POINT_SELECTED : BEZIER_STYLES.CONTROL_POINT_COLOR}
-              stroke="white"
-              strokeWidth={selectedPointIndices.includes(i) ? BEZIER_STYLES.CONTROL_STROKE_SELECTED : BEZIER_STYLES.CONTROL_STROKE}
+              r={isSelected ? BEZIER_THRESHOLDS.CONTROL_RADIUS_SELECTED : BEZIER_THRESHOLDS.CONTROL_RADIUS}
+              fill={isSelected ? BEZIER_STYLES.CONTROL_POINT_FILL_SELECTED : BEZIER_STYLES.CONTROL_POINT_FILL}
+              stroke={isSelected ? BEZIER_STYLES.CONTROL_POINT_STROKE_SELECTED : BEZIER_STYLES.CONTROL_POINT_STROKE}
+              strokeWidth={isSelected ? BEZIER_STYLES.CONTROL_STROKE_SELECTED : BEZIER_STYLES.CONTROL_STROKE}
             />
           )}
           {point.cp2 && (
             <circle
               cx={point.cp2.x}
               cy={point.cp2.y}
-              r={selectedPointIndices.includes(i) ? BEZIER_THRESHOLDS.CONTROL_RADIUS_SELECTED : BEZIER_THRESHOLDS.CONTROL_RADIUS}
-              fill={selectedPointIndices.includes(i) ? BEZIER_STYLES.CONTROL_POINT_SELECTED : BEZIER_STYLES.CONTROL_POINT_COLOR}
-              stroke="white"
-              strokeWidth={selectedPointIndices.includes(i) ? BEZIER_STYLES.CONTROL_STROKE_SELECTED : BEZIER_STYLES.CONTROL_STROKE}
+              r={isSelected ? BEZIER_THRESHOLDS.CONTROL_RADIUS_SELECTED : BEZIER_THRESHOLDS.CONTROL_RADIUS}
+              fill={isSelected ? BEZIER_STYLES.CONTROL_POINT_FILL_SELECTED : BEZIER_STYLES.CONTROL_POINT_FILL}
+              stroke={isSelected ? BEZIER_STYLES.CONTROL_POINT_STROKE_SELECTED : BEZIER_STYLES.CONTROL_POINT_STROKE}
+              strokeWidth={isSelected ? BEZIER_STYLES.CONTROL_STROKE_SELECTED : BEZIER_STYLES.CONTROL_STROKE}
             />
           )}
           
@@ -71,14 +74,15 @@ export const BezierControlPoints: React.FC<BezierControlPointsProps> = ({
           <circle
             cx={point.x}
             cy={point.y}
-            r={selectedPointIndices.includes(i) ? BEZIER_THRESHOLDS.ANCHOR_RADIUS_SELECTED : BEZIER_THRESHOLDS.ANCHOR_RADIUS}
-            fill={selectedPointIndices.includes(i) ? BEZIER_STYLES.ANCHOR_POINT_SELECTED : BEZIER_STYLES.ANCHOR_POINT_COLOR}
-            stroke={selectedPointIndices.includes(i) ? 'white' : BEZIER_STYLES.CONTROL_POINT_COLOR}
-            strokeWidth={selectedPointIndices.includes(i) ? BEZIER_STYLES.ANCHOR_STROKE_SELECTED : BEZIER_STYLES.ANCHOR_STROKE}
+            r={isSelected ? BEZIER_THRESHOLDS.ANCHOR_RADIUS_SELECTED : BEZIER_THRESHOLDS.ANCHOR_RADIUS}
+            fill={isSelected ? BEZIER_STYLES.ANCHOR_POINT_FILL_SELECTED : BEZIER_STYLES.ANCHOR_POINT_FILL}
+            stroke={isSelected ? BEZIER_STYLES.ANCHOR_POINT_STROKE_SELECTED : BEZIER_STYLES.ANCHOR_POINT_STROKE}
+            strokeWidth={isSelected ? BEZIER_STYLES.ANCHOR_STROKE_SELECTED : BEZIER_STYLES.ANCHOR_STROKE}
             style={{ cursor: 'pointer' }}
           />
-        </g>
-      ))}
+          </g>
+        )
+      })}
     </g>
   )
 }

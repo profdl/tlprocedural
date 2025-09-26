@@ -43,6 +43,7 @@ import { RemovePointTool } from './shapes/tools/RemovePointTool'
 import { CustomArrowShapeUtil } from './shapes/ArrowShape'
 import { CustomArrowTool } from './shapes/ArrowTool'
 import { CompoundShapeUtil } from './shapes/CompoundShape'
+import { BezierHandle } from './overrides/BezierHandle'
 
 // Using only custom shapes - no native tldraw shapes
 
@@ -170,6 +171,7 @@ const components: TLComponents = {
   StylePanel: CustomStylePanel,
   Toolbar: CustomToolbar,
   Grid: CuttleGrid,
+  Handle: BezierHandle,
   SnapIndicator: null, // Disable built-in snap indicators
   InFrontOfTheCanvas: () => (
     <>
