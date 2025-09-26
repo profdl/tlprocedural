@@ -197,15 +197,53 @@ export function ShapeTreeItem({
     return points.map((_, index) => `Anchor ${index + 1}`)
   }, [shape])
 
+  // Get selected anchor points for bezier shapes
+  const selectedAnchorIndices = useMemo(() => {
+    if (shape?.type !== 'bezier') return []
+    const bezierShape = shape as BezierShape
+    return bezierShape.props.selectedPointIndices || []
+  }, [shape])
+
   // Don't render if shape doesn't exist or if it's a modifier clone
   if (!shape || isModifierClone) return null
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation()
+
+    // Exit edit mode for any bezier shape that's currently in edit mode
+    const allShapes = editor.getCurrentPageShapes()
+    const editingBezierShape = allShapes.find(s =>
+      s.type === 'bezier' &&
+      'editMode' in s.props &&
+      s.props.editMode === true
+    ) as BezierShape | undefined
+
+    if (editingBezierShape) {
+      // If this click is on the same shape that's in edit mode, exit edit mode
+      // If this click is on a different shape, also exit edit mode
+      BezierState.exitEditMode(editingBezierShape, editor)
+    }
+
     // Select the shape
     editor.select(shapeId)
-    // Center the camera on the shape
-    editor.zoomToSelection()
+
+    // Only move camera if shape is out of view
+    const shapeBounds = editor.getShapePageBounds(shapeId)
+    if (shapeBounds) {
+      const viewportBounds = editor.getViewportPageBounds()
+
+      // Check if shape is completely outside the viewport
+      const isOutOfView = (
+        shapeBounds.x + shapeBounds.width < viewportBounds.x ||
+        shapeBounds.x > viewportBounds.x + viewportBounds.width ||
+        shapeBounds.y + shapeBounds.height < viewportBounds.y ||
+        shapeBounds.y > viewportBounds.y + viewportBounds.height
+      )
+
+      if (isOutOfView) {
+        editor.zoomToSelection()
+      }
+    }
   }
 
   const handleToggleVisibility = (e: React.MouseEvent) => {
@@ -281,19 +319,38 @@ export function ShapeTreeItem({
     // Cast to proper BezierShape type
     const bezierShape = shape as BezierShape
 
-    // Enter edit mode for the bezier shape
-    BezierState.enterEditMode(bezierShape, editor)
+    // Check if this anchor is already selected and is the only selection
+    const currentSelectedIndices = bezierShape.props.selectedPointIndices || []
+    const isOnlySelectedAnchor = currentSelectedIndices.length === 1 && currentSelectedIndices[0] === anchorIndex
+
+    // If clicking the only selected anchor, exit edit mode instead of deselecting
+    if (isOnlySelectedAnchor && bezierShape.props.editMode) {
+      BezierState.exitEditMode(bezierShape, editor)
+      return
+    }
+
+    // Enter edit mode for the bezier shape if not already in edit mode
+    if (!bezierShape.props.editMode) {
+      BezierState.enterEditMode(bezierShape, editor)
+    }
 
     // Select the specific anchor point after a brief delay to ensure edit mode is active
     setTimeout(() => {
       const currentShape = editor.getShape(shape.id) as BezierShape
       if (currentShape) {
-        BezierState.handlePointSelection(currentShape, anchorIndex, false, editor)
+        const updatedShape = BezierState.handlePointSelection(currentShape, anchorIndex, false, editor)
+
+        // Check if all points were deselected and exit edit mode if so
+        setTimeout(() => {
+          const finalShape = editor.getShape(shape.id) as BezierShape
+          if (finalShape && finalShape.props.editMode && (!finalShape.props.selectedPointIndices || finalShape.props.selectedPointIndices.length === 0)) {
+            BezierState.exitEditMode(finalShape, editor)
+          }
+        }, 10)
       }
     }, 50)
 
-    // Switch to bezier tool for editing
-    editor.setCurrentTool('bezier')
+    // Keep the current tool active (don't switch to bezier tool)
   }
 
   const hasChildren = childIds.length > 0 || anchorPoints.length > 0
@@ -448,20 +505,23 @@ export function ShapeTreeItem({
           {/* Render anchor points for bezier shapes */}
           {anchorPoints.length > 0 && (
             <div className="shape-tree-anchors">
-              {anchorPoints.map((anchor, index) => (
-                <button
-                  key={`anchor-${index}`}
-                  className="shape-tree-item shape-tree-item--anchor"
-                  style={{
-                    paddingLeft: `${32 + depth * 20}px`,
-                    opacity: effectivelyHidden ? 0.4 : 1
-                  }}
-                  onClick={(e) => handleAnchorClick(e, index)}
-                  aria-label={`Select ${anchor}`}
-                >
-                  <span className="shape-tree-item__name">{anchor}</span>
-                </button>
-              ))}
+              {anchorPoints.map((anchor, index) => {
+                const isAnchorSelected = selectedAnchorIndices.includes(index)
+                return (
+                  <button
+                    key={`anchor-${index}`}
+                    className={`shape-tree-item shape-tree-item--anchor ${isAnchorSelected ? 'shape-tree-item--anchor--selected' : ''}`}
+                    style={{
+                      paddingLeft: `${32 + depth * 20}px`,
+                      opacity: effectivelyHidden ? 0.4 : 1
+                    }}
+                    onClick={(e) => handleAnchorClick(e, index)}
+                    aria-label={`Select ${anchor}`}
+                  >
+                    <span className="shape-tree-item__name">{anchor}</span>
+                  </button>
+                )
+              })}
             </div>
           )}
 
