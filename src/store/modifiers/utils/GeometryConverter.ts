@@ -181,7 +181,13 @@ export class GeometryConverter {
       collectiveBounds?: { centerX: number; centerY: number; width: number; height: number }
       shouldPreserveCollectivePosition?: boolean
     },
-    styleSourceShape?: TLShape
+    styleSourceShape?: TLShape,
+    styleOverride?: Partial<{
+      color: string
+      fillColor: string
+      fill: boolean
+      strokeWidth: number
+    }>
   ): {
     type: 'bezier'
     x: number
@@ -211,6 +217,11 @@ export class GeometryConverter {
       const styleSource = styleSourceShape || originalShape
       const extractedProps = this.extractShapeProperties(styleSource)
 
+      const finalColor = styleOverride?.color ?? extractedProps.color
+      const finalFillColor = styleOverride?.fillColor ?? extractedProps.fillColor
+      const finalFill = styleOverride?.fill ?? extractedProps.fill
+      const finalStrokeWidth = styleOverride?.strokeWidth ?? extractedProps.strokeWidth
+
       return {
         type: 'bezier',
         x: originalShape.x,
@@ -220,10 +231,10 @@ export class GeometryConverter {
         props: {
           w: 100,
           h: 100,
-          color: extractedProps.color,
-          fillColor: extractedProps.fillColor,
-          strokeWidth: extractedProps.strokeWidth,
-          fill: extractedProps.fill,
+          color: finalColor,
+          fillColor: finalFillColor,
+          strokeWidth: finalStrokeWidth,
+          fill: finalFill,
           points: [],
           isClosed: true
         }
@@ -329,6 +340,11 @@ export class GeometryConverter {
     const styleSource = styleSourceShape || originalShape
     const extractedProps = this.extractShapeProperties(styleSource)
 
+    const finalColor = styleOverride?.color ?? extractedProps.color
+    const finalFillColor = styleOverride?.fillColor ?? extractedProps.fillColor
+    const finalFill = styleOverride?.fill ?? extractedProps.fill
+    const finalStrokeWidth = styleOverride?.strokeWidth ?? extractedProps.strokeWidth
+
     const result = {
       type: 'bezier' as const,
       x: targetX,
@@ -338,10 +354,10 @@ export class GeometryConverter {
       props: {
         w: polygonW,
         h: polygonH,
-        color: extractedProps.color,
-        fillColor: extractedProps.fillColor,
-        strokeWidth: extractedProps.strokeWidth,
-        fill: extractedProps.fill,
+        color: finalColor,
+        fillColor: finalFillColor,
+        strokeWidth: finalStrokeWidth,
+        fill: finalFill,
         points: bezierPoints,
         isClosed: true
       }
@@ -627,6 +643,11 @@ export class GeometryConverter {
     const { x, y, rotation = 0 } = shape
 
     if (points && Array.isArray(points) && points.length > 0) {
+      if (!isClosed) {
+        geometryDebugLog('⚠️ Bezier shape is not closed; falling back to bounding box for boolean geometry')
+        return this.boundingBoxToPolygon(shape)
+      }
+
       const sampledPoints = BezierMath.samplePathPoints(points, isClosed, {
         maxSegmentLength: 6,
         minSamples: 3
@@ -638,8 +659,8 @@ export class GeometryConverter {
 
       let polygonPoints: Pair[] = sampledPoints.map(({ x: px, y: py }) => [x + px, y + py])
 
-      // Ensure closed ring for closed shapes
-      if (isClosed && polygonPoints.length > 2) {
+      // Ensure closed ring
+      if (polygonPoints.length > 2) {
         const first = polygonPoints[0]
         const last = polygonPoints[polygonPoints.length - 1]
         if (first[0] !== last[0] || first[1] !== last[1]) {
@@ -749,7 +770,7 @@ export class GeometryConverter {
   /**
    * Extract complete style properties from shapes for inheritance in Boolean operations
    */
-  private static extractShapeProperties(shape: TLShape): {
+  static extractShapeProperties(shape: TLShape): {
     color: string;
     strokeWidth: number;
     fill: boolean;

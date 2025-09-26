@@ -1,4 +1,3 @@
-import React from 'react'
 import { DefaultHandle, useEditor, type TLHandleProps } from 'tldraw'
 
 /**

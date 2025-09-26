@@ -70,6 +70,32 @@ function getBooleanProp(obj: JsonObject, key: string, fallback = false): boolean
   return typeof value === 'boolean' ? value : fallback
 }
 
+function sanitizeJsonObject(obj: JsonObject): JsonObject {
+  try {
+    return JSON.parse(JSON.stringify(obj)) as JsonObject
+  } catch {
+    const sanitized: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(obj)) {
+      if (value === undefined || typeof value === 'function') continue
+      if (isJsonObject(value)) {
+        sanitized[key] = sanitizeJsonObject(value)
+      } else if (Array.isArray(value)) {
+        sanitized[key] = value
+          .map(item => {
+            if (isJsonObject(item)) {
+              return sanitizeJsonObject(item)
+            }
+            return typeof item === 'function' ? undefined : item
+          })
+          .filter(item => item !== undefined)
+      } else {
+        sanitized[key] = value
+      }
+    }
+    return sanitized as JsonObject
+  }
+}
+
 /**
  * CompoundShape - Contains multiple child shapes and treats them as single entity
  * Used primarily for multi-shape boolean operations
@@ -109,7 +135,9 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
       throw new Error('Child shape relative transform must be numeric')
     }
 
-    if (!isJsonObject(props)) {
+    if (isJsonObject(props)) {
+      childObject.props = sanitizeJsonObject(props)
+    } else {
       childObject.props = {} as JsonObject
     }
 
@@ -430,7 +458,9 @@ export class CompoundShapeUtil extends FlippableShapeUtil<CompoundShape> {
     // Create child shape data
     const childShapes: ChildShapeData[] = shapes.map(({ shape, relativePosition }) => {
       const props = shape.props
-      const parsedProps = isJsonObject(props) ? props : {} as JsonObject
+      const parsedProps = isJsonObject(props)
+        ? sanitizeJsonObject(props)
+        : {} as JsonObject
 
       return {
         id: shape.id,

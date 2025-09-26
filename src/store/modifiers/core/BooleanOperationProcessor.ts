@@ -262,6 +262,7 @@ export class BooleanOperationProcessor {
 
     // Select style source shape based on Boolean operation type and shape characteristics
     const styleSourceShape = GeometryConverter.selectStyleSourceShape(tempShapes, deferredBoolean.operation)
+    const sharedStyle = this.computeSharedStyle(tempShapes)
 
     const styleSourceProps = styleSourceShape?.props as { color?: string; fillColor?: string } | undefined
 
@@ -286,7 +287,8 @@ export class BooleanOperationProcessor {
         collectiveBounds,
         shouldPreserveCollectivePosition: true
       },
-      styleSourceShape
+      styleSourceShape,
+      sharedStyle
     )
 
     console.log('📐 Bezier shape data:', bezierShapeData)
@@ -472,6 +474,65 @@ export class BooleanOperationProcessor {
     })
 
     return { centerX, centerY, width, height, minX, maxX, minY, maxY }
+  }
+
+  /**
+   * Determine shared style attributes across all input shapes.
+   * Only returns properties when every shape agrees on the value.
+   */
+  private static computeSharedStyle(shapes: TLShape[]): Partial<{
+    color: string
+    fillColor: string
+    fill: boolean
+    strokeWidth: number
+  }> {
+    if (shapes.length === 0) {
+      return {}
+    }
+
+    const firstStyle = GeometryConverter.extractShapeProperties(shapes[0])
+    let sharedColor: string | undefined = firstStyle.color
+    let sharedFillColor: string | undefined = firstStyle.fillColor
+    let sharedFill: boolean | undefined = firstStyle.fill
+    let sharedStrokeWidth: number | undefined = firstStyle.strokeWidth
+
+    for (let i = 1; i < shapes.length; i++) {
+      const style = GeometryConverter.extractShapeProperties(shapes[i])
+
+      if (sharedColor !== undefined && style.color !== sharedColor) {
+        sharedColor = undefined
+      }
+      if (sharedFillColor !== undefined && style.fillColor !== sharedFillColor) {
+        sharedFillColor = undefined
+      }
+      if (sharedFill !== undefined && style.fill !== sharedFill) {
+        sharedFill = undefined
+      }
+      if (sharedStrokeWidth !== undefined && style.strokeWidth !== sharedStrokeWidth) {
+        sharedStrokeWidth = undefined
+      }
+
+      if (!sharedColor && !sharedFillColor && sharedFill === undefined && sharedStrokeWidth === undefined) {
+        break
+      }
+    }
+
+    const result: Partial<{ color: string; fillColor: string; fill: boolean; strokeWidth: number }> = {}
+
+    if (sharedColor !== undefined) {
+      result.color = sharedColor
+    }
+    if (sharedFillColor !== undefined) {
+      result.fillColor = sharedFillColor
+    }
+    if (sharedFill !== undefined) {
+      result.fill = sharedFill
+    }
+    if (sharedStrokeWidth !== undefined) {
+      result.strokeWidth = sharedStrokeWidth
+    }
+
+    return result
   }
 
   /**
