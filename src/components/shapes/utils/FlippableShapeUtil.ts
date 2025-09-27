@@ -1,4 +1,4 @@
-import { BaseBoxShapeUtil, type TLResizeInfo, type TLBaseShape } from 'tldraw'
+import { BaseBoxShapeUtil, type TLResizeInfo, type TLBaseShape, resizeBox } from 'tldraw'
 import { DEFAULT_SHAPE_PROPS, type CommonShapeProps } from '../constants/defaultShapeProps'
 
 /**
@@ -13,19 +13,19 @@ import { DEFAULT_SHAPE_PROPS, type CommonShapeProps } from '../constants/default
 export abstract class FlippableShapeUtil<T extends TLBaseShape<string, { w: number; h: number } & Record<string, unknown>>> extends BaseBoxShapeUtil<T> {
   
   override onResize = (shape: T, info: TLResizeInfo<T>) => {
-    // First, let the base class handle the resize using tldraw's native resizeBox
-    // This properly handles negative scaling (flipping)
-    const resizedShape = super.onResize(shape, info) as T
-    
+    // Use TLDraw's native resizeBox for center-based scaling
+    // BaseBoxShapeUtil.onResize uses resizeBox internally
+    const resizedShape = resizeBox(shape, info) as T
+
     // Check for negative scaling which indicates flipping
     const isFlippedX = info.scaleX < 0
     const isFlippedY = info.scaleY < 0
-    
+
     // If flipping is detected, store it in metadata
     if (isFlippedX || isFlippedY) {
       const currentFlippedX = this.isFlippedX(shape)
       const currentFlippedY = this.isFlippedY(shape)
-      
+
       const flippedShape = {
         ...resizedShape,
         meta: {
@@ -34,17 +34,17 @@ export abstract class FlippableShapeUtil<T extends TLBaseShape<string, { w: numb
           isFlippedY: isFlippedY ? !currentFlippedY : currentFlippedY,
         }
       } as T
-      
+
       // Allow subclasses to customize flip behavior
       // Determine the primary flip direction (if both are flipping, prioritize the most recent)
       const flipDirection = isFlippedY ? 'vertical' : 'horizontal'
-      
-      return this.onFlipCustom ? 
-        this.onFlipCustom(flippedShape, flipDirection, 
-          flippedShape.meta?.isFlippedX === true, flippedShape.meta?.isFlippedY === true) : 
+
+      return this.onFlipCustom ?
+        this.onFlipCustom(flippedShape, flipDirection,
+          flippedShape.meta?.isFlippedX === true, flippedShape.meta?.isFlippedY === true) :
         flippedShape
     }
-    
+
     return resizedShape
   }
   
@@ -146,39 +146,28 @@ export abstract class FlippableShapeUtil<T extends TLBaseShape<string, { w: numb
 /**
  * Helper method to add flipping support to onResize handler
  * Use this in your shape's onResize method for simple flipping support
- * 
+ *
  * Usage:
  * override onResize = (shape: MyShape, info: TLResizeInfo<MyShape>) => {
  *   return addFlippingSupport(shape, info)
  * }
  */
 export function addFlippingSupport<T extends TLBaseShape<string, { w: number; h: number } & Record<string, unknown>>>(
-  shape: T, 
+  shape: T,
   info: TLResizeInfo<T>
 ): T {
-  const { scaleX, scaleY } = info
-  
+  // Use TLDraw's native resizeBox for center-based scaling
+  const resizedShape = resizeBox(shape, info) as T
+
   // Check for negative scaling (flipping)
-  const isFlippedX = scaleX < 0
-  const isFlippedY = scaleY < 0
-  
-  // Use absolute values for dimensions
-  const absScaleX = Math.abs(scaleX)
-  const absScaleY = Math.abs(scaleY)
-  
-  // Calculate new dimensions
-  const newW = Math.max(10, Math.round((shape.props.w as number) * absScaleX))
-  const newH = Math.max(10, Math.round((shape.props.h as number) * absScaleY))
-  
+  const isFlippedX = info.scaleX < 0
+  const isFlippedY = info.scaleY < 0
+
+  // Add flip metadata to the resized shape
   return {
-    ...shape,
-    props: {
-      ...shape.props,
-      w: newW,
-      h: newH,
-    },
+    ...resizedShape,
     meta: {
-      ...shape.meta,
+      ...resizedShape.meta,
       isFlippedX,
       isFlippedY,
     }

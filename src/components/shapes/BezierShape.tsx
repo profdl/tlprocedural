@@ -1,5 +1,5 @@
 import { HTMLContainer, T, type TLBaseShape, type RecordProps, type TLHandle, type TLResizeInfo } from 'tldraw'
-import { FlippableShapeUtil, addFlippingSupport } from './utils/FlippableShapeUtil'
+import { FlippableShapeUtil } from './utils/FlippableShapeUtil'
 import { BezierBounds } from './services/BezierBounds'
 import { BezierState } from './services/BezierState'
 import {
@@ -404,17 +404,21 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
     // Don't allow resize in edit mode
     if (shape.props.editMode) return shape
 
-    // First, apply default resize behavior with flipping support
-    const resizedShape = addFlippingSupport(shape, info)
+    // Use parent class's center-based resize behavior (FlippableShapeUtil -> resizeBox)
+    const resizedShape = super.onResize(shape, info)
 
     const { scaleX, scaleY } = info
 
-    // Scale all points and control points relative to the new dimensions
+    // Scale all points and control points relative to the transform
+    // Use absolute values to handle negative scaling (flipping) correctly
+    const absScaleX = Math.abs(scaleX)
+    const absScaleY = Math.abs(scaleY)
+
     const scaledPoints = shape.props.points.map(p => ({
-      x: p.x * scaleX,
-      y: p.y * scaleY,
-      cp1: p.cp1 ? { x: p.cp1.x * scaleX, y: p.cp1.y * scaleY } : undefined,
-      cp2: p.cp2 ? { x: p.cp2.x * scaleX, y: p.cp2.y * scaleY } : undefined,
+      x: p.x * absScaleX,
+      y: p.y * absScaleY,
+      cp1: p.cp1 ? { x: p.cp1.x * absScaleX, y: p.cp1.y * absScaleY } : undefined,
+      cp2: p.cp2 ? { x: p.cp2.x * absScaleX, y: p.cp2.y * absScaleY } : undefined,
     }))
 
     return {
