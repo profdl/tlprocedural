@@ -57,43 +57,7 @@ export function CustomShapesProvider({ children }: CustomShapesProviderProps) {
         }
       }
 
-      // Add a default sample custom shape for testing if no shapes exist
-      if (initialShapes.length === 0) {
-        const sampleShape: CustomTrayItem = {
-          id: 'sample-bezier-heart',
-          label: 'Sample Heart',
-          iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 6 4 C 4 4 2 6 2 8 C 2 12 12 20 12 20 C 12 20 22 12 22 8 C 22 6 20 4 18 4 C 16 4 12 8 12 8 C 12 8 8 4 6 4 Z"/></svg>',
-          shapeType: 'bezier',
-          defaultProps: {
-            w: 100,
-            h: 80,
-            points: [
-              { x: 50, y: 15 },
-              { x: 25, y: 5, cp2: { x: 5, y: 5 } },
-              { x: 5, y: 25, cp1: { x: 5, y: 15 } },
-              { x: 50, y: 75, cp1: { x: 20, y: 40 } },
-              { x: 95, y: 25, cp2: { x: 80, y: 40 } },
-              { x: 75, y: 5, cp1: { x: 95, y: 15 } },
-              { x: 50, y: 15, cp1: { x: 95, y: 5 } }
-            ],
-            isClosed: true,
-            color: '#e91e63',
-            fillColor: '#e91e63',
-            strokeWidth: 2,
-            fill: true,
-            editMode: false,
-            selectedPointIndices: [],
-            hoverPoint: undefined,
-            hoverSegmentIndex: undefined
-          },
-          createdAt: Date.now(),
-          version: 1,
-          lastModified: Date.now()
-        }
-
-        initialShapes = [sampleShape]
-        saveToStorage(initialShapes)
-      }
+      // Remove the default sample custom shape - no longer needed
 
       setCustomShapes(initialShapes)
     } catch (error) {

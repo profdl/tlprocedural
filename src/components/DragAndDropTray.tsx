@@ -769,7 +769,7 @@ export function DragAndDropTray() {
         }}
         style={{
           position: "absolute",
-          top: "140px",
+          top: "160px",
           left: "10px",
           display: "flex",
           flexDirection: "column",
@@ -784,11 +784,11 @@ export function DragAndDropTray() {
         {/* Default Shapes Panel */}
         <div
           style={{
-            backgroundColor: "#fafbfc",
-            border: "1px solid #e1e4e8",
-            borderRadius: "6px",
+            backgroundColor: "var(--color-panel)",
+            border: "1px solid var(--color-low)",
+            borderRadius: 4,
             padding: "8px",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+            boxShadow: "-4px 0 6px rgba(0, 0, 0, 0.08)",
           }}
         >
           {/* Default Shapes Grid */}
@@ -867,13 +867,13 @@ export function DragAndDropTray() {
         {/* Custom Shapes Panel */}
         <div
           style={{
-            backgroundColor: "#fafbfc",
-            border: "1px solid #e1e4e8",
-            borderRadius: "6px",
+            backgroundColor: "var(--color-panel)",
+            border: "1px solid var(--color-low)",
+            borderRadius: 4,
             padding: "8px",
             display: "flex",
             flexDirection: "column",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+            boxShadow: "-4px 0 6px rgba(0, 0, 0, 0.08)",
           }}
         >
           {/* Add Custom Shape Button */}
