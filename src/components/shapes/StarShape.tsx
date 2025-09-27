@@ -6,8 +6,8 @@ export type StarShape = TLBaseShape<
   {
     w: number
     h: number
-    points: number
-    innerRadius: number
+    count: number // Number of star points
+    innerRadius: number // Inner radius (0-1, percentage of outer radius)
     color: string
     fillColor: string
     strokeWidth: number
@@ -23,7 +23,7 @@ export class StarShapeUtil extends FlippableShapeUtil<StarShape> {
   static override props: RecordProps<StarShape> = {
     w: T.number,
     h: T.number,
-    points: T.number,
+    count: T.number,
     innerRadius: T.number,
     color: T.string,
     fillColor: T.string,
@@ -40,7 +40,7 @@ export class StarShapeUtil extends FlippableShapeUtil<StarShape> {
     return {
       w: 100,
       h: 100,
-      points: 5,
+      count: 5,
       innerRadius: 0.4,
       ...this.getCommonDefaultProps(),
     }
@@ -124,7 +124,7 @@ export class StarShapeUtil extends FlippableShapeUtil<StarShape> {
   }
 
   getOutline(shape: StarShape) {
-    const { w, h, points, innerRadius } = shape.props
+    const { w, h, count, innerRadius } = shape.props
     const centerX = w / 2
     const centerY = h / 2
     const outerRadius = Math.min(w, h) / 2
@@ -132,11 +132,11 @@ export class StarShapeUtil extends FlippableShapeUtil<StarShape> {
 
     // Calculate star vertices (alternating between outer and inner points)
     const vertices = []
-    for (let i = 0; i < points * 2; i++) {
-      const angle = (i * Math.PI) / points - Math.PI / 2
-      const radius = i % 2 === 0 ? outerRadius : innerRadiusActual
-      const x = centerX + radius * Math.cos(angle)
-      const y = centerY + radius * Math.sin(angle)
+    for (let i = 0; i < count * 2; i++) {
+      const angle = (i * Math.PI) / count - Math.PI / 2
+      const r = i % 2 === 0 ? outerRadius : innerRadiusActual
+      const x = centerX + r * Math.cos(angle)
+      const y = centerY + r * Math.sin(angle)
       vertices.push({ x, y })
     }
 

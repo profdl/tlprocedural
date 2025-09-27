@@ -88,7 +88,7 @@ const defaultTrayItems: TrayItem[] = [
     defaultProps: {
       w: 100,
       h: 100,
-      points: 5,
+      count: 5,
       innerRadius: 0.4,
       color: '#000000',
       fillColor: '#ffffff',

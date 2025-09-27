@@ -6,6 +6,7 @@ import { applyRotationToShapes } from '../modifiers/utils/transformUtils'
 import { useDynamicPanelHeight } from './hooks/useDynamicPanelHeight'
 import type { PolygonShape } from '../shapes/PolygonShape'
 import type { SineWaveShape } from '../shapes/SineWaveShape'
+import type { StarShape } from '../shapes/StarShape'
 
 type StableShapeMetrics = {
   x: number
@@ -118,6 +119,13 @@ export function PropertiesPanelContent() {
     [selectedShapes]
   )
 
+  // Detect star shapes for star properties
+  const starShapes = useValue(
+    'star-shapes',
+    () => selectedShapes.filter(shape => shape.type === 'star') as StarShape[],
+    [selectedShapes]
+  )
+
   // Update shape position
   const updatePosition = useCallback((axis: 'x' | 'y', value: number) => {
     if (selectedShapes.length === 0) return
@@ -221,6 +229,27 @@ export function PropertiesPanelContent() {
 
     editor.updateShapes(updatedShapes)
   }, [sineWaveShapes, editor])
+
+  // Update star properties
+  const updateStarCount = useCallback((value: number) => {
+    if (starShapes.length === 0) return
+    const updatedShapes = starShapes.map(shape => ({
+      id: shape.id,
+      type: shape.type,
+      props: { ...shape.props, count: value }
+    }))
+    editor.updateShapes(updatedShapes)
+  }, [starShapes, editor])
+
+  const updateStarInnerRadius = useCallback((value: number) => {
+    if (starShapes.length === 0) return
+    const updatedShapes = starShapes.map(shape => ({
+      id: shape.id,
+      type: shape.type,
+      props: { ...shape.props, innerRadius: value }
+    }))
+    editor.updateShapes(updatedShapes)
+  }, [starShapes, editor])
 
   if (selectedShapes.length === 0) {
     return (
@@ -369,6 +398,43 @@ export function PropertiesPanelContent() {
                 precision={0}
                 unit="°"
                 onChange={updateSineWavePhase}
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Star Properties - only show for star shapes */}
+      {starShapes.length > 0 && (
+        <>
+          {/* Count */}
+          <div className="modifier-input-row">
+            <label className="modifier-input-row__label" style={{ fontWeight: 'bold' }}>Count</label>
+            <div className="modifier-input-row__control">
+              <EnhancedNumberInput
+                value={starShapes[0].props.count}
+                min={3}
+                max={20}
+                step={1}
+                precision={0}
+                unit="#"
+                onChange={updateStarCount}
+              />
+            </div>
+          </div>
+
+          {/* Inner Radius */}
+          <div className="modifier-input-row">
+            <label className="modifier-input-row__label" style={{ fontWeight: 'bold' }}>Inner Radius</label>
+            <div className="modifier-input-row__control">
+              <EnhancedNumberInput
+                value={starShapes[0].props.innerRadius}
+                min={0.1}
+                max={0.9}
+                step={0.05}
+                precision={2}
+                unit="%"
+                onChange={updateStarInnerRadius}
               />
             </div>
           </div>
