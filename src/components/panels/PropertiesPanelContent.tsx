@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { useEditor, useValue } from 'tldraw'
+import { useEditor, useValue, useIsDarkMode } from 'tldraw'
 import type { Editor, TLShape } from 'tldraw'
 import { EnhancedNumberInput } from '../modifiers/ui/EnhancedNumberInput'
 import { applyRotationToShapes } from '../modifiers/utils/transformUtils'
@@ -53,6 +53,7 @@ const getStableShapeMetrics = (editor: Editor, shape: TLShape): StableShapeMetri
 
 export function PropertiesPanelContent() {
   const editor = useEditor()
+  const isDarkMode = useIsDarkMode()
 
   // Dynamic height measurement for this panel
   const { contentRef } = useDynamicPanelHeight({
@@ -65,6 +66,37 @@ export function PropertiesPanelContent() {
   const selectedShapes = useValue(
     'selected-shapes',
     () => editor.getSelectedShapes(),
+    [editor]
+  )
+
+  // Get app preferences
+  const isGridMode = useValue(
+    'is-grid-mode',
+    () => editor.getInstanceState().isGridMode ?? false,
+    [editor]
+  )
+
+  const isSnapMode = useValue(
+    'is-snap-mode',
+    () => editor.user.getUserPreferences().isSnapMode ?? false,
+    [editor]
+  )
+
+  const colorScheme = useValue(
+    'color-scheme',
+    () => editor.user.getUserPreferences().colorScheme ?? 'system',
+    [editor]
+  )
+
+  const isDebugMode = useValue(
+    'is-debug-mode',
+    () => editor.getInstanceState().isDebugMode ?? false,
+    [editor]
+  )
+
+  const isFocusMode = useValue(
+    'is-focus-mode',
+    () => editor.getInstanceState().isFocusMode ?? false,
     [editor]
   )
 
@@ -251,10 +283,78 @@ export function PropertiesPanelContent() {
     editor.updateShapes(updatedShapes)
   }, [starShapes, editor])
 
+  // Update app preferences
+  const toggleGridMode = useCallback(() => {
+    editor.updateInstanceState({ isGridMode: !isGridMode })
+  }, [editor, isGridMode])
+
+  const toggleSnapMode = useCallback(() => {
+    editor.user.updateUserPreferences({ isSnapMode: !isSnapMode })
+  }, [editor, isSnapMode])
+
+  const updateTheme = useCallback((value: string) => {
+    editor.user.updateUserPreferences({ colorScheme: value as 'light' | 'dark' | 'system' })
+  }, [editor])
+
+  const toggleDebugMode = useCallback(() => {
+    editor.updateInstanceState({ isDebugMode: !isDebugMode })
+  }, [editor, isDebugMode])
+
+  const toggleFocusMode = useCallback(() => {
+    editor.updateInstanceState({ isFocusMode: !isFocusMode })
+  }, [editor, isFocusMode])
+
+  const toggleTheme = useCallback(() => {
+    editor.user.updateUserPreferences({ colorScheme: isDarkMode ? 'light' : 'dark' })
+  }, [editor, isDarkMode])
+
   if (selectedShapes.length === 0) {
     return (
-      <div ref={contentRef} className="panel-empty-state">
-        <p>Select a shape to view properties</p>
+      <div ref={contentRef} className="properties-panel__content">
+        {/* App/Canvas Preferences */}
+        <div className="properties-panel__section">
+          {/* Show Grid */}
+          <div className="modifier-input-row">
+            <label className="modifier-input-row__label">Show Grid</label>
+            <div className="modifier-input-row__control modifier-input-row__control--checkbox">
+              <input
+                type="checkbox"
+                className="modifier-controls__checkbox"
+                checked={isGridMode}
+                onChange={toggleGridMode}
+              />
+            </div>
+          </div>
+
+          {/* Always Snap */}
+          <div className="modifier-input-row">
+            <label className="modifier-input-row__label">Always Snap</label>
+            <div className="modifier-input-row__control modifier-input-row__control--checkbox">
+              <input
+                type="checkbox"
+                className="modifier-controls__checkbox"
+                checked={isSnapMode}
+                onChange={toggleSnapMode}
+              />
+            </div>
+          </div>
+
+          {/* Theme */}
+          <div className="modifier-input-row">
+            <label className="modifier-input-row__label">Theme</label>
+            <div className="modifier-input-row__control modifier-input-row__control--select">
+              <select
+                className="modifier-controls__select modifier-controls__select--small"
+                value={colorScheme}
+                onChange={(e) => updateTheme(e.target.value)}
+              >
+                <option value="system">System</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }

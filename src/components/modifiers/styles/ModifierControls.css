@@ -469,3 +469,49 @@
   align-items: center;
   justify-content: flex-end;
 }
+
+/* Toggle control modifier - removes width constraints */
+.modifier-input-row__control--toggle {
+  min-width: unset;
+  max-width: unset;
+  width: auto;
+}
+
+/* Checkbox control modifier - removes width constraints for checkbox */
+.modifier-input-row__control--checkbox {
+  min-width: unset;
+  max-width: unset;
+  width: auto;
+}
+
+/* Select control modifier - smaller width for dropdown */
+.modifier-input-row__control--select {
+  min-width: 80px;
+  max-width: 100px;
+}
+
+/* Small select dropdown for properties panel */
+.modifier-controls__select--small {
+  padding: 2px 6px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-panel-contrast);
+  border-radius: 4px;
+  color: var(--color-text-1);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  height: 20px;
+  min-width: 80px;
+  font-family: var(--tl-font-ui);
+}
+
+.modifier-controls__select--small:hover {
+  border-color: var(--color-text-2);
+  background: var(--color-panel-2);
+}
+
+.modifier-controls__select--small:focus {
+  outline: none;
+  border-color: var(--color-selected);
+  box-shadow: 0 0 0 1px var(--color-selected);
+}
