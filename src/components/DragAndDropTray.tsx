@@ -29,40 +29,13 @@ const lucideIcons = {
   triangle: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.73 4a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/></svg>',
   pentagon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.7c-.7.5-1 1.4-.7 2.2l2.8 8.7c.3.8 1 1.4 1.9 1.4h9c.9 0 1.6-.6 1.9-1.4l2.8-8.7c.3-.8 0-1.7-.7-2.2L12 2.2c-.7-.5-1.7-.5-2.4 0Z"/></svg>',
   circle: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>',
+  star: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>',
+  sine: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c0-4 2-6 4-6s4 2 6 6 4 6 6 6 4-2 4-6"/></svg>',
   waves: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>',
   plus: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>'
 }
 
 const defaultTrayItems: TrayItem[] = [
-  {
-    id: 'triangle',
-    label: 'Triangle',
-    iconSvg: lucideIcons.triangle,
-    shapeType: 'triangle',
-    defaultProps: {
-      w: 100,
-      h: 100,
-      color: '#000000',
-      fillColor: '#ffffff',
-      strokeWidth: 1,
-      fill: true
-    }
-  },
-  {
-    id: 'polygon',
-    label: 'Polygon',
-    iconSvg: lucideIcons.pentagon,
-    shapeType: 'polygon',
-    defaultProps: {
-      w: 120,
-      h: 120,
-      sides: 6,
-      color: '#000000',
-      fillColor: '#ffffff',
-      strokeWidth: 1,
-      fill: true
-    }
-  },
   {
     id: 'circle',
     label: 'Circle',
@@ -78,9 +51,55 @@ const defaultTrayItems: TrayItem[] = [
     }
   },
   {
+    id: 'rectangle',
+    label: 'Rectangle',
+    iconSvg: lucideIcons.rectangle,
+    shapeType: 'rectangle',
+    defaultProps: {
+      w: 120,
+      h: 80,
+      color: '#000000',
+      fillColor: '#ffffff',
+      strokeWidth: 1,
+      fill: true,
+      cornerRadius: 0
+    }
+  },
+  {
+    id: 'polygon',
+    label: 'Polygon',
+    iconSvg: lucideIcons.triangle,
+    shapeType: 'polygon',
+    defaultProps: {
+      w: 100,
+      h: 100,
+      sides: 3,
+      color: '#000000',
+      fillColor: '#ffffff',
+      strokeWidth: 1,
+      fill: true
+    }
+  },
+  {
+    id: 'star',
+    label: 'Star',
+    iconSvg: lucideIcons.star,
+    shapeType: 'star',
+    defaultProps: {
+      w: 100,
+      h: 100,
+      points: 5,
+      innerRadius: 0.4,
+      color: '#000000',
+      fillColor: '#ffffff',
+      strokeWidth: 1,
+      fill: true
+    }
+  },
+  {
     id: 'sine-wave',
-    label: 'Sine Wave',
-    iconSvg: lucideIcons.waves,
+    label: 'Sine',
+    iconSvg: lucideIcons.sine,
     shapeType: 'sine-wave',
     defaultProps: {
       w: 200,
@@ -626,12 +645,13 @@ export function DragAndDropTray() {
           zIndex: 10,
           userSelect: 'none',
           outline: 'none',
-          width: '72px',
-          height: '400px'
+          width: '130px',
+          height: 'auto',
+          maxHeight: '80vh'
         }}
       >
         {/* Default Shapes Section */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {defaultTrayItems.map((item) => {
             return (
               <div
@@ -639,16 +659,19 @@ export function DragAndDropTray() {
                 data-drag_item_index={item.id}
                 className="tray-item"
                 style={{
-                  width: '48px',
-                  height: '48px',
+                  width: '114px',
+                  height: '36px',
                   display: 'flex',
+                  flexDirection: 'row',
                   alignItems: 'center',
-                  justifyContent: 'center',
+                  justifyContent: 'flex-start',
                   cursor: 'grab',
                   borderRadius: '4px',
                   border: '1px solid transparent',
                   backgroundColor: '#f8f9fa',
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  gap: '6px',
+                  padding: '4px 8px'
                 }}
                 onPointerDown={(e) => handlePointerDown(e, item.id)}
                 onPointerMove={handlePointerMove}
@@ -662,12 +685,27 @@ export function DragAndDropTray() {
                     height: '20px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    flexShrink: 0
                   }}
                   dangerouslySetInnerHTML={{
                     __html: item.iconSvg.replace(/stroke="currentColor"/g, 'stroke="#333"')
                   }}
                 />
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: '500',
+                    color: '#333',
+                    lineHeight: '1.2',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    flex: 1
+                  }}
+                >
+                  {item.label}
+                </span>
               </div>
             )
           })}
@@ -678,7 +716,7 @@ export function DragAndDropTray() {
           style={{
             height: '1px',
             backgroundColor: '#e0e0e0',
-            margin: '8px 0',
+            margin: '4px 0',
             width: '100%'
           }}
         />
@@ -688,18 +726,21 @@ export function DragAndDropTray() {
           key="add-custom-shape"
           className="tray-item add-button"
           style={{
-            width: '48px',
-            height: '48px',
+            width: '114px',
+            height: '36px',
             display: 'flex',
+            flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'center',
+            justifyContent: 'flex-start',
             cursor: hasValidShapesSelected ? 'pointer' : 'not-allowed',
             borderRadius: '4px',
             border: hasValidShapesSelected ? '2px dashed #007acc' : '2px dashed #ccc',
             backgroundColor: hasValidShapesSelected ? '#f0f8ff' : '#f5f5f5',
             transition: 'all 0.2s ease',
             opacity: hasValidShapesSelected ? 0.9 : 0.5,
-            marginBottom: '8px'
+            marginBottom: '4px',
+            gap: '6px',
+            padding: '4px 8px'
           }}
           onClick={hasValidShapesSelected ? handleCreateCustomShape : undefined}
           title={hasValidShapesSelected
@@ -727,12 +768,27 @@ export function DragAndDropTray() {
               height: '20px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              flexShrink: 0
             }}
             dangerouslySetInnerHTML={{
               __html: lucideIcons.plus.replace(/stroke="currentColor"/g, hasValidShapesSelected ? 'stroke="#007acc"' : 'stroke="#ccc"')
             }}
           />
+          <span
+            style={{
+              fontSize: '11px',
+              fontWeight: '500',
+              color: hasValidShapesSelected ? '#007acc' : '#999',
+              lineHeight: '1.2',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              flex: 1
+            }}
+          >
+            Add Custom
+          </span>
         </div>
 
         {/* Custom Shapes Scrollable Area */}
@@ -742,7 +798,7 @@ export function DragAndDropTray() {
             overflowY: 'auto',
             display: 'flex',
             flexDirection: 'column',
-            gap: '8px',
+            gap: '4px',
             paddingRight: '4px',
             minHeight: 0
           }}
@@ -756,19 +812,22 @@ export function DragAndDropTray() {
                 data-drag_item_index={item.id}
                 className="tray-item"
                 style={{
-                  width: '48px',
-                  height: '48px',
-                  minHeight: '48px',
+                  width: '114px',
+                  height: '36px',
+                  minHeight: '36px',
                   flexShrink: 0,
                   display: 'flex',
+                  flexDirection: 'row',
                   alignItems: 'center',
-                  justifyContent: 'center',
+                  justifyContent: 'flex-start',
                   cursor: 'grab',
                   borderRadius: '4px',
                   border: isSelected ? '2px solid #007acc' : '1px solid transparent',
                   backgroundColor: isSelected ? '#e6f3ff' : '#f8f9fa',
                   transition: 'all 0.2s ease',
-                  boxShadow: isSelected ? '0 0 0 1px rgba(0, 122, 204, 0.3)' : 'none'
+                  boxShadow: isSelected ? '0 0 0 1px rgba(0, 122, 204, 0.3)' : 'none',
+                  gap: '6px',
+                  padding: '4px 8px'
                 }}
                 onPointerDown={(e) => handlePointerDown(e, item.id)}
                 onPointerMove={handlePointerMove}
@@ -782,12 +841,27 @@ export function DragAndDropTray() {
                     height: '20px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    flexShrink: 0
                   }}
                   dangerouslySetInnerHTML={{
                     __html: item.iconSvg.replace(/stroke="currentColor"/g, 'stroke="#333"')
                   }}
                 />
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: '500',
+                    color: '#333',
+                    lineHeight: '1.2',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    flex: 1
+                  }}
+                >
+                  {item.label}
+                </span>
               </div>
             )
           })}

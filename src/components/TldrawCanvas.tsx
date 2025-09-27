@@ -44,6 +44,10 @@ import { RemovePointTool } from './shapes/tools/RemovePointTool'
 import { CustomArrowShapeUtil } from './shapes/ArrowShape'
 import { CustomArrowTool } from './shapes/ArrowTool'
 import { CompoundShapeUtil } from './shapes/CompoundShape'
+import { StarShapeUtil } from './shapes/StarShape'
+import { StarTool } from './shapes/StarTool'
+import { RectangleShapeUtil } from './shapes/RectangleShape'
+import { RectangleTool } from './shapes/RectangleTool'
 import { BezierHandle } from './overrides/BezierHandle'
 
 type StoreUpdateTuple = [Record<string, unknown>, Record<string, unknown>]
@@ -605,6 +609,8 @@ export function TldrawCanvas() {
           TriangleShapeUtil,
           PolygonShapeUtil,
           CircleShapeUtil,
+          RectangleShapeUtil,
+          StarShapeUtil,
           LineShapeUtil,
           CustomDrawShapeUtil,
           BezierShapeUtil,
@@ -616,6 +622,8 @@ export function TldrawCanvas() {
           TriangleTool,
           PolygonTool,
           CircleTool,
+          RectangleTool,
+          StarTool,
           LineTool,
           CustomDrawTool,
           BezierTool,
