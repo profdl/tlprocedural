@@ -23,7 +23,8 @@
       "Bash(tsc --noEmit)",
       "WebFetch(domain:tldraw.dev)",
       "Bash(npm uninstall:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(sort:*)"
     ],
     "deny": [],
     "ask": []
