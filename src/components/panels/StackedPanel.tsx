@@ -202,13 +202,17 @@ export function StackedPanel({
             {/* Title */}
             <span
               className="stacked-panel__title"
+              onDoubleClick={onToggleCollapse}
               style={{
                 fontSize: "10px",
                 fontWeight: 500,
                 color: "var(--color-text-1)",
                 textTransform: "uppercase",
                 letterSpacing: "0.5px",
+                cursor: "pointer",
+                userSelect: "none",
               }}
+              title="Double-click to toggle panel"
             >
               {title}
             </span>
