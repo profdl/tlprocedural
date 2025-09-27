@@ -3,7 +3,8 @@ import type {
   LinearArraySettings,
   CircularArraySettings,
   GridArraySettings,
-  MirrorSettings
+  MirrorSettings,
+  GroupContext
 } from '../../../types/modifiers'
 import type { VirtualInstance } from './TransformComposer'
 
@@ -114,14 +115,23 @@ export class ArrayModifierProcessor {
     const hasOriginal = instances.some(inst => inst.metadata.modifierType === 'original')
     const nonOriginalInstances = instances.filter(inst => inst.metadata.modifierType !== 'original')
 
+    // NEW: Check for group members (from group processing)
+    const hasGroupMembers = instances.some(inst => inst.metadata.modifierType === 'group-member')
+
     // Use unified composition if:
-    // 1. We have multiple instances AND no original (output from previous modifier)
-    // 2. OR we have multiple non-original instances with original (mixed case)
+    // 1. We have group members (from unified group processing)
+    if (hasGroupMembers && instances.length > 1) {
+      console.log(`[ArrayModifierProcessor] Using unified composition for group members: ${instances.length} instances`)
+      return true
+    }
+
+    // 2. We have multiple instances AND no original (output from previous modifier)
     if (!hasOriginal && instances.length > 1) {
       // All instances are from previous modifiers - treat as unified
       return true
     }
 
+    // 3. Mixed case - multiple instances from previous modifier plus original
     if (hasOriginal && nonOriginalInstances.length > 1) {
       // Mixed case - multiple instances from previous modifier plus original
       return true
@@ -138,6 +148,7 @@ export class ArrayModifierProcessor {
     instances: VirtualInstance[],
     settings: LinearArraySettings,
     originalShape: TLShape,
+    groupContext?: GroupContext,
     editor?: Editor,
     generationLevel: number = 0
   ): VirtualInstance[] {
@@ -262,31 +273,44 @@ export class ArrayModifierProcessor {
       }
     } else {
       // Original behavior: multiply each instance (but only create clones, not preserve original)
-      const shapeBounds = this.getShapeBounds(originalShape)
-      const pixelOffsetX = (offsetX / 100) * shapeBounds.width
-      const pixelOffsetY = (offsetY / 100) * shapeBounds.height
 
-      // Get original shape center for orbital rotation calculations
-      let originalShapeCenter
-      if (editor) {
-        const visualBounds = editor.getShapePageBounds(originalShape.id)
-        if (visualBounds) {
-          originalShapeCenter = {
-            x: visualBounds.x + visualBounds.width / 2,
-            y: visualBounds.y + visualBounds.height / 2
+      // Use group bounds if we're processing a group, otherwise use shape bounds
+      let boundsForOffset
+      let centerForRotation
+
+      if (groupContext) {
+        // Use group bounds for offset calculations and group center for rotation
+        boundsForOffset = groupContext.groupBounds
+        centerForRotation = groupContext.groupCenter
+      } else {
+        // Use individual shape bounds (existing behavior)
+        const shapeBounds = this.getShapeBounds(originalShape)
+        boundsForOffset = shapeBounds
+
+        // Get original shape center for orbital rotation calculations
+        if (editor) {
+          const visualBounds = editor.getShapePageBounds(originalShape.id)
+          if (visualBounds) {
+            centerForRotation = {
+              x: visualBounds.x + visualBounds.width / 2,
+              y: visualBounds.y + visualBounds.height / 2
+            }
+          } else {
+            centerForRotation = {
+              x: originalShape.x + shapeBounds.width / 2,
+              y: originalShape.y + shapeBounds.height / 2
+            }
           }
         } else {
-          originalShapeCenter = {
+          centerForRotation = {
             x: originalShape.x + shapeBounds.width / 2,
             y: originalShape.y + shapeBounds.height / 2
           }
         }
-      } else {
-        originalShapeCenter = {
-          x: originalShape.x + shapeBounds.width / 2,
-          y: originalShape.y + shapeBounds.height / 2
-        }
       }
+
+      const pixelOffsetX = (offsetX / 100) * boundsForOffset.width
+      const pixelOffsetY = (offsetY / 100) * boundsForOffset.height
 
       const sourceRotation = originalShape.rotation || 0
 
@@ -317,15 +341,93 @@ export class ArrayModifierProcessor {
             rotatedOffsetY = centerOffsetX * sin + centerOffsetY * cos
           }
 
-          const newX = originalShapeCenter.x + rotatedOffsetX - shapeBounds.width / 2
-          const newY = originalShapeCenter.y + rotatedOffsetY - shapeBounds.height / 2
+          // Calculate new position based on whether we're processing a group or individual shape
+          let newX, newY
 
-          const incrementalRotation = (rotationIncrement * i * Math.PI) / 180
-          const uniformRotation = (rotateAll * Math.PI) / 180
-          const totalRotation = baseRotation + incrementalRotation + uniformRotation
+          if (groupContext) {
+            // For groups, scale both formation and individual shapes
+            const progress = count > 1 ? i / (count - 1) : 0
+            const groupScale = 1 + ((scaleStep / 100) - 1) * progress
 
-          const progress = count > 1 ? i / (count - 1) : 0
-          const newScale = 1 + ((scaleStep / 100) - 1) * progress
+            // Calculate shape's relative position to group center
+            const shapeRelativeToGroupX = originalShape.x - groupContext.groupCenter.x
+            const shapeRelativeToGroupY = originalShape.y - groupContext.groupCenter.y
+
+            // Scale the relative positions (formation scaling)
+            const scaledRelativeX = shapeRelativeToGroupX * groupScale
+            const scaledRelativeY = shapeRelativeToGroupY * groupScale
+
+            // Apply rotation to the scaled relative positions (group formation rotation)
+            const incrementalRotation = (rotationIncrement * i * Math.PI) / 180
+            const uniformRotation = (rotateAll * Math.PI) / 180
+            const groupFormationRotation = incrementalRotation + uniformRotation
+
+            let finalRelativeX = scaledRelativeX
+            let finalRelativeY = scaledRelativeY
+
+            if (groupFormationRotation !== 0) {
+              const cos = Math.cos(groupFormationRotation)
+              const sin = Math.sin(groupFormationRotation)
+              finalRelativeX = scaledRelativeX * cos - scaledRelativeY * sin
+              finalRelativeY = scaledRelativeX * sin + scaledRelativeY * cos
+            }
+
+            // New group center position after offset
+            const newGroupCenterX = groupContext.groupCenter.x + rotatedOffsetX
+            const newGroupCenterY = groupContext.groupCenter.y + rotatedOffsetY
+
+            // Shape's new position with scaled and rotated relative offset
+            newX = newGroupCenterX + finalRelativeX
+            newY = newGroupCenterY + finalRelativeY
+
+            // Debug logging for first few clones
+            if (i < 3) {
+              console.log(`[ArrayModifierProcessor] Group clone ${i}: shape ${originalShape.id}`, {
+                originalPos: { x: originalShape.x, y: originalShape.y },
+                groupCenter: groupContext.groupCenter,
+                relativeToGroup: { x: shapeRelativeToGroupX, y: shapeRelativeToGroupY },
+                scaledRelative: { x: scaledRelativeX, y: scaledRelativeY },
+                finalRelative: { x: finalRelativeX, y: finalRelativeY },
+                groupScale,
+                groupFormationRotation: groupFormationRotation * (180 / Math.PI), // Convert to degrees for readability
+                offset: { x: rotatedOffsetX, y: rotatedOffsetY },
+                newGroupCenter: { x: newGroupCenterX, y: newGroupCenterY },
+                newPos: { x: newX, y: newY }
+              })
+            }
+          } else {
+            // For individual shapes, adjust for shape bounds (existing behavior)
+            const shapeBounds = this.getShapeBounds(originalShape)
+            newX = centerForRotation.x + rotatedOffsetX - shapeBounds.width / 2
+            newY = centerForRotation.y + rotatedOffsetY - shapeBounds.height / 2
+          }
+
+          // Calculate total rotation for individual shapes
+          let totalRotation
+          if (groupContext) {
+            // For groups, individual shapes get the same formation rotation as their relative positions
+            const incrementalRotation = (rotationIncrement * i * Math.PI) / 180
+            const uniformRotation = (rotateAll * Math.PI) / 180
+            totalRotation = baseRotation + incrementalRotation + uniformRotation
+          } else {
+            // For individual shapes, calculate rotation normally
+            const incrementalRotation = (rotationIncrement * i * Math.PI) / 180
+            const uniformRotation = (rotateAll * Math.PI) / 180
+            totalRotation = baseRotation + incrementalRotation + uniformRotation
+          }
+
+          // Calculate scale (reuse groupScale if we're processing a group)
+          let newScale
+          if (groupContext) {
+            // Use the same scale we calculated for formation scaling
+            const progress = count > 1 ? i / (count - 1) : 0
+            newScale = 1 + ((scaleStep / 100) - 1) * progress
+          } else {
+            // For individual shapes, calculate scale normally
+            const progress = count > 1 ? i / (count - 1) : 0
+            newScale = 1 + ((scaleStep / 100) - 1) * progress
+          }
+
           // Accumulate scale with existing scale
           const accumulatedScaleX = existingScale.scaleX * newScale
           const accumulatedScaleY = existingScale.scaleY * newScale
@@ -368,6 +470,7 @@ export class ArrayModifierProcessor {
     instances: VirtualInstance[],
     settings: CircularArraySettings,
     originalShape: TLShape,
+    groupContext?: GroupContext,
     editor?: Editor,
     generationLevel: number = 0
   ): VirtualInstance[] {
@@ -647,6 +750,7 @@ export class ArrayModifierProcessor {
     instances: VirtualInstance[],
     settings: GridArraySettings,
     originalShape: TLShape,
+    groupContext?: GroupContext,
     editor?: Editor,
     generationLevel: number = 0
   ): VirtualInstance[] {
@@ -922,6 +1026,7 @@ export class ArrayModifierProcessor {
     instances: VirtualInstance[],
     settings: MirrorSettings,
     originalShape: TLShape,
+    groupContext?: GroupContext,
     editor?: Editor,
     generationLevel: number = 0
   ): VirtualInstance[] {

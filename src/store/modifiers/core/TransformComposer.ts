@@ -64,6 +64,120 @@ export interface VirtualModifierState {
  */
 export class TransformComposer {
   /**
+   * Process modifiers for groups - creates unified virtual instances like modifier stacking
+   */
+  static processGroupModifiers(
+    groupContext: GroupContext,
+    modifiers: TLModifier[],
+    editor?: Editor
+  ): VirtualModifierState {
+    // Create unified virtual instances for the entire group (like modifier stacking)
+    const virtualInstances: VirtualInstance[] = groupContext.groupShapes.map((shape, index) => ({
+      sourceShapeId: shape.id,
+      transform: Mat.Translate(shape.x, shape.y).multiply(
+        Mat.Rotate(shape.rotation || 0)
+      ),
+      metadata: {
+        modifierType: 'group-member',  // NOT 'original' to trigger unified composition
+        index,
+        isGroupMember: true,
+        isOriginal: false,
+        generationLevel: 0,
+        groupId: 'group-unified'
+      }
+    }))
+
+    // Use the first shape as the representative for the group
+    const representativeShape = groupContext.groupShapes[0]
+
+    // Process as single unified state using existing logic
+    return this.processModifiersWithInstances(virtualInstances, representativeShape, modifiers, groupContext, editor)
+  }
+
+  /**
+   * Process modifiers with pre-created virtual instances (for group processing)
+   */
+  private static processModifiersWithInstances(
+    initialInstances: VirtualInstance[],
+    representativeShape: TLShape,
+    modifiers: TLModifier[],
+    groupContext?: GroupContext,
+    editor?: Editor
+  ): VirtualModifierState {
+    // Create context for this processing session
+    const context = new ModifierContext(representativeShape, editor, groupContext)
+
+    // Start performance monitoring
+    const stopTiming = ModifierPerformanceMonitor.startTiming('processGroupModifiers', representativeShape.id)
+
+    try {
+      // Start with identity transform for the representative shape
+      const baseTransform = Mat.Identity()
+
+      // Start with the provided virtual instances (instead of creating 'original')
+      let virtualInstances: VirtualInstance[] = [...initialInstances]
+
+      // Process each enabled modifier in sequence
+      const enabledModifiers = modifiers
+        .filter(m => m.enabled)
+        .sort((a, b) => a.order - b.order)
+
+      for (let i = 0; i < enabledModifiers.length; i++) {
+        const modifier = enabledModifiers[i]
+
+        try {
+          const modifierTiming = ModifierPerformanceMonitor.startTiming(modifier.type, representativeShape.id)
+
+          virtualInstances = this.applyModifier(
+            virtualInstances,
+            modifier,
+            representativeShape,
+            groupContext,
+            editor,
+            i + 1 // generation level
+          )
+
+          modifierTiming()
+        } catch (error) {
+          // Handle modifier-specific errors with recovery
+          const result = ModifierErrorHandler.handle(error as Error, {
+            modifier,
+            shape: representativeShape,
+            strategy: RecoveryStrategy.SKIP_MODIFIER
+          })
+
+          if (!result.recovered) {
+            throw new ModifierProcessingError(
+              'Failed to apply modifier',
+              modifier,
+              representativeShape,
+              error as Error
+            )
+          }
+
+          // Continue with previous instances if modifier was skipped
+          console.warn(`Skipped ${modifier.type} modifier due to error`)
+        }
+      }
+
+      return {
+        originalShape: representativeShape,
+        virtualInstances,
+        baseTransform,
+        metadata: {
+          processedModifiers: enabledModifiers.length,
+          context,
+          isGroupModifier: true
+        },
+        editor
+      }
+    } finally {
+      stopTiming()
+      context.clearMetadata()
+    }
+  }
+
+  /**
    * Process modifiers using matrix composition for O(n) complexity
    * instead of O(n²) instance multiplication
    */
@@ -164,19 +278,19 @@ export class TransformComposer {
     instances: VirtualInstance[],
     modifier: TLModifier,
     originalShape: TLShape,
-    _groupContext?: GroupContext,
+    groupContext?: GroupContext,
     editor?: Editor,
     generationLevel: number = 0
   ): VirtualInstance[] {
     switch (modifier.type) {
       case 'linear-array':
-        return ArrayModifierProcessor.applyLinearArray(instances, modifier.props as LinearArraySettings, originalShape, editor, generationLevel)
+        return ArrayModifierProcessor.applyLinearArray(instances, modifier.props as LinearArraySettings, originalShape, groupContext, editor, generationLevel)
       case 'circular-array':
-        return ArrayModifierProcessor.applyCircularArray(instances, modifier.props as CircularArraySettings, originalShape, editor, generationLevel)
+        return ArrayModifierProcessor.applyCircularArray(instances, modifier.props as CircularArraySettings, originalShape, groupContext, editor, generationLevel)
       case 'grid-array':
-        return ArrayModifierProcessor.applyGridArray(instances, modifier.props as GridArraySettings, originalShape, editor, generationLevel)
+        return ArrayModifierProcessor.applyGridArray(instances, modifier.props as GridArraySettings, originalShape, groupContext, editor, generationLevel)
       case 'mirror':
-        return ArrayModifierProcessor.applyMirror(instances, modifier.props as MirrorSettings, originalShape, editor, generationLevel)
+        return ArrayModifierProcessor.applyMirror(instances, modifier.props as MirrorSettings, originalShape, groupContext, editor, generationLevel)
       case 'boolean':
         return BooleanOperationProcessor.applyBoolean(instances, modifier.props as BooleanSettings, originalShape)
     }
@@ -199,7 +313,7 @@ export class TransformComposer {
     virtualState: VirtualModifierState,
     createId: () => TLShapeId
   ): TLShape[] {
-    const { originalShape, virtualInstances } = virtualState
+    const { originalShape, virtualInstances, editor } = virtualState
 
     // Filter out the original instance - we only want clones
     const cloneInstances = virtualInstances.filter(instance =>
@@ -213,21 +327,31 @@ export class TransformComposer {
       // Store targetRotation from metadata for later center-based application
       const targetRotation = instance.metadata.targetRotation ?? instance.transform.rotation()
 
+      // Get the correct source shape for this instance
+      // For group processing, each virtual instance may reference a different source shape
+      let sourceShape = originalShape
+      if (editor && instance.sourceShapeId !== originalShape.id) {
+        const foundShape = editor.getShape(instance.sourceShapeId as TLShapeId)
+        if (foundShape) {
+          sourceShape = foundShape
+        }
+      }
+
       // Create shape with composed transform and unique index
       // ALWAYS set rotation to 0 here - rotation will be applied via rotateShapesBy
       // Store scale in metadata instead of applying to props - will be applied via resizeShape
       return {
-        ...originalShape,
+        ...sourceShape, // Use the correct source shape, not always originalShape
         id: createId(),
         x,
         y,
         rotation: 0, // Always 0 - rotation applied via center-based method
-        props: originalShape.props, // Keep original props, scaling applied via resizeShape
+        props: sourceShape.props, // Use source shape props, scaling applied via resizeShape
         meta: {
-          ...originalShape.meta,
+          ...sourceShape.meta,
           ...instance.metadata,
           stackProcessed: true,
-          originalShapeId: originalShape.id,
+          originalShapeId: instance.sourceShapeId, // Use the actual source shape ID
           targetRotation: targetRotation as number, // Store for center-based application
           targetScaleX: scaleX, // Store scale for center-based application via resizeShape
           targetScaleY: scaleY
@@ -245,7 +369,7 @@ export class TransformComposer {
     existingShapes: Map<number, TLShape>,
     createId: () => TLShapeId
   ): { create: TLShape[], update: Partial<TLShape>[], delete: TLShapeId[] } {
-    const { originalShape, virtualInstances } = virtualState
+    const { originalShape, virtualInstances, editor } = virtualState
 
     // Check for deferred boolean operations
     if (BooleanOperationProcessor.hasBooleanResults(virtualInstances)) {
@@ -287,21 +411,31 @@ export class TransformComposer {
       // Store targetRotation from metadata for later center-based application
       const targetRotation = instance.metadata.targetRotation ?? instance.transform.rotation()
 
+      // Get the correct source shape for this instance
+      // For group processing, each virtual instance may reference a different source shape
+      let sourceShape = originalShape
+      if (editor && instance.sourceShapeId !== originalShape.id) {
+        const foundShape = editor.getShape(instance.sourceShapeId as TLShapeId)
+        if (foundShape) {
+          sourceShape = foundShape
+        }
+      }
+
       if (existing) {
         // Update existing shape
         used.add(existing.id)
         update.push({
           id: existing.id,
-          type: existing.type,
+          type: sourceShape.type, // Use correct source shape type
           x,
           y,
           rotation: 0, // Always 0 - rotation applied via center-based method
-          props: originalShape.props, // Keep original props, scaling applied via resizeShape
+          props: sourceShape.props, // Use source shape props, scaling applied via resizeShape
           meta: {
-            ...originalShape.meta,
+            ...sourceShape.meta,
             ...instance.metadata,
             stackProcessed: true,
-            originalShapeId: originalShape.id,
+            originalShapeId: instance.sourceShapeId, // Use the actual source shape ID
             targetRotation: targetRotation as number, // Store for center-based application
             targetScaleX: scaleX, // Store scale for center-based application via resizeShape
             targetScaleY: scaleY
@@ -310,17 +444,17 @@ export class TransformComposer {
       } else {
         // Create new shape with unique index
         create.push({
-          ...originalShape,
+          ...sourceShape, // Use the correct source shape, not always originalShape
           id: createId(),
           x,
           y,
           rotation: 0, // Always 0 - rotation applied via center-based method
-          props: originalShape.props, // Keep original props, scaling applied via resizeShape
+          props: sourceShape.props, // Use source shape props, scaling applied via resizeShape
           meta: {
-            ...originalShape.meta,
+            ...sourceShape.meta,
             ...instance.metadata,
             stackProcessed: true,
-            originalShapeId: originalShape.id,
+            originalShapeId: instance.sourceShapeId, // Use the actual source shape ID
             targetRotation: targetRotation as number, // Store for center-based application
             targetScaleX: scaleX, // Store scale for center-based application via resizeShape
             targetScaleY: scaleY

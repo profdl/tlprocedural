@@ -85,9 +85,37 @@ export function useStackedModifier({ shape, modifiers }: UseStackedModifierProps
 
       // Create group context if needed
       const parentGroup = findTopLevelGroup(shape, editor)
+      const isGroupShape = shape.type === 'group'
       let groupContext: GroupContext | undefined = undefined
 
-      if (parentGroup) {
+      // Handle both cases: shape is a group itself, or shape is inside a group
+      if (isGroupShape) {
+        // Selected shape is the group itself
+        const childShapes = getGroupChildShapes(shape, editor)
+        const groupBounds = getGroupPageBounds(shape, editor)
+
+        groupContext = {
+          groupCenter: { x: groupBounds.centerX, y: groupBounds.centerY },
+          groupTopLeft: { x: groupBounds.minX, y: groupBounds.minY },
+          groupShapes: childShapes,
+          groupBounds: {
+            minX: groupBounds.minX,
+            maxX: groupBounds.maxX,
+            minY: groupBounds.minY,
+            maxY: groupBounds.maxY,
+            width: groupBounds.width,
+            height: groupBounds.height,
+            centerX: groupBounds.centerX,
+            centerY: groupBounds.centerY
+          },
+          groupTransform: {
+            x: shape.x,
+            y: shape.y,
+            rotation: shape.rotation || 0
+          }
+        }
+      } else if (parentGroup) {
+        // Shape is inside a group
         const childShapes = getGroupChildShapes(parentGroup, editor)
         const groupBounds = getGroupPageBounds(parentGroup, editor)
 
@@ -113,8 +141,40 @@ export function useStackedModifier({ shape, modifiers }: UseStackedModifierProps
         }
       }
 
-      const result = TransformComposer.processModifiers(shape, modifiers, groupContext, editor)
-      const shapes = extractShapesFromState(result)
+      // Determine if we should process as a group
+      const isShapeInGroup = parentGroup !== null
+      const shouldProcessAsGroup = (isGroupShape || isShapeInGroup) && groupContext
+
+      // Debug group detection
+      console.log(`[useStackedModifier] ${processingId} Group detection:`, {
+        shapeId: shape.id,
+        shapeType: shape.type,
+        isGroupShape,
+        isShapeInGroup,
+        parentGroup: parentGroup?.id,
+        hasGroupContext: !!groupContext,
+        shouldProcessAsGroup,
+        groupShapeCount: groupContext?.groupShapes.length
+      })
+
+      let result: any
+      let shapes: TLShape[]
+
+      if (shouldProcessAsGroup && groupContext) {
+        // Process all shapes in the group simultaneously using unified approach
+        console.log(`[useStackedModifier] ${processingId} Processing as group - ${isGroupShape ? 'group shape' : 'shape in group'} ${shape.id} with ${groupContext.groupShapes.length} child shapes`)
+
+        const groupResult = TransformComposer.processGroupModifiers(groupContext, modifiers, editor)
+        shapes = extractShapesFromState(groupResult)
+
+        // Use the actual group result
+        result = groupResult
+      } else {
+        // Process single shape (existing behavior)
+        console.log(`[useStackedModifier] ${processingId} Processing single shape ${shape.id}`)
+        result = TransformComposer.processModifiers(shape, modifiers, groupContext, editor)
+        shapes = extractShapesFromState(result)
+      }
 
       if (!result || !shapes) {
         console.warn(`Modifier processing returned no valid shapes for ${shape.id}`)

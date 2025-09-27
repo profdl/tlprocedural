@@ -36,6 +36,7 @@ export function extractShapesFromState(state: VirtualModifierState): TLShape[] {
   return TransformComposer.materializeInstances(state, createId)
 }
 
+
 /**
  * Helper to extract shapes with caching for better performance
  * Uses the optimized materialization with cache from TransformComposer

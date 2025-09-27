@@ -215,6 +215,7 @@ export function DragAndDropTray() {
     y: number;
     itemId: string;
   } | null>(null);
+  const [dragStartPos, setDragStartPos] = useState<{ x: number; y: number } | null>(null);
   const [selectedCustomShapeId, setSelectedCustomShapeId] = useState<
     string | null
   >(null);
@@ -534,6 +535,9 @@ export function DragAndDropTray() {
       e.preventDefault();
       e.stopPropagation();
 
+      // Store the starting position for drag threshold calculation
+      setDragStartPos({ x: e.clientX, y: e.clientY });
+
       // Handle selection for custom shapes
       if (isCustomShape(itemId)) {
         // If clicking on an already selected custom shape, keep it selected
@@ -566,17 +570,14 @@ export function DragAndDropTray() {
     (e: React.PointerEvent) => {
       if (
         dragState.type === "pointing_item" &&
-        e.pointerId === dragState.pointerId
+        e.pointerId === dragState.pointerId &&
+        dragStartPos
       ) {
-        const threshold = 5;
-        const rect = trayRef.current?.getBoundingClientRect();
-        if (!rect) return;
-
-        const startX = rect.left + 50; // Approximate center of tray item
-        const startY = rect.top + 30;
+        const threshold = 3; // Reduced threshold for more responsive dragging
 
         const distance = Math.sqrt(
-          Math.pow(e.clientX - startX, 2) + Math.pow(e.clientY - startY, 2)
+          Math.pow(e.clientX - dragStartPos.x, 2) +
+          Math.pow(e.clientY - dragStartPos.y, 2)
         );
 
         if (distance > threshold) {
@@ -602,25 +603,28 @@ export function DragAndDropTray() {
         });
       }
     },
-    [dragState, setDragState]
+    [dragState, setDragState, dragStartPos]
   );
 
   const handlePointerUp = useCallback(
     (e: React.PointerEvent) => {
+      // Allow drop from both pointing_item (click without drag) and dragging states
       if (
-        dragState.type === "dragging" &&
+        (dragState.type === "dragging" || dragState.type === "pointing_item") &&
         e.pointerId === dragState.pointerId
       ) {
-        const trayItem = allTrayItems.find(
-          (item) => item.id === dragState.itemId
-        );
-        if (!trayItem || !editor) return;
+        // Only create shape if we're in dragging state (not just clicking on item)
+        if (dragState.type === "dragging") {
+          const trayItem = allTrayItems.find(
+            (item) => item.id === dragState.itemId
+          );
+          if (!trayItem || !editor) return;
 
-        // Convert screen coordinates to page coordinates
-        const pagePoint = editor.screenToPage(new Vec(e.clientX, e.clientY));
+          // Convert screen coordinates to page coordinates
+          const pagePoint = editor.screenToPage(new Vec(e.clientX, e.clientY));
 
-        // Create the shape at the drop location
-        const shapeId = createShapeId();
+          // Create the shape at the drop location
+          const shapeId = createShapeId();
 
         try {
           // Check if this is a custom shape (has createdAt field)
@@ -717,11 +721,13 @@ export function DragAndDropTray() {
         } catch (error) {
           console.error("Failed to create shape:", error);
         }
+        } // Close the if (dragState.type === "dragging") block
       }
 
       // Reset drag state
       setDragState({ type: "idle" });
       setDragPreview(null);
+      setDragStartPos(null);
 
       const element = e.currentTarget as HTMLElement;
       element.releasePointerCapture(e.pointerId);
