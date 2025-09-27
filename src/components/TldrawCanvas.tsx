@@ -50,8 +50,6 @@ import { RectangleShapeUtil } from './shapes/RectangleShape'
 import { RectangleTool } from './shapes/RectangleTool'
 import { BezierHandle } from './overrides/BezierHandle'
 
-type StoreUpdateTuple = [Record<string, unknown>, Record<string, unknown>]
-
 // Using only custom shapes - no native tldraw shapes
 
 // Custom Grid Component inspired by cuttle.xyz
@@ -508,7 +506,7 @@ export function TldrawCanvas() {
     }
 
     const cleanupBezierEditModePersistence = editor.store.listen((entry) => {
-      const updates = Object.values(entry.changes.updated) as StoreUpdateTuple[];
+      const updates = Object.values(entry.changes.updated) as [unknown, unknown][];
 
       for (const [from, to] of updates) {
         const toRecord = to as { typeName?: unknown; type?: unknown }
@@ -539,7 +537,7 @@ export function TldrawCanvas() {
         }
       }
 
-      const removals = Object.values(entry.changes.removed) as Record<string, unknown>[]
+      const removals = Object.values(entry.changes.removed) as unknown[]
       for (const record of removals) {
         const removalRecord = record as { typeName?: unknown; type?: unknown; id?: unknown }
         if (removalRecord.typeName === 'shape' && removalRecord.type === 'bezier') {
@@ -559,30 +557,57 @@ export function TldrawCanvas() {
 
     const originalSetCurrentTool = editor.setCurrentTool.bind(editor)
     editor.setCurrentTool = ((id: string, info: Record<string, unknown> = {}) => {
+      // When switching TO bezier tool, force exit any existing edit mode first
+      if (id === 'bezier') {
+        const editingShape = findEditingBezierShape()
+        if (editingShape) {
+          // Force exit edit mode before switching to pen tool
+          editor.updateShape({
+            id: editingShape.id,
+            type: 'bezier',
+            props: {
+              ...editingShape.props,
+              editMode: false,
+              selectedPointIndices: [],
+              selectedSegmentIndex: undefined,
+              hoverSegmentIndex: undefined,
+              hoverPoint: undefined,
+            },
+          })
+          // Cache the shape selection for potential restoration later
+          cacheSelection(editingShape)
+        }
+      }
+
       const result = originalSetCurrentTool(id, info)
 
-      if (id === 'bezier') {
-        const activationTime = Date.now()
-        Promise.resolve().then(() => {
-          const editingShape = findEditingBezierShape()
-          if (editingShape) {
-            cacheSelection(editingShape)
-            lastBezierEditShapeId = editingShape.id
-            return
-          }
+      // Do NOT restore edit mode when switching TO bezier tool
+      // Edit mode should never be active when pen tool is selected
+      if (id !== 'bezier') {
+        // Only restore edit mode for non-bezier tools
+        if (id === 'select') {
+          const activationTime = Date.now()
+          Promise.resolve().then(() => {
+            const editingShape = findEditingBezierShape()
+            if (editingShape) {
+              cacheSelection(editingShape)
+              lastBezierEditShapeId = editingShape.id
+              return
+            }
 
-          const lastExit = lastEditModeExit
-          const shouldRestoreFromLastExit =
-            lastExit !== null && activationTime >= lastExit.timestamp && activationTime - lastExit.timestamp < 250
+            const lastExit = lastEditModeExit
+            const shouldRestoreFromLastExit =
+              lastExit !== null && activationTime >= lastExit.timestamp && activationTime - lastExit.timestamp < 250
 
-          const candidateShapeId = shouldRestoreFromLastExit
-            ? lastExit.id
-            : lastBezierEditShapeId
+            const candidateShapeId = shouldRestoreFromLastExit
+              ? lastExit.id
+              : lastBezierEditShapeId
 
-          if (candidateShapeId) {
-            restoreBezierEditMode(candidateShapeId)
-          }
-        })
+            if (candidateShapeId) {
+              restoreBezierEditMode(candidateShapeId)
+            }
+          })
+        }
       }
 
       return result

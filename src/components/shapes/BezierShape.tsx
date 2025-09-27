@@ -348,6 +348,14 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
 
   // Double-click to enter edit mode when using the select tool
   override onDoubleClick = (shape: BezierShape) => {
+    const currentToolId = this.editor.getCurrentToolId()
+
+    // Never allow edit mode when pen tool (bezier) is active
+    if (currentToolId === 'bezier') {
+      bezierLog('EditMode', 'Double-click ignored - pen tool active, edit mode not allowed')
+      return shape
+    }
+
     // Check if this is a custom shape instance
     const isCustomShapeInstance = shape.meta?.isCustomShapeInstance === true
 
@@ -359,8 +367,6 @@ export class BezierShapeUtil extends FlippableShapeUtil<BezierShape> {
         // TODO: Show user notification/toast
       }
     }
-
-    const currentToolId = this.editor.getCurrentToolId()
 
     if (currentToolId === 'select') {
       // Ensure we always end in edit mode when double-clicking from the select tool

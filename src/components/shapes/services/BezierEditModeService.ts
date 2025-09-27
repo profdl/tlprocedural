@@ -24,9 +24,11 @@ export class BezierEditModeService {
     isClosed: boolean
   } | null = null
   private altKeyActiveForEditMode = false
+  private currentToolId: string
 
   constructor(editor: Editor) {
     this.editor = editor
+    this.currentToolId = editor.getCurrentToolId()
     this.initialize()
   }
 
@@ -60,6 +62,32 @@ export class BezierEditModeService {
       container.removeEventListener('keydown', handleKeyDown, { capture: false })
       container.removeEventListener('keyup', handleKeyUp, { capture: false })
     })
+
+    // Monitor tool changes and exit edit mode when tools are switched
+    const cleanupToolMonitoring = this.editor.store.listen((entry) => {
+      // Check for instance state changes that might indicate tool changes
+      const updates = Object.values(entry.changes.updated)
+
+      for (const [, to] of updates) {
+        const record = to as { typeName?: string; currentPageState?: { currentTool?: string } }
+
+        if (record.typeName === 'instance' && record.currentPageState?.currentTool) {
+          const newToolId = record.currentPageState.currentTool
+
+          // If tool changed, exit edit mode on any bezier shape
+          if (newToolId !== this.currentToolId) {
+            const editingBezierShape = this.findEditingBezierShape()
+            if (editingBezierShape) {
+              bezierLog('Service', 'Tool changed from', this.currentToolId, 'to', newToolId, '- exiting edit mode')
+              this.exitEditMode(editingBezierShape)
+            }
+            this.currentToolId = newToolId
+          }
+        }
+      }
+    }, { scope: 'all' })
+
+    this.cleanupFunctions.push(cleanupToolMonitoring)
 
     bezierLog('Service', 'BezierEditModeService initialized')
   }
